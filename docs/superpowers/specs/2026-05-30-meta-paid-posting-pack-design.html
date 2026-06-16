@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meta-paid Manual Posting Pack + Webapp Migration — Design (2026-05-30)</title>
+<style>
+  body { font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; max-width: 880px; margin: 2rem auto; padding: 0 1.25rem; }
+  h1 { font-size: 1.9rem; border-bottom: 3px solid #2b6cb0; padding-bottom: .4rem; }
+  h2 { font-size: 1.35rem; margin-top: 2.2rem; color: #2b6cb0; border-bottom: 1px solid #e2e8f0; padding-bottom: .25rem; }
+  h3 { font-size: 1.08rem; margin-top: 1.4rem; }
+  code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font-size: .88em; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: .82rem; line-height: 1.45; }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid #cbd5e1; padding: .5rem .65rem; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; }
+  .note { background: #fffbeb; border-left: 4px solid #d69e2e; padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .danger { background: #fef2f2; border-left: 4px solid #e53e3e; padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .ok { background: #f0fff4; border-left: 4px solid #38a169; padding: .8rem 1rem; border-radius: 0 6px 6px 0; margin: 1rem 0; }
+  .muted { color: #64748b; }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin: .25rem 0; }
+</style>
+</head>
+<body>
+
+<h1>Meta-paid Manual Posting Pack + Webapp Migration</h1>
+<p class="muted">Design spec · 2026-05-30 · status: draft for review · branch <code>feat/meta-paid-posting-pack</code></p>
+
+<h2>1. Problem &amp; context</h2>
+<p>
+Meta requires <strong>business-entity verification</strong> before the app can be published — the real, external blocker to creating paid ads via the Marketing API (already recorded: <code>ads_management</code> / app-capability gap on <code>act_943950444894075</code>).
+</p>
+<p>
+Today the distribute stage (<code>packages/orchestrator/src/stages/distribute.ts</code>) routes Meta-paid by <strong>spawning agent workers</strong>: <code>D2a-setup</code> (one worker creates the campaign + per-cell adsets) and <code>D2b-route</code> (a fan-out, one worker per row×channel) that call the meta-ads MCP <code>create_campaign / create_adset / upload_* / create_ad_creative / create_ad</code> tools. Those create calls cannot complete while the app is unverified.
+</p>
+<p>
+The workaround: a <strong>manual posting pack</strong>. Instead of the agent fan-out hitting the Meta API, the stage renders the <em>already-computed</em> distribution plan into a human-readable spec (campaign / ad set / ad config + budget + creative asset) that the user types into Ads Manager by hand, then <strong>backfills</strong> the resulting Meta ad IDs. Assets are already in Cloudflare R2 (produced upstream); the pack references those URLs. The pack UI lives in the <strong>webapp</strong>.
+</p>
+
+<h3>What already exists (load-bearing — reuse, don't rebuild)</h3>
+<ul>
+  <li><strong>Full Meta-paid config is computed by <code>plan-distribution.ts</code></strong>: campaign <code>objective: OUTCOME_LEADS</code>; per-cell adset <code>daily_budget_cents = dailyBudgetMyr × cell.allocationPct</code>, <code>optimization_goal: LEAD_GENERATION</code>, <code>billing_event: IMPRESSIONS</code>, <code>bid_strategy: LOWEST_COST_WITHOUT_CAP</code>, <code>targeting</code> = MY, age 25–55, locales en(6)/ms(41); per-ad <code>primary_text / headline / description / cta</code> (EN+BM) from the variant's <code>metaSpec</code>. <strong>The pack renders this; it invents no config.</strong></li>
+  <li><strong>Backfill field already exists</strong>: the planner's <code>metaBackfill</code> writes <code>{ adId }</code> onto <code>CreativeVariants</code> as <code>{en, ms}</code>. Manual backfill writes the <em>same</em> field, so the analytics/insights join is unchanged.</li>
+  <li><strong><code>Distributions</code></strong> is an append-only audit log with status <code>routed | failed | skipped | dry-run</code> and a <code>skipReason</code>. Manual mode records Meta-paid rows as <code>skipped</code> / "manual posting pack" — no new status enum.</li>
+  <li><strong>Webapp</strong>: Next.js App Router under <code>apps/webapp/src/app</code>, Tailwind, a generic entity-review system (<code>review/[entity]</code>) plus bespoke pages (<code>runs/</code>). Server actions in <code>lib/actions.ts</code>, assets via <code>/api/asset/...</code>.</li>
+  <li><strong>Organic pack (B-005)</strong>: <code>scripts/build-posting-pack.mjs</code> renders the approved IG organic queue to R2 HTML. To be migrated into the webapp.</li>
+</ul>
+
+<h2>2. Goals &amp; non-goals</h2>
+<h3>Goals</h3>
+<ul>
+  <li><strong>Flag-controlled</strong> Meta-paid mode: <code>api</code> (existing spawn-and-create path, for when verification clears) vs <code>manual</code> (render a posting pack, no Meta API write). Default <code>manual</code>.</li>
+  <li>A <strong>distribute MCP server</strong> exposing posting-pack render + backfill (per user direction), thin over a pure render lib that wraps the existing planner.</li>
+  <li>A <strong>dedicated per-run webapp page</strong> (<code>/posting-pack/[runId]</code>) rendering the pack as a reference table (Campaign → Ad Sets → Ads → Creative) with a per-ad backfill form.</li>
+  <li><strong>Remove HG4</strong> — the human checkpoint moves to the webapp pack + backfill flow.</li>
+  <li><strong>Migrate the organic posting pack</strong> into the webapp; retire the R2-HTML script.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+  <li>No automated Meta paid posting (blocked externally). The <code>api</code> path stays as-is, dormant behind the flag.</li>
+  <li>No change to where assets are produced/hosted — they stay in R2.</li>
+  <li>No new campaign/adset/ad config logic — reuse <code>planMetaPaid</code>.</li>
+  <li>No auto-activation, ever (ADR-015). The pack never sets <code>ACTIVE</code>; activation is the human's Ads Manager action.</li>
+</ul>
+
+<h2>3. Architecture overview</h2>
+<pre><code>distribute stage (per META_PAID_MODE)
+
+  api mode (existing, dormant):
+    D1-query → D2a-setup (spawn: create campaign+adsets) → D2b-route (fanout: upload/creative/ad)
+             → D3a-confirm → D3b-summary → D4-gate(HG4)   ← REMOVED
+
+  manual mode (new, default):
+    D1-query → [Meta-paid EXCLUDED from D2a/D2b spawn fan-out]
+             → D3b-summary records Meta-paid rows: status=skipped, skipReason="manual posting pack"
+             → (no HG4)
+    YouTube / Article / Meta-organic units still route normally.
+
+  Pack = a VIEW, derived on demand:
+    distribute MCP get_posting_pack(runId)
+      → renderPostingPack() wraps planMetaPaid(runId, approvedVariants, cells, dailyBudgetMyr)
+      → PostingPackSpec (grouped campaign/adsets/ads + R2 asset URLs)
+    webapp /posting-pack/[runId] renders the table
+      → user posts in Ads Manager by hand
+      → backfill form → distribute MCP backfill_meta_ids()
+        → store.update CreativeVariants.adId = {en, ms}  (+ campaigns row for campaign/adset ids)</code></pre>
+<div class="ok"><strong>Key simplification vs first draft:</strong> the pack is not persisted state — it is a pure function of the run's approved variants + experiment cells, recomputed on read. Single source of truth = the existing planner. No new store entity, no new status, no payload duplication.</div>
+
+<h2>4. Components</h2>
+
+<h3>4a. <code>packages/distribute</code> (new, small lib)</h3>
+<ul>
+  <li><code>renderPostingPack(runId, variants, cells, dailyBudgetMyr): PostingPackSpec</code> — calls the existing <code>planMetaPaid</code> (imported from <code>@engineerdad/orchestrator</code> or its planner module) and projects the <code>setup</code> + <code>rowPlans</code> ToolStep args into a flat, display-grouped shape (campaign, adsets[], ads[] with EN/BM copy, CTA, link, asset URLs). Pure; no I/O.</li>
+  <li><code>types.ts</code> — <code>PostingPackSpec</code> (below), backfill input shape.</li>
+  <li>Unit tests: grouping correctness, EN+BM ad pairs present, budget cents surfaced per adset, asset URLs scene-ordered, empty-when-no-Meta-variants.</li>
+</ul>
+
+<h4>PostingPackSpec (display shape — derived, not stored)</h4>
+<pre><code>type PostingPackSpec = {
+  runId: string;
+  campaign: { name: string; objective: "OUTCOME_LEADS"; special_ad_categories: [] };
+  adsets: Array&lt;{
+    cellId: string; name: string;
+    daily_budget_cents: number; daily_budget_myr: number;  // both, for display
+    optimization_goal: string; billing_event: string; bid_strategy: string;
+    targeting: { countries: string[]; age_min: number; age_max: number; locales: number[] };
+  }&gt;;
+  ads: Array&lt;{
+    variantId: string; rowId: string; title: string; cellId: string;
+    adsetName: string;                       // which adset to attach under
+    asset: { urls: string[]; format: string; aspect: string | null };
+    en: { primary_text: string; headline: string; description: string };
+    bm: { primary_text: string; headline: string; description: string };
+    cta_type: string; link_url: string;      // link_url from env LANDING_URL default
+    backfill: { adIdEn: string | null; adIdMs: string | null; done: boolean };  // from CreativeVariants.adId
+  }&gt;;
+};</code></pre>
+
+<h3>4b. <code>mcp-servers/distribute</code> (new MCP server)</h3>
+<p>Thin adapter over the lib + store, structured like <code>mcp-servers/meta-ads</code> (McpServer + stdio + zod). Tools:</p>
+<ul>
+  <li><code>get_posting_pack({ runId })</code> — query approved <code>CreativeVariants</code> + the run's <code>Experiments</code> cells, call <code>renderPostingPack</code>, return the spec (backfill state read from <code>CreativeVariants.adId</code>).</li>
+  <li><code>backfill_meta_ids({ runId, variantId, adIdEn, adIdMs, campaignId?, adsetId? })</code> — <code>store.update("CreativeVariants", rowId, { adId: { en, ms } })</code>; optionally upsert the <code>campaigns</code> row with <code>metaCampaignId</code>. Idempotent.</li>
+  <li><code>list_posting_packs()</code> — runs that have approved Meta-paid variants (for a webapp index, optional).</li>
+</ul>
+<p>Register in <code>.mcp.json</code> (and <code>.claude/settings.json</code> allowlist if present). Restart Claude Code after registration (CLAUDE.md). Build is sequential (<code>pnpm -r build</code>).</p>
+
+<h3>4c. Orchestrator changes (<code>stages/distribute.ts</code>, <code>registry.ts</code>)</h3>
+<ul>
+  <li><strong>Flag</strong> <code>META_PAID_MODE = "api" | "manual"</code> (env, default <code>manual</code>). A tiny reader (e.g. in <code>run-args.ts</code> or a <code>config.ts</code>), testable.</li>
+  <li><code>d2aSetup</code> / <code>d2bRoute</code> <code>build()</code>: in <code>manual</code> mode, treat Meta-paid as filtered out — the same mechanism as the existing <code>channelFilter</code>. Setup emits no campaign/adset spawn; the fan-out emits no Meta-paid units. YouTube/Article/Meta-organic unaffected.</li>
+  <li><code>d3bSummary</code>: in manual mode, still emit Meta-paid audit rows but as <code>status: "skipped", skipReason: "manual posting pack"</code> (reuses <code>plannerSkipReason</code> path; add the reason). <code>verifyDistribute</code> already treats planner-skips as non-failures.</li>
+  <li><strong>Remove HG4</strong>: drop <code>d4Gate</code> from <code>distributeStage.steps</code>. The run reaches <code>done</code> after <code>D3b-summary</code> (or proceeds to <code>/reflect</code>). See §5.</li>
+</ul>
+
+<h3>4d. Webapp — Meta-paid posting-pack page</h3>
+<ul>
+  <li>New route <code>apps/webapp/src/app/posting-pack/[runId]/page.tsx</code> (server component). Fetch via a <code>lib/</code> helper that calls the distribute MCP <code>get_posting_pack</code> (mirroring how <code>lib/orchestrator.ts</code> wraps MCP/store reads).</li>
+  <li>Render a <strong>reference table</strong>: a Campaign header block; one section per Ad Set (name, budget MYR + cents, optimization/billing/bid, targeting); under each, its Ads as rows — title, asset thumbnail + R2 link, EN block, BM block, CTA, link_url, and a <strong>backfill form</strong> (ad ID EN / ad ID BM, optional campaign + adset IDs).</li>
+  <li>Backfill = a <strong>server action</strong> in <code>lib/actions.ts</code> → calls distribute MCP <code>backfill_meta_ids</code> (or a direct store update if actions write the store directly today). Shows "✓ backfilled" once <code>adId</code> is set.</li>
+  <li>Add a <code>LeftNav</code> entry. Tailwind + existing component conventions (this webapp uses Tailwind, not inline styles).</li>
+</ul>
+
+<h3>4e. Organic posting-pack migration</h3>
+<ul>
+  <li>New route <code>apps/webapp/src/app/posting-pack/organic/[runId]/page.tsx</code> — <strong>run-scoped</strong> (consistent with the Meta-paid page). Queue filtered to the run: <code>CreativeVariants</code> where <code>runId = [runId]</code> AND <code>organicStatus = Approved</code> AND <code>igPostId</code> is null, excluding <code>Carousel 1:1</code>. Render caption (EN/BM per <code>organicLanguage</code>), <code>organicHashtagsIg</code>, scene-ordered images (R2), <code>organicScheduledFor</code>. <em>(Departs from the original B-005 cross-run backlog — per user direction the organic pack is now bound to a run, like the Meta-paid pack.)</em></li>
+  <li><code>igPostId</code> backfill via a server action (replaces the review-UI round-trip).</li>
+  <li><strong>Retire</strong>: delete <code>scripts/build-posting-pack.mjs</code>; repoint/remove the <code>/posting-pack</code> slash command; delete the R2 object <code>posting/pack-4e8a1f6b2d9c.html</code>. Close B-005 in TASKS/DONE.</li>
+</ul>
+
+<h2>5. HG4 removal — implications</h2>
+<div class="danger">
+HG4 is doctrinally <strong>the spend gate</strong> (ADR-015, established 2026-05-16). Its check (<code>list_ads</code> → assert none <code>ACTIVE</code>) gates ALL distribution channels, not just Meta-paid. Removing it un-gates the dispatch of <em>YouTube</em> (unlisted) and <em>Meta-organic</em> (scheduled publish) as well.
+</div>
+<p>Why removal is acceptable under the user's instruction:</p>
+<ul>
+  <li><strong>Meta-paid in manual mode does no API spend</strong> — there is nothing to gate; the spend decision physically happens in the user's Ads Manager session when they create + (later) un-pause the ads. The gate's purpose moves there intact.</li>
+  <li><strong>No-auto-activate invariant preserved</strong>: api-mode creates remain <code>PAUSED</code>; YouTube remains unlisted. Nothing the OS does goes <code>ACTIVE</code>/public by itself.</li>
+  <li><strong>Residual exposure to flag</strong>: Meta-organic posts are <em>scheduled publishes</em> — removing HG4 means they dispatch without a pre-publish click. Today's human review of organic content still happens upstream (HG1/HG2/HG3 + organic approval), and the new <code>/posting-pack/organic</code> page remains the working surface. Acceptable, but called out.</li>
+</ul>
+<p><strong>Alternative (not chosen):</strong> retain a gate only for channels that still write externally (YouTube/organic) and drop it for Meta-paid manual — needs per-channel gating the registry doesn't model. Defaulting to <strong>full HG4 removal</strong> per instruction.</p>
+<p>Docs/doctrine to update: <code>registry.ts</code> comment, <code>ARCHITECTURE.md</code> (loop diagram + gate table + §human gates), <code>CLAUDE.md</code> (loop line), <code>.claude/commands/loop.md</code>, <code>distribute.md</code>, <code>experiment.md</code> (they say "Stops at HUMAN GATE 4"), and an <strong>amendment to ADR-015</strong> (+ note in ADR-022) recording that the spend gate is satisfied by manual mode + the webapp pack. <em>ADR-015 is load-bearing — amend, don't silently contradict.</em></p>
+
+<h2>6. Backfill user journey</h2>
+<ol>
+  <li>Run reaches distribute in <code>manual</code> mode; Meta-paid is excluded from the agent fan-out; audit rows = <code>skipped</code> ("manual posting pack"). No HG4.</li>
+  <li>User opens <code>/posting-pack/[runId]</code> next to Ads Manager.</li>
+  <li>Create the campaign (objective shown), then each ad set (budget/optimization/targeting shown), then each ad (EN or BM copy + CTA + link, download the R2 asset). Leave everything <strong>PAUSED</strong>.</li>
+  <li>Paste each ad's Meta ad ID (EN/BM) into the backfill form → writes <code>CreativeVariants.adId</code>; row shows ✓.</li>
+  <li>Downstream analytics/insights join on the backfilled <code>adId</code> exactly as in api mode.</li>
+</ol>
+
+<h2>7. Testing</h2>
+<table>
+  <tr><th>Layer</th><th>Tests</th></tr>
+  <tr><td>distribute lib</td><td>renderPostingPack: grouping (campaign/adsets/ads), EN+BM pairs, budget cents per adset, scene-ordered asset URLs, empty when no Meta variants, backfill state read from adId.</td></tr>
+  <tr><td>distribute MCP</td><td>get_posting_pack returns the spec; backfill_meta_ids writes adId {en,ms} + is idempotent; campaigns upsert when ids passed.</td></tr>
+  <tr><td>orchestrator</td><td>distribute.ts: manual mode emits NO Meta-paid spawn/fanout units &amp; NO meta-ads calls; api mode unchanged; flag default = manual; d3bSummary marks Meta-paid skipped; verifyDistribute still passes. registry: distributeStage has no d4Gate.</td></tr>
+  <tr><td>webapp e2e</td><td>posting-pack page renders the table from a fixture; backfill action writes adId + flips the ✓. Organic page renders the queue + igPostId backfill. (Extend the Playwright suite; <code>distributions-review.spec.ts</code> is the nearest template.)</td></tr>
+</table>
+
+<h2>8. Docs &amp; config to update</h2>
+<ul>
+  <li><code>.mcp.json</code> (+ allowlist) — register <code>distribute</code> MCP.</li>
+  <li><code>ARCHITECTURE.md</code> — new MCP server; distribute manual mode; HG4 removal; webapp routes; MCP count.</li>
+  <li><code>CLAUDE.md</code> — big-picture loop line (drop <code>[HG4]</code>), MCP count.</li>
+  <li><code>.claude/commands/loop.md</code>, <code>distribute.md</code>, <code>experiment.md</code> — remove "Stops at HUMAN GATE 4" wording; describe manual pack + webapp.</li>
+  <li><code>.claude/commands/posting-pack.md</code> — repoint to the webapp page or retire.</li>
+  <li><strong>ADR-015 amendment</strong> (spend-gate doctrine under manual mode) + ADR-022 note.</li>
+  <li><code>TASKS.md</code> / <code>DONE.md</code> — close B-005; record this work.</li>
+  <li>Env docs (<code>.env.example</code>) — <code>META_PAID_MODE</code>.</li>
+</ul>
+
+<h2>9. Risks &amp; open questions</h2>
+<ul>
+  <li><strong>HG4 removal scope</strong> — confirmed: un-gates YouTube/organic dispatch too (safe states; organic scheduled-publish caveat in §5).</li>
+  <li><strong>Distribute MCP vs in-process</strong> — distribute runs in-process; the MCP is an additional read/backfill surface (per user direction). The shared render lib avoids divergence. The lib importing the orchestrator planner creates a <code>distribute → orchestrator</code> package dep; if that's circular/awkward, move the Meta-paid planner helpers into <code>packages/distribute</code> and have the orchestrator import <em>them</em> (cleaner long-term). <em>Decision for the plan phase.</em></li>
+  <li><strong>campaign/adset id capture</strong> — adId is the must-have backfill; campaign/adset IDs are optional metadata (stored on <code>campaigns</code>). Confirm that's enough for later insights, or wire adset id onto a per-variant field if needed.</li>
+  <li><strong>dailyBudgetMyr source</strong> — the planner reads it from the Brain memo <code>experimentParams.dailyBudgetMyr</code> / run params; the pack surfaces whatever the run carried. No change.</li>
+</ul>
+
+<h2>10. YAGNI / out of scope</h2>
+<ul>
+  <li>No CSV/bulk-import export (add later if copy-paste is slow).</li>
+  <li>No new persisted PostingPack entity — the pack is a derived view.</li>
+  <li>No re-implementation of the Meta API path — it stays dormant behind the flag.</li>
+  <li>No asset-pipeline changes — R2 hosting unchanged.</li>
+</ul>
+
+</body>
+</html>

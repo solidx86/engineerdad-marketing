@@ -1,0 +1,19 @@
+{
+  "scriptId": "test_script_002",
+  "format": "Feed",
+  "aspect": "1:1",
+  "width": 1080,
+  "height": 1080,
+  "language": "en",
+  "scenes": [
+    {
+      "scene": 1,
+      "headline": "Three returns. Same RM300.",
+      "headline_source": "hook",
+      "body": "8% equity returns. 4% fixed deposit. 0% under the mattress. The gap at year 30 is the cost of staying safe.",
+      "shotNotes": "static, chart-dominant composition",
+      "chartRef": "compounding-30y"
+    }
+  ],
+  "thumbnailBrief": "Authoritative data-driven tone. Chart is the hero — all three lines visible, 8% line emphasized in orange (winning the comparison), 4% in navy (baseline), 0% in muted grey (losing). Headline above chart, source citation below. Calm, serious."
+}

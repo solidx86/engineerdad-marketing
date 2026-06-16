@@ -1,0 +1,28 @@
+# PRS RM3,000 tax-relief saving by marginal tax bracket.
+# Source-of-record dataset: corpus/data/_pending/datasets/prs-tax-relief-rm3000-by-bracket.json
+# Closes the gap (ADR-030): no chart in corpus/data/charts/ depicted the PRS RM3,000
+# tax-relief saving by marginal bracket. Backs the claim "RM3,000/year PRS contribution
+# qualifies for personal income tax relief, ~RM700+ in real tax savings for a top-rate
+# taxpayer" across scripts a0a0aaf6, 8d9ea905, a3b0d9db, 00c4febc.
+
+id: prs-tax-relief-rm3000-by-bracket
+title_en: "What a RM3,000/year PRS contribution saves you in tax — by marginal bracket"
+title_ms: "Penjimatan cukai daripada sumbangan PRS RM3,000/tahun — mengikut kadar marginal"
+chart_type: bar
+x_label_en: "Your marginal tax rate (top slice of chargeable income)"
+x_label_ms: "Kadar cukai marginal anda (lapisan tertinggi pendapatan bercukai)"
+y_label_en: "Annual tax saved on RM3,000 contributed (RM)"
+y_label_ms: "Cukai dijimatkan setahun atas RM3,000 disumbang (RM)"
+labels:
+  - "19%"
+  - "24%"
+  - "24.5%"
+  - "25% (top-rate)"
+series:
+  - name_en: "Annual tax saved (RM3,000 × marginal rate)"
+    name_ms: "Cukai dijimatkan setahun (RM3,000 × kadar marginal)"
+    semantic_role: hero
+    values: [570, 720, 735, 750]
+caption_en: "PRS relief is a deduction, not a refund: contribute RM3,000/year (RM250/month) and you cut your taxable income by RM3,000 — so the cash you actually save is RM3,000 × your marginal tax rate. At the top brackets that's RM700+ (RM3,000 × 24% = RM720; RM750 at 25%); at the 19% bracket it's RM570. Illustrative by bracket only — not personalised tax advice. Your real saving depends on your own marginal rate, and the RM3,000 relief is scheduled through YA2030 — confirm the active Year of Assessment with LHDN before relying on it."
+caption_ms: "Pelepasan PRS ialah potongan, bukan bayaran balik: sumbang RM3,000/tahun (RM250/bulan) dan anda mengurangkan pendapatan bercukai sebanyak RM3,000 — jadi wang sebenar yang anda jimat ialah RM3,000 × kadar cukai marginal anda. Pada kadar tertinggi ini bermakna RM700+ (RM3,000 × 24% = RM720; RM750 pada 25%); pada kadar 19% ia RM570. Ilustrasi mengikut kadar sahaja — bukan nasihat cukai peribadi. Penjimatan sebenar anda bergantung pada kadar marginal anda sendiri, dan pelepasan RM3,000 dijadualkan sehingga YA2030 — sahkan Tahun Taksiran aktif dengan LHDN sebelum bergantung padanya."
+source_citation: "Saving derived as RM3,000 × the taxpayer's marginal income-tax rate, using the LHDN resident-individual rate schedule (YA2024: 19% / 24% / 24.5% / 25% bands). PRS personal income tax relief is up to RM3,000 per year and is scheduled through YA2030 — verify the active Year of Assessment with LHDN. Figures are illustrative by tax bracket, not personalised advice; your actual saving depends on your own marginal rate and chargeable income. Dataset: prs-tax-relief-rm3000-by-bracket."

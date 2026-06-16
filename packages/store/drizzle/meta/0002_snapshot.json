@@ -1,0 +1,1604 @@
+{
+  "id": "fdad537c-61a8-417e-894c-a7e2b26fa4df",
+  "prevId": "2da9e8dc-7575-491b-a82c-880ada750153",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.authority_articles": {
+      "name": "authority_articles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "topic": {
+          "name": "topic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_query": {
+          "name": "target_query",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body_en": {
+          "name": "body_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body_bm": {
+          "name": "body_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "faq_en": {
+          "name": "faq_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "faq_bm": {
+          "name": "faq_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "citations": {
+          "name": "citations",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aeo_schema": {
+          "name": "aeo_schema",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_channels": {
+          "name": "target_channels",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reading_time": {
+          "name": "reading_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "keywords": {
+          "name": "keywords",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "og_image_url": {
+          "name": "og_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hero_image_url": {
+          "name": "hero_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hero_image_alt": {
+          "name": "hero_image_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "related_slugs": {
+          "name": "related_slugs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delivered_to": {
+          "name": "delivered_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pr_url_en": {
+          "name": "pr_url_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pr_url_bm": {
+          "name": "pr_url_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "topic_tag": {
+          "name": "topic_tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.briefs": {
+      "name": "briefs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "persona": {
+          "name": "persona",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "angle": {
+          "name": "angle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promise": {
+          "name": "promise",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proof_type": {
+          "name": "proof_type",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "funnel_stage": {
+          "name": "funnel_stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body_en": {
+          "name": "body_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body_bm": {
+          "name": "body_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_insights": {
+          "name": "source_insights",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "budget_bucket": {
+          "name": "budget_bucket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_hypotheses": {
+          "name": "linked_hypotheses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.creative_variants": {
+      "name": "creative_variants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "script": {
+          "name": "script",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "aspect": {
+          "name": "aspect",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shotlist_en": {
+          "name": "shotlist_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shotlist_bm": {
+          "name": "shotlist_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "thumbnail_brief": {
+          "name": "thumbnail_brief",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimated_cost_myr": {
+          "name": "estimated_cost_myr",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_files": {
+          "name": "asset_files",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_generation_notes": {
+          "name": "image_generation_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ad_id": {
+          "name": "ad_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "channels": {
+          "name": "channels",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "yt_title": {
+          "name": "yt_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "yt_description": {
+          "name": "yt_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "yt_tags": {
+          "name": "yt_tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "yt_category": {
+          "name": "yt_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "yt_video_id": {
+          "name": "yt_video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_primary_text_en": {
+          "name": "meta_primary_text_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_primary_text_bm": {
+          "name": "meta_primary_text_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_headline_en": {
+          "name": "meta_headline_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_headline_bm": {
+          "name": "meta_headline_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_description_en": {
+          "name": "meta_description_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_description_bm": {
+          "name": "meta_description_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_cta_type": {
+          "name": "meta_cta_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_targeting_json": {
+          "name": "meta_targeting_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_language": {
+          "name": "organic_language",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_caption_en": {
+          "name": "organic_caption_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_caption_bm": {
+          "name": "organic_caption_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_hashtags_ig": {
+          "name": "organic_hashtags_ig",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_hashtags_fb": {
+          "name": "organic_hashtags_fb",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_status": {
+          "name": "organic_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_scheduled_for": {
+          "name": "organic_scheduled_for",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_approval_notes": {
+          "name": "organic_approval_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pipeline_notes": {
+          "name": "pipeline_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reel_heygen_job_id": {
+          "name": "reel_heygen_job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reel_mp4_url": {
+          "name": "reel_mp4_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ig_post_id": {
+          "name": "ig_post_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fb_post_id": {
+          "name": "fb_post_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organic_published_at": {
+          "name": "organic_published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.distributions": {
+      "name": "distributions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "target_entity": {
+          "name": "target_entity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_id": {
+          "name": "target_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tool": {
+          "name": "tool",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempted_at": {
+          "name": "attempted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_json": {
+          "name": "output_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skip_reason": {
+          "name": "skip_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "dry_run": {
+          "name": "dry_run",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "author_step": {
+          "name": "author_step",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "distributions_run_created_idx": {
+          "name": "distributions_run_created_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "distributions_run_channel_idx": {
+          "name": "distributions_run_channel_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "distributions_target_idx": {
+          "name": "distributions_target_idx",
+          "columns": [
+            {
+              "expression": "target_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.experiments": {
+      "name": "experiments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "hypothesis": {
+          "name": "hypothesis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "factors": {
+          "name": "factors",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cells": {
+          "name": "cells",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "primary_metric": {
+          "name": "primary_metric",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "daily_budget_myr": {
+          "name": "daily_budget_myr",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_days": {
+          "name": "duration_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "experiment_status": {
+          "name": "experiment_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "test_type": {
+          "name": "test_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "launch_window": {
+          "name": "launch_window",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "readout": {
+          "name": "readout",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_variants": {
+          "name": "linked_variants",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hypotheses": {
+      "name": "hypotheses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "statement_en": {
+          "name": "statement_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statement_bm": {
+          "name": "statement_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "predicted_effect": {
+          "name": "predicted_effect",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "predicted_range": {
+          "name": "predicted_range",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "predictions_history": {
+          "name": "predictions_history",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "calibration_score": {
+          "name": "calibration_score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "domain": {
+          "name": "domain",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "test_experiment": {
+          "name": "test_experiment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discovered_run": {
+          "name": "discovered_run",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resolved_run": {
+          "name": "resolved_run",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.learnings": {
+      "name": "learnings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "claim_en": {
+          "name": "claim_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "claim_bm": {
+          "name": "claim_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "half_life_days": {
+          "name": "half_life_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_validated_at": {
+          "name": "last_validated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "domain": {
+          "name": "domain",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_hypotheses": {
+          "name": "source_hypotheses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.performance_reports": {
+      "name": "performance_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "window": {
+          "name": "window",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "top_creatives": {
+          "name": "top_creatives",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fatiguing": {
+          "name": "fatiguing",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_per_angle": {
+          "name": "cost_per_angle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision_memo_en": {
+          "name": "decision_memo_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision_memo_bm": {
+          "name": "decision_memo_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "self_critique": {
+          "name": "self_critique",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bandit_allocation": {
+          "name": "bandit_allocation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_briefs": {
+          "name": "linked_briefs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_experiments": {
+          "name": "linked_experiments",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "linked_hypotheses": {
+          "name": "linked_hypotheses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scripts": {
+      "name": "scripts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_bm": {
+          "name": "title_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approval_status": {
+          "name": "approval_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "approver": {
+          "name": "approver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "compliance_check": {
+          "name": "compliance_check",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "brief": {
+          "name": "brief",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "funnel_stage": {
+          "name": "funnel_stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proof_refs": {
+          "name": "proof_refs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hook_en": {
+          "name": "hook_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hook_bm": {
+          "name": "hook_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "script_en": {
+          "name": "script_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "script_bm": {
+          "name": "script_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_sec": {
+          "name": "duration_sec",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cta_en": {
+          "name": "cta_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cta_bm": {
+          "name": "cta_bm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

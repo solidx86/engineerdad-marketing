@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Reel visual scenes: two-track charts/concept-visuals with baked-in emphasis</title>
+<style>
+  :root {
+    --navy: #1B2B6B; --orange: #F07621; --ink: #1f2430; --muted: #6b7280;
+    --border: #e5e7f0; --bg: #fbfbfd; --card: #ffffff; --good: #1a7f4b; --warn: #b4530a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); background: var(--bg); margin: 0; line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 28px 96px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; color: var(--navy); }
+  h2 { font-size: 22px; margin: 40px 0 10px; padding-top: 14px; border-top: 2px solid var(--border); color: var(--navy); }
+  h3 { font-size: 17px; margin: 24px 0 6px; color: var(--ink); }
+  p, li { font-size: 15px; }
+  code { background: #f1f2f7; padding: 1px 5px; border-radius: 4px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: #0f1424; color: #e6e9f2; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f3f4fa; color: var(--navy); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .new { background: #e7f6ee; color: var(--good); }
+  .chg { background: #fdf0e3; color: var(--warn); }
+  .keep { background: #eef0f7; color: var(--muted); }
+  .callout { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--orange); padding: 12px 16px; border-radius: 6px; margin: 14px 0; }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.good { border-left-color: var(--good); }
+  .small { font-size: 13px; color: var(--muted); }
+  ul.tight { margin: 6px 0; } ul.tight li { margin: 3px 0; }
+  .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Reel visual scenes: two-track charts/concept-visuals with baked-in emphasis</h1>
+<div class="meta">
+  Design spec · 2026-05-30 · refines <strong>ADR-028</strong> (HeyGen-native scene assembly) ·
+  scope: <strong>Reel pipeline only</strong> · status: approved, pre-plan
+</div>
+
+<div class="callout">
+<strong>One-line summary.</strong> Make a reel's non-face scenes carry real explanatory power: a
+<em>two-track</em> visual model (library-grounded data charts + free-form concept visuals), narration
+that explains and emphasizes one point per visual, support for multiple visual scenes per reel, a
+reel-specific reference-design set, and a frames-only dev harness so the render loop can be tuned
+without running <code>/loop</code> or HeyGen.
+</div>
+
+<h2>1. Context &amp; problem</h2>
+<p>
+Today (post ADR-028) the reel pipeline assembles a vertical MP4 from a multi-scene HeyGen render:
+<code>face</code> scenes are the avatar talking; <code>chart</code> scenes are a full-frame chart image
+with voiceover. Three things limit it:
+</p>
+<ul class="tight">
+  <li><strong>Thin chart narration.</strong> Each chart scene gets a single &le;30-word voiceover over a
+      static frame. There is no first-class way to say <em>what the chart explains</em> or
+      <em>what to emphasize</em>.</li>
+  <li><strong>Effectively one chart.</strong> The scene array is technically unbounded, but the
+      creative-director is never told to use more than one, and the chart inventory is artificially
+      capped at 3 of the 14 vetted charts.</li>
+  <li><strong>"Chart" is too narrow.</strong> Many ideas are better served by a non-numeric visual
+      (a comparison, a labelled diagram, a metaphor) than by a data chart.</li>
+</ul>
+<p>
+A key finding from code review: the render substrate is already general &mdash;
+<code>render_html_to_png({ html })</code> renders any self-contained HTML, and the static
+Feed/Carousel worker already authors brand-compliant HTML (charts <em>and</em> free-form cards). So
+this is mostly an <strong>authoring + prompt + plumbing</strong> change, not a new rendering capability.
+</p>
+<div class="callout warn">
+<strong>Defect uncovered.</strong> <code>reel-render-worker.md</code> Step 2 calls
+<code>render_html_to_png({ chartRef })</code> &mdash; a parameter the tool does not accept &mdash; and
+never tells the worker to read the chart YAML and build HTML. The reel chart-render path is therefore
+under-specified today. This spec replaces that step with the static worker's proven recipe.
+</div>
+
+<h2>2. The two-track visual model</h2>
+<table>
+  <tr><th>sceneType</th><th>Content source</th><th>Frame the worker renders</th><th>Compliance anchor</th></tr>
+  <tr>
+    <td><span class="mono">face</span></td>
+    <td>HeyGen avatar (Shoo) talking</td>
+    <td>none (HeyGen renders the avatar)</td>
+    <td>script body (HG2-reviewed)</td>
+  </tr>
+  <tr>
+    <td><span class="mono">chart</span></td>
+    <td><strong>library</strong> &mdash; <code>corpus/data/charts/&lt;chartRef&gt;.yaml</code>
+        (vetted numbers + <code>source_citation</code>)</td>
+    <td>Chart.js frame via <code>buildChartConfig</code>, emphasis applied</td>
+    <td>vetted YAML data; numbers never LLM-authored</td>
+  </tr>
+  <tr>
+    <td><span class="mono">visual</span> <span class="pill new">new</span></td>
+    <td><strong>inline</strong> &mdash; free-form <code>visualBrief</code> in the shotlist</td>
+    <td>brand-HTML frame composed from the brief</td>
+    <td>HARD RULE: no fabricated numbers/stats; HG3 reviews the rendered PNG</td>
+  </tr>
+</table>
+<p>
+<code>face-over-chart</code> is dropped from the shotlist enum (ADR-028 already aliased it to
+<code>chart</code>). The HeyGen wrapper's own enum may keep it harmlessly.
+</p>
+
+<h2>3. Narration model &mdash; one explaining VO per visual, emphasis baked in</h2>
+<p>Each <code>chart</code>/<code>visual</code> scene gains two authoring fields that steer both the
+voiceover and the rendered frame:</p>
+<ul class="tight">
+  <li><code>explains</code> &mdash; the one-line takeaway the narration must land.</li>
+  <li><code>emphasize</code> &mdash; <em>chart scenes only</em>: what to spotlight/annotate
+      (e.g. <span class="mono">"the year-30 gap"</span>, <span class="mono">"Fund B's +3% alpha bar"</span>).
+      Concept visuals carry their focal point inside the brief, so <code>emphasize</code> does not apply
+      to them.</li>
+</ul>
+<p><strong>Voiceover budget:</strong> <code>face</code> stays &le;30 words; <code>chart</code>/<code>visual</code>
+relax to <strong>&le;45 words</strong> (~18s) so the avatar can actually explain. Total length stays sane
+via the existing <code>targetSeconds &ge; &Sigma; estimatedSeconds</code> rule &mdash; more visual scenes
+means tighter VO each.</p>
+<p class="small">Decision: no multi-beat / animated reveal. One frame, one VO, emphasis pre-applied. HeyGen
+plays the frame for the VO duration.</p>
+
+<h2>4. Multiple visual scenes (the two scenarios)</h2>
+<p>Both requested shapes are representable today (the scene array is unbounded) and the
+<code>generate_reel</code> wrapper already accepts N interleaved scenes &mdash; <strong>no wrapper change
+needed</strong>. What changes is creative-director <em>guidance</em>:</p>
+<ul class="tight">
+  <li><strong>Scenario 1</strong> &mdash; charts spread: face &rarr; chart &rarr; face &rarr; chart &rarr; face/CTA.</li>
+  <li><strong>Scenario 2</strong> &mdash; consecutive charts: face &rarr; chart &rarr; chart &rarr; face &rarr; face/CTA.</li>
+</ul>
+<p><strong>Authoring guardrails:</strong> one idea per reel; <code>faceFirstHook</code> stays true (face opens);
+a face scene must close/CTA; <strong>&le;3 visual scenes</strong> per reel (chart or concept, interleaved or
+consecutive); never an all-chart reel.</p>
+
+<h2>5. Schema changes</h2>
+<h3>5.1 <code>ReelShotlistSceneSchema</code> (<code>packages/shared/src/zod.ts</code>)</h3>
+<ul class="tight">
+  <li><code>sceneType</code> enum <span class="pill chg">change</span> &rarr; <code>"face" | "chart" | "visual"</code>
+      (drop <code>face-over-chart</code>).</li>
+  <li><code>visualBrief: z.string().nullable()</code> <span class="pill new">new</span> &mdash; free-form brief; required non-empty for <code>visual</code>, null otherwise.</li>
+  <li><code>explains: z.string().nullable()</code> <span class="pill new">new</span> &mdash; expected on <code>chart</code>/<code>visual</code>, null on <code>face</code>.</li>
+  <li><code>emphasize: z.string().nullable()</code> <span class="pill new">new</span> &mdash; chart-only; null on <code>face</code>/<code>visual</code>.</li>
+  <li><code>voiceover</code> <span class="pill chg">change</span> &mdash; word cap conditioned on <code>sceneType</code>: &le;30 for <code>face</code>, &le;45 for <code>chart</code>/<code>visual</code>.</li>
+  <li>Refinements: <code>chart</code> &rArr; <code>chartRef</code> non-null &amp; <code>visualBrief</code> null;
+      <code>visual</code> &rArr; <code>visualBrief</code> non-empty &amp; <code>chartRef</code> null;
+      <code>face</code> &rArr; both null.</li>
+</ul>
+<h3>5.2 <code>SceneCard</code> / <code>CreativeUnit</code> (<code>packages/shared/src/derive/specs.ts</code>)</h3>
+<p>Add the Reel-only optional fields <code>visualBrief?</code>, <code>explains?</code>, <code>emphasize?</code>
+alongside the existing <code>sceneType?</code> / <code>estimatedSeconds?</code>. Static formats leave them undefined.</p>
+
+<h2>6. The reel-worker contract &amp; projection (gap G1)</h2>
+<div class="callout warn">
+<strong>Gap G1 &mdash; palette was never plumbed.</strong> <code>paletteEmphasis</code> exists on the
+<code>CreativeUnit</code> but <code>reelWorkerInput</code> does not project it, and the reel worker receives
+no <code>thumbnailBrief</code> (the static worker derives palette from that). Without it, the reel
+frame-builder has no brand colors to pass to <code>buildChartConfig</code>. This was latent because the old
+Step 2 never actually built HTML.
+</div>
+<p>Changes to <code>packages/orchestrator/src/produce/reel-worker-input.ts</code> (and the
+<code>ReelWorkerInput</code> interface):</p>
+<ul class="tight">
+  <li>Add unit-level <code>paletteEmphasis: string</code> to <code>ReelWorkerInput</code>; project it from <code>unit.paletteEmphasis</code>.</li>
+  <li>Per-scene: project the new <code>visualBrief</code>, <code>explains</code>, <code>emphasize</code> (the
+      current projection drops <code>visual</code> and <code>shotNotes</code> entirely).</li>
+</ul>
+<pre><code>scenes: unit.shotlistEn.map((s) =&gt; ({
+  scene: String(s.scene),
+  voiceover: s.voiceover,
+  onScreenText: s.onScreenText,
+  chartRef: s.chartRef,
+  sceneType: s.sceneType ?? "face",
+  estimatedSeconds: s.estimatedSeconds ?? s.durationSec ?? 5,
+  visualBrief: s.visualBrief ?? null,   // new
+  explains: s.explains ?? null,         // new
+  emphasize: s.emphasize ?? null,       // new
+})),
+paletteEmphasis: unit.paletteEmphasis,  // new, unit-level</code></pre>
+
+<h2>7. Creative-director prompt changes</h2>
+<ul class="tight">
+  <li><strong>Lift the chart cap 3 &rarr; 14.</strong> Replace the hardcoded
+      <span class="mono">compounding-30y · dca-vs-lump · children-fund-cost</span> inventory with all charts
+      under <code>corpus/data/charts/</code>. Applied in <code>creative-director.md</code> <em>and</em>
+      <code>render-worker.md</code> (a strict win for static formats too).</li>
+  <li><strong>chart-vs-visual decision rule</strong> (explicit): a numeric/quantitative argument MUST be a
+      vetted <code>chart</code>; if no chart fits, restructure &mdash; never fabricate. A conceptual,
+      comparative-but-not-numeric, or metaphorical point uses a <code>visual</code> with no numbers.</li>
+  <li><strong>Multi-visual guidance</strong> for scenarios 1 &amp; 2; the &le;3-visual + face-bookend guardrails from &sect;4.</li>
+  <li><strong>Authoring the new fields</strong> on each chart/visual scene: <code>explains</code> always;
+      <code>emphasize</code> on charts; <code>visualBrief</code> on visuals (with the no-numbers rule restated).</li>
+  <li>Relaxed VO budget note (&le;45 for chart/visual).</li>
+  <li>Drop <code>face-over-chart</code> from the sceneType list.</li>
+</ul>
+<p class="small">The creative-director prompt fragment lives in <code>packages/shared/src/prompts/*</code>; run
+<code>pnpm sync:agents</code> after editing and verify with <code>pnpm sync:agents:check</code>.</p>
+
+<h2>8. Reel-render-worker rewrite</h2>
+<p>Replace Step 2 with the static worker's recipe, adapted for 9:16 + emphasis. The reel-specific tail
+(upload frames &rarr; <code>generate_reel</code> &rarr; poll &rarr; store) is unchanged and already loops over
+N scenes.</p>
+<h3>8.1 New Step 2 &mdash; build &amp; render each visual frame (1080&times;1920)</h3>
+<ul class="tight">
+  <li><strong>chart</strong>: <code>Read corpus/data/charts/&lt;chartRef&gt;.yaml</code> &rarr; map
+      <code>paletteEmphasis</code> to brand tokens &rarr; build Chart.js HTML via the shared
+      <code>corpus/templates/partials/chartjs-config.js</code> <code>buildChartConfig()</code> +
+      <code>window.__chartsReady</code> signal &rarr; apply <code>emphasize</code> (see 8.2) &rarr; render
+      caption + full <code>source_citation</code> (data unchanged) &rarr;
+      <code>render_html_to_png({ html, width:1080, height:1920, wait_for_charts:true, run_id, variant_id, scene_id })</code>.</li>
+  <li><strong>visual</strong>: compose brand-compliant self-contained HTML from <code>visualBrief</code> +
+      <code>explains</code> + <code>onScreenText</code>, bound by brand contract &sect;6 and the no-numbers
+      rule &rarr; render (same call, <code>wait_for_charts:false</code>).</li>
+  <li><strong>face</strong>: no frame.</li>
+</ul>
+<h3>8.2 Emphasis mechanism (decision: HTML/CSS overlay, not the Chart.js annotation plugin)</h3>
+<ul class="tight">
+  <li><strong>Spotlight</strong>: in the config the worker already builds, render the emphasized
+      series/category at full hero color and dim the others (reduced opacity / muted token). No new dependency.</li>
+  <li><strong>Callout</strong>: a positioned HTML badge/label over the chart naming the emphasized point.
+      Robust and fully stylable; avoids the annotation plugin's CDN + pixel-positioning cost.</li>
+</ul>
+<h3>8.3 Reuse boundary</h3>
+<p>Reuse is the <code>buildChartConfig</code> partial + citing <code>render-worker.md</code> &sect;3&ndash;&sect;5 for the
+Chart.js / <code>__chartsReady</code> mechanics. It is <em>not</em> a literal section-extraction: the 9:16
+safe-area layout (&sect;9) is genuinely reel-specific. The reel worker keeps its own frame-building section that
+points at the shared pieces.</p>
+<h3>8.4 Frames-only harness mode</h3>
+<p>A short mode-switch subsection (like creative-director's "Worker mode"): when the spawn prompt declares
+frames-only mode, do Step 2 + the visual-QA pass, return the PNG paths + QA notes, and <strong>skip
+Steps 3&ndash;5</strong> (no HeyGen upload, no <code>generate_reel</code>, no store writes). Used by the dev
+harness (&sect;11).</p>
+
+<h2>9. Reel safe-area rule (gap G2)</h2>
+<div class="callout warn">
+<strong>Gap G2 &mdash; reel safe-area &ne; static safe-area.</strong> Feed/Carousel cards are never UI-occluded.
+IG/FB Reels overlay the right action rail, the top, and roughly the bottom 20%. The static worker pins the
+logo bottom-right and the citation along the bottom &mdash; exactly where the platform UI sits. Naive reuse
+would bury the logo, citation, and emphasis callout under the Reels UI.
+</div>
+<p><strong>Rule</strong> (proposed starting margins, tunable): keep all text, logo, citation, and emphasis
+callouts inside the central column &mdash; clear the top ~14%, the bottom ~20%, and the right ~12% of the
+1080&times;1920 frame. Encoded in <em>both</em> the reel-render-worker prompt and the reference-design exemplars.</p>
+
+<h2>10. Compliance guardrails (gap G3)</h2>
+<div class="callout warn">
+<strong>Gap G3 &mdash; concept-visual on-frame text is un-scannable.</strong> The produce verifier scans
+assembled <em>caption text</em> for compliance sentinels; text baked into a PNG is invisible to it. Chart
+frames are safe (vetted YAML). A free-form <code>visual</code> could bake a fabricated stat that nothing
+catches until the HG3 human sees the PNG.
+</div>
+<ul class="tight">
+  <li><strong>HARD RULE</strong> in both creative-director and reel-render-worker prompts: concept visuals carry
+      <em>no numbers/stats</em>. Anything quantitative must be a vetted <code>chart</code>.</li>
+  <li>Brand contract &sect;6 binds all <code>visual</code> HTML (palette-only colors, the two allowed fonts,
+      logo present, no animation).</li>
+  <li><strong>HG3</strong> (rendered-creative review) is the named human backstop &mdash; same checkpoint that
+      reviews chartRef selection today.</li>
+  <li><code>emphasize</code> is visual-only spotlight; it never alters the YAML's numbers or citation.</li>
+  <li>Organic-caption compliance footer is unaffected (it lives in <code>source.scriptBody</code>, not the frame).</li>
+</ul>
+
+<h2>11. Reference designs (new &sect;6 of the reel prompt)</h2>
+<p>A reel-specific "Reference designs" section, mirroring <code>render-worker.md</code>: before composing a
+frame, <code>Read</code> the matching 9:16 exemplar and match its density, rhythm, and quality bar. It points
+<em>only</em> at reel exemplars &mdash; the existing Feed exemplars are 1:1/4:5 and would teach the wrong
+rhythm.</p>
+<p>The exemplars do not exist yet. The plan authors them the way the Feed exemplars were made: hand-author
+brand-compliant HTML &rarr; render at 1080&times;1920 &rarr; commit. <strong>Source HTML is committed alongside the
+PNG</strong> so designs are reproducible and tweakable.</p>
+<table>
+  <tr><th>File (<code>corpus/templates/reference-designs/</code>)</th><th>Teaches</th></tr>
+  <tr><td><span class="mono">reel-9x16-chart-line-emphasis-001.png</span> + <span class="mono">src/&hellip;.html</span></td>
+      <td>line chart (e.g. <code>compounding-30y</code>), authoritative/light bg, divergence point spotlit + annotation callout, caption + citation stacked, safe-area respected</td></tr>
+  <tr><td><span class="mono">reel-9x16-chart-bar-emphasis-002.png</span> + <span class="mono">src/&hellip;.html</span></td>
+      <td>bar chart (e.g. <code>dca-vs-lump</code> / <code>alpha-vs-return</code>), alert/dark bg, one bar spotlit + others dimmed</td></tr>
+  <tr><td><span class="mono">reel-9x16-visual-comparison-001.png</span> + <span class="mono">src/&hellip;.html</span></td>
+      <td>two-column / split comparison (e.g. "start at 30 vs 40"), calm tone</td></tr>
+  <tr><td><span class="mono">reel-9x16-visual-diagram-002.png</span> + <span class="mono">src/&hellip;.html</span></td>
+      <td>labelled diagram / metaphor / big stat-callout, neutral-authoritative</td></tr>
+</table>
+<p class="small">Update <code>corpus/templates/reference-designs/README.md</code> to document the reel set. The
+chart exemplars can be dogfooded through the frames-only harness (&sect;12).</p>
+
+<h2>12. Dev harness &mdash; frames-only render loop</h2>
+<p>Mirror the existing <code>scripts/test-static-worker.mjs</code> pattern (assemble a spawn prompt, print a
+copy-pasteable <code>Task()</code> call that reuses the live MCP stack; no SDK, no new infra).</p>
+<ul class="tight">
+  <li><code>scripts/test-reel-frames.mjs</code> + <code>pnpm test:reel-frames &lt;fixture&gt;</code> &mdash; reads the
+      reel prompt + a reel fixture, assembles a <strong>frames-only</strong> spawn prompt, prints the
+      <code>Task()</code> call (<code>--copy</code> / <code>--open</code> flags). The worker builds + renders every
+      chart/visual frame at 1080&times;1920, runs visual QA, returns PNG paths, and stops before HeyGen. No
+      <code>/loop</code>, no HeyGen, no cost.</li>
+  <li><code>scripts/fixtures/reel-worker/*.json</code> (<code>ReelWorkerInput</code>-shaped) &mdash; seed: a
+      chart+emphasis scene, a concept-visual scene, and one mixed face/chart/visual reel.</li>
+  <li><strong>Two loops, both covered:</strong> tweak the worker prompt &rarr; <code>test:reel-frames</code>,
+      eyeball PNGs, edit prompt, re-run. Refine an exemplar &rarr; edit its committed <code>src/*.html</code>
+      &rarr; re-render (a single <code>render_html_to_png</code> call, no agent).</li>
+</ul>
+
+<h2>13. Decisions log</h2>
+<table>
+  <tr><th>Decision</th><th>Choice</th><th>Why</th></tr>
+  <tr><td>Content source</td><td>Two-track (library charts + inline concept visuals)</td><td>keeps vetted-data compliance anchor; adds expressiveness where no numbers are involved</td></tr>
+  <tr><td>Concept-visual spec</td><td>Free-form <code>visualBrief</code></td><td>maximal expressiveness; it's exactly what the static worker already does</td></tr>
+  <tr><td>Narration</td><td>Single frame, emphasis baked in</td><td>reviewable, no animation/timing complexity</td></tr>
+  <tr><td>Scope</td><td>Reels only (cap-lift shared)</td><td>static cards are already free-form; cap-lift is a strict win</td></tr>
+  <tr><td>Emphasis mechanism</td><td>HTML/CSS overlay</td><td>robust, no new CDN dep, full styling control</td></tr>
+  <tr><td>Brief field</td><td>dedicated <code>visualBrief</code> (Reel-only)</td><td>self-documenting; projection changes anyway</td></tr>
+  <tr><td><code>emphasize</code> scope</td><td>chart-only</td><td>visuals carry focal point in the brief; one meaning per field</td></tr>
+  <tr><td><code>face-over-chart</code></td><td>dropped from shotlist enum</td><td>ADR-028 already aliased it to chart; no live data</td></tr>
+  <tr><td>Length enforcement</td><td>prompt rule (not zod refine)</td><td>consistent with today; avoid over-constraining</td></tr>
+</table>
+
+<h2>14. Tunables</h2>
+<ul class="tight">
+  <li>Chart/visual VO budget: <strong>&le;45 words</strong> (face &le;30).</li>
+  <li>Visual scenes per reel: <strong>&le;3</strong> (face opens + closes/CTA).</li>
+  <li>Reference exemplars: <strong>4</strong> (2 chart + 2 visual).</li>
+  <li>Reel safe-area: top ~14%, bottom ~20%, right ~12% clear of UI.</li>
+</ul>
+
+<h2>15. Files touched</h2>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr><td><code>packages/shared/src/zod.ts</code></td><td>sceneType enum; <code>visualBrief</code>/<code>explains</code>/<code>emphasize</code>; conditional VO cap; refinements</td></tr>
+  <tr><td><code>packages/shared/src/derive/specs.ts</code></td><td><code>SceneCard</code> Reel-only fields</td></tr>
+  <tr><td><code>packages/orchestrator/src/produce/reel-worker-input.ts</code></td><td>project new scene fields + unit <code>paletteEmphasis</code> (G1)</td></tr>
+  <tr><td><code>.claude/agents/creative-director.md</code> + <code>packages/shared/src/prompts/*</code></td><td>cap-lift, chart-vs-visual rule, multi-visual guidance, new-field authoring; <code>pnpm sync:agents</code></td></tr>
+  <tr><td><code>corpus/templates/worker-prompts/reel-render-worker.md</code></td><td>Step 2 rewrite, emphasis, safe-area &sect;9, reference designs &sect;6, frames-only mode</td></tr>
+  <tr><td><code>corpus/templates/worker-prompts/render-worker.md</code></td><td>cap-lift only</td></tr>
+  <tr><td><code>corpus/templates/reference-designs/</code></td><td>4 exemplar PNGs + <code>src/*.html</code> + README</td></tr>
+  <tr><td><code>scripts/test-reel-frames.mjs</code>, <code>package.json</code>, <code>scripts/fixtures/reel-worker/*.json</code></td><td>frames-only dev harness</td></tr>
+  <tr><td><code>docs/decisions/029-reel-visual-scenes.md</code></td><td>new ADR refining ADR-028</td></tr>
+  <tr><td>tests</td><td><code>zod.test.ts</code>, <code>specs.test.ts</code>, <code>reel-worker-input.test.ts</code> (+ drop <code>face-over-chart</code> fixtures)</td></tr>
+</table>
+
+<h2>16. Testing</h2>
+<ul class="tight">
+  <li>Unit: zod accepts/rejects each sceneType's field combination; conditional VO cap; projection carries the new fields + palette.</li>
+  <li>Harness smoke: <code>pnpm test:reel-frames</code> on each seed fixture produces PNGs at the expected path; visual QA pass against the exemplars.</li>
+  <li>Compliance: a <code>visual</code> brief containing a numeric stat is rejected by prompt rule (manual/HG3); chart emphasis leaves YAML numbers + citation intact.</li>
+</ul>
+
+<h2>17. Out of scope</h2>
+<ul class="tight">
+  <li>YT-Long, Feed, Carousel enrichment (cap-lift aside).</li>
+  <li>Multi-beat / animated chart reveals (synced per-beat emphasis).</li>
+  <li>Fully-inline data charts (LLM-authored numbers) &mdash; rejected on compliance grounds.</li>
+  <li>Bilingual on-frame text &mdash; reels remain EN-only (<code>ReelWorkerInput.language = "en"</code>).</li>
+  <li>Hardening <code>targetSeconds &ge; &Sigma; estimatedSeconds</code> into a zod refine.</li>
+</ul>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-034 — Sunset SQLite; Postgres-only substrate</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .strike { color: var(--muted); text-decoration: line-through; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-034 — Sunset SQLite; Postgres-only substrate</h1>
+  <p class="subtitle">Delete every SQLite read/write in the repo. Migrate orchestrator run state, analytics signals, and experiment readouts to Postgres. One DB, three schemas, Drizzle everywhere. Clean break — no data migration. Standardize tests on truncate-all <code>beforeEach</code>; force the suite serial.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-26</dd>
+    <dt>Status</dt><dd><span class="pill">Draft spec — awaiting user review before plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill">P2</span> — maintenance tax, not a live blocker. Dual-driver branches in <code>state.ts</code>/<code>db.ts</code>; tests carry two patterns; docs split-brain on substrate; new contributors hit two different connection idioms.</dd>
+    <dt>Branch</dt><dd><code>e-034-sunset-sqlite</code> (already created off <code>main</code> at <code>41c84d3</code>)</dd>
+    <dt>Tracker</dt><dd>E-034 (will be opened in TASKS.md as part of commit 7)</dd>
+    <dt>Supersedes (storage sections of)</dt><dd>ADR-008 (analytics-and-bandit, SQLite section) · ADR-021 (local-store-supersedes-notion, mixed-driver footnote) · ADR-022 (claim-check, raw-SQL migration mention)</dd>
+    <dt>New ADR</dt><dd>ADR-025 (postgres-only) — written as part of commit 7</dd>
+    <dt>Pattern</dt><dd>One substrate, one driver, one migration tool. The opposite of "use the right tool for each surface."</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context — three SQLite surfaces, two Postgres surfaces, one repo</h2>
+
+<p>
+The repo has been progressively migrating off SQLite for months. Today the substrate is split:
+</p>
+
+<table>
+<thead><tr>
+  <th style="width: 32%;">Package / surface</th>
+  <th>Substrate</th>
+  <th>Driver</th>
+  <th>Migration tool</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>@engineerdad/store</code> — 8 business entities</td>
+  <td>Postgres</td>
+  <td><code>postgres.js</code> + Drizzle</td>
+  <td>Drizzle (<code>pnpm push</code>)</td>
+</tr>
+<tr>
+  <td><code>@engineerdad/orchestrator</code> — <code>step_results</code> (claim-check)</td>
+  <td>Postgres</td>
+  <td>raw <code>postgres.js</code></td>
+  <td>raw SQL files (<code>001_step_results.sql</code>, <code>002_input_refs.sql</code>)</td>
+</tr>
+<tr>
+  <td><code>@engineerdad/orchestrator</code> — <code>runs</code> + <code>run_steps</code> (state)</td>
+  <td><strong>SQLite</strong></td>
+  <td><code>node:sqlite</code></td>
+  <td>raw SQL file (<code>001_orchestrator.sql</code>)</td>
+</tr>
+<tr>
+  <td><code>@engineerdad/analytics</code> — events, creatives, signals, bandit</td>
+  <td><strong>SQLite</strong></td>
+  <td><code>node:sqlite</code></td>
+  <td>raw SQL file (<code>001_init.sql</code>)</td>
+</tr>
+<tr>
+  <td><code>@engineerdad/experiment</code> — readout reader</td>
+  <td><strong>SQLite</strong> (read-only over analytics)</td>
+  <td><code>node:sqlite</code></td>
+  <td>—</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+The split was incremental and rational at each step. Store moved first (ADR-021) because Notion needed a successor and the entity model is relational. <code>step_results</code> moved next (ADR-022) because the claim-check pattern needed JSONB and rich payload semantics SQLite couldn't give cleanly. The orchestrator run state and analytics tables stayed on SQLite because they "worked fine." They do. But the dual-substrate surface is now its own tax:
+</p>
+
+<ul>
+  <li><strong>Two connection idioms.</strong> A new test file has to guess: do I prime a temp SQLite, or truncate a Postgres table?</li>
+  <li><strong>Two migration tools.</strong> <code>pnpm store:push</code> and <code>pnpm orchestrator:push</code> for PG; <code>applyMigrations()</code> baked into <code>getDb()</code> for SQLite.</li>
+  <li><strong>Two type conventions.</strong> SQLite stores JSON as <code>TEXT</code> and timestamps as <code>INTEGER</code> ms; Postgres uses <code>JSONB</code> and <code>TIMESTAMPTZ</code>. Every cross-substrate join is hand-marshaled.</li>
+  <li><strong>Vitest config carries scar tissue.</strong> <code>external: ["node:sqlite", /^node:/]</code> exists only because the SQLite branch needs it.</li>
+  <li><strong>Two snapshot/seed strategies in tests.</strong> Most recently surfaced in <code>41c84d3</code> (gitignore the per-test SQLite fixture) — a workaround that becomes irrelevant once the substrate unifies.</li>
+</ul>
+
+<div class="callout new">
+<span class="tag">The deeper pattern.</span> E-034 is the inverse of ADR-022 / ADR-023 / ADR-024 — instead of adding a new mechanism to handle a new boundary, it deletes a mechanism that has outlived its purpose. The motivation is not capability (Postgres can do everything SQLite did here) — it's <em>removal of optionality</em>. One substrate means one mental model.
+</div>
+
+<h2><span class="num">2.</span> Decisions — locked-in shape</h2>
+
+<table>
+<thead><tr>
+  <th style="width: 28%;">Decision</th>
+  <th>Choice</th>
+  <th>Why</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Migration scope</td>
+  <td>Clean break, no data migration</td>
+  <td>Local SQLite is dev fixture only; nothing in it is irreplaceable. <code>data/engineerdad.sqlite</code> is deleted from disk; no committed rows to lift.</td>
+</tr>
+<tr>
+  <td>Schema layout</td>
+  <td>One DB, three schemas (<code>public</code> / <code>orchestrator</code> / <code>analytics</code>)</td>
+  <td>Matches the existing <code>orchestrator.step_results</code> precedent. One <code>DATABASE_URL</code>, one connection pool, clean namespace separation.</td>
+</tr>
+<tr>
+  <td>Migration tool</td>
+  <td>Drizzle everywhere — also port <code>step_results</code> from raw SQL</td>
+  <td>One pattern. The raw SQL files (<code>001_step_results.sql</code>, <code>002_input_refs.sql</code>) are deleted in commit 2; Drizzle owns the schema.</td>
+</tr>
+<tr>
+  <td>Test isolation</td>
+  <td>Truncate-all in <code>beforeEach</code>, globally; store + orchestrator-postgres tests migrate to the same helper</td>
+  <td>Standardize one pattern. Drops the owned-id namespacing brittleness as test count grows.</td>
+</tr>
+<tr>
+  <td>Test parallelism</td>
+  <td>Force sequential whole-suite (<code>sequence.concurrent: false</code> + <code>poolOptions.forks.singleFork: true</code>)</td>
+  <td>Truncate-all is only safe when nobody else is writing. Wall-clock cost is small — PG-touching tests are the gating tier already.</td>
+</tr>
+<tr>
+  <td>Commit shape</td>
+  <td>Seven staged commits on one branch; squash on merge</td>
+  <td>Each commit leaves <code>pnpm -r build</code> + <code>pnpm test</code> green. Bisect during development; linear history on <code>main</code>.</td>
+</tr>
+<tr>
+  <td>ADR</td>
+  <td>ADR-025 (postgres-only) written in commit 7</td>
+  <td>Captures the <em>why</em> for posterity. Superseded sections in ADR-008/021/022 get a footnote pointer.</td>
+</tr>
+</tbody>
+</table>
+
+<h2><span class="num">3.</span> Target architecture</h2>
+
+<h3>3.1 Schemas in Postgres</h3>
+
+<div class="diagram">engineerdad (database)
+├── public                  ← @engineerdad/store (unchanged today)
+│   ├── briefs
+│   ├── scripts
+│   ├── authority_articles
+│   ├── creative_variants
+│   ├── experiments
+│   ├── performance_reports
+│   ├── hypotheses
+│   └── learnings
+│
+├── orchestrator            ← @engineerdad/orchestrator (port + add)
+│   ├── runs                ← NEW (was SQLite runs)
+│   ├── run_steps           ← NEW (was SQLite run_steps)
+│   └── step_results        ← EXISTS (re-expressed in Drizzle)
+│
+└── analytics               ← @engineerdad/analytics (port)
+    ├── meta_insights       ← NEW (was SQLite meta_insights)
+    ├── creatives           ← NEW (was SQLite creatives)
+    ├── events              ← NEW (was SQLite events)
+    ├── angle_tags          ← NEW (was SQLite angle_tags)
+    └── creative_signals    ← NEW (was SQLite creative_signals)</div>
+
+<h3>3.2 Drizzle schemas</h3>
+
+<h4>orchestrator.runs</h4>
+<pre>id          text PRIMARY KEY              -- was sqlite TEXT run_id
+stage       text NOT NULL
+status      text NOT NULL                 -- 'active' | 'awaiting_human' | 'done' | 'failed'
+params      jsonb                         -- was sqlite TEXT JSON
+createdAt   timestamptz NOT NULL DEFAULT now()   -- was INTEGER epoch ms
+updatedAt   timestamptz NOT NULL DEFAULT now()</pre>
+
+<h4>orchestrator.run_steps</h4>
+<pre>runId       text NOT NULL REFERENCES orchestrator.runs(id) ON DELETE CASCADE
+stepId      text NOT NULL
+stage       text NOT NULL
+status      text NOT NULL                 -- 'pending' | 'done' | 'failed'
+result      jsonb                         -- was sqlite TEXT JSON (nullable)
+problems    jsonb NOT NULL DEFAULT '[]'   -- was sqlite TEXT JSON (string[])
+attempts    integer NOT NULL DEFAULT 0
+updatedAt   timestamptz NOT NULL DEFAULT now()
+PRIMARY KEY (runId, stepId)
+INDEX (runId)</pre>
+
+<h4>orchestrator.step_results — re-expressed in Drizzle, schema unchanged</h4>
+<pre>id            text PRIMARY KEY              -- sr_-prefixed ULID
+runId         text NOT NULL
+stepId        text NOT NULL
+unitIndex     integer
+payload       jsonb NOT NULL
+payloadKind   text                          -- ADR-024: NULL for outputs, 'input' for staged inputs
+sizeBytes     integer NOT NULL
+createdAt     timestamptz NOT NULL DEFAULT now()
+INDEX (runId, stepId)
+UNIQUE PARTIAL INDEX (runId, stepId, unitIndex, payloadKind) WHERE payloadKind IS NOT NULL</pre>
+
+<h4>analytics — 1:1 port of <code>001_init.sql</code>, with two type lifts</h4>
+<pre>analytics.meta_insights
+  date         text NOT NULL
+  adId         text NOT NULL
+  adsetId      text
+  campaignId   text
+  spend        real
+  impressions  integer
+  clicks       integer
+  ctr          real
+  cpm          real
+  leads        integer
+  purchases    integer
+  value        real
+  avgWatchSec  real
+  rawJson      jsonb                        -- was sqlite TEXT
+  PRIMARY KEY (date, adId)
+  INDEX (adId), INDEX (date)
+
+analytics.creatives
+  adId, name, hook, angle, persona, format, language,
+  briefPageId, variantPageId, launchedAt        -- all text; adId PK
+
+analytics.events
+  id           text PRIMARY KEY
+  ts           bigint NOT NULL                -- epoch ms; kept as bigint (NOT timestamptz)
+  eventName    text NOT NULL
+  source       text
+  payloadJson  jsonb                          -- was sqlite TEXT
+  INDEX (ts), INDEX (eventName)
+
+analytics.angle_tags
+  adId, tagKind, tagValue                     -- composite PK; INDEX (tagKind, tagValue)
+
+analytics.creative_signals
+  id          bigserial PRIMARY KEY            -- was INTEGER AUTOINCREMENT
+  variantId   text NOT NULL
+  channel     text NOT NULL
+  platform    text
+  kpiName     text NOT NULL
+  kpiValue    real NOT NULL
+  ts          bigint NOT NULL
+  source      text NOT NULL
+  UNIQUE (variantId, channel, platform, kpiName, ts)
+  INDEX (variantId), INDEX (channel, ts)</pre>
+
+<div class="callout warn">
+<span class="tag">Type-lift decision.</span> Epoch-ms <code>INTEGER</code> columns stay as <code>bigint</code>, not <code>timestamptz</code>. Bandit decay math and time-window queries in <code>packages/analytics</code> treat <code>ts</code> as an opaque number and do millisecond arithmetic; converting to <code>timestamptz</code> would force every caller to <code>EXTRACT(EPOCH ...)</code>. JSON <code>TEXT</code> columns DO lift to <code>JSONB</code> — query ergonomics win clearly here.
+</div>
+
+<h2><span class="num">4.</span> Code surface — exact file changes</h2>
+
+<h3>4.1 packages/orchestrator</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/schema.ts</code></td><td><strong>NEW.</strong> Drizzle <code>pgTable</code> defs for <code>runs</code>, <code>runSteps</code>, <code>stepResults</code>. <code>pgSchema("orchestrator")</code> namespacing.</td></tr>
+<tr><td><code>src/db.ts</code></td><td><strong>NEW.</strong> Singleton <code>getDb()</code> returning a Drizzle client over <code>postgres.js</code>. Reads <code>DATABASE_URL</code>. <code>closeDb()</code> for <code>afterAll</code>.</td></tr>
+<tr><td><code>src/state.ts</code></td><td><strong>GUTTED.</strong> Same public API (<code>createRun</code>, <code>loadRunState</code>, <code>upsertStep</code>, <code>setRunStage</code>, <code>listRuns</code>, <code>resetDbCache</code>). Internals: <code>getDb()</code> + Drizzle queries. Delete <code>DEFAULT_DB_PATH</code>, <code>findRepoRoot</code>, <code>findPackageRoot</code>, <code>createRequire</code>, the <code>node:sqlite</code> import. <code>resetDbCache()</code> becomes a no-op shim (truncate helper supersedes it).</td></tr>
+<tr><td><code>src/postgres.ts</code></td><td><strong>SHRUNK.</strong> Public API unchanged (<code>writeStepResult</code>, <code>loadPayload</code>, etc). Internally: drop the standalone <code>cached: Sql</code>; reuse <code>getDb().$client</code>. <code>closePostgres()</code> deprecated, calls <code>closeDb()</code>.</td></tr>
+<tr><td><code>src/migrations/001_orchestrator.sql</code></td><td><strong>DELETED.</strong></td></tr>
+<tr><td><code>src/migrations/postgres/001_step_results.sql</code></td><td><strong>DELETED.</strong> (Was historical record; user chose delete.)</td></tr>
+<tr><td><code>src/migrations/postgres/002_input_refs.sql</code></td><td><strong>DELETED.</strong></td></tr>
+<tr><td><code>drizzle.config.ts</code></td><td><strong>NEW.</strong> <code>schema: "./src/schema.ts"</code>, <code>schemaFilter: ["orchestrator"]</code>, dialect <code>postgresql</code>.</td></tr>
+<tr><td><code>package.json</code></td><td>Replace <code>db:push</code> shape if needed; drop any <code>better-sqlite3</code> dev dep.</td></tr>
+<tr><td><code>src/state.test.ts</code>, <code>src/engine.test.ts</code>, <code>src/engine.integration.test.ts</code>, <code>src/engine.gate.integration.test.ts</code></td><td>Swap temp-SQLite priming for <code>truncatePg()</code> in <code>beforeEach</code>. <code>afterAll</code> closes the shared DB.</td></tr>
+<tr><td><code>src/postgres.test.ts</code></td><td>Migrate from owned-id <code>cleanOwned()</code> to <code>truncatePg()</code> (standardization).</td></tr>
+</tbody>
+</table>
+
+<h3>4.2 packages/analytics</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/schema.ts</code></td><td><strong>NEW.</strong> Five <code>pgTable</code> defs in <code>pgSchema("analytics")</code>.</td></tr>
+<tr><td><code>src/db.ts</code></td><td><strong>GUTTED.</strong> Same public API (<code>getDb</code>, <code>resetDbCache</code>); Drizzle internals.</td></tr>
+<tr><td><code>src/migrations/001_init.sql</code></td><td><strong>DELETED.</strong></td></tr>
+<tr><td><code>src/bandit.ts</code>, <code>src/ingest-meta-insights.ts</code>, <code>src/ingest-meta-organic.ts</code>, <code>src/creative-signals.ts</code>, <code>src/cost-per-angle.ts</code>, <code>src/decay-curve.ts</code>, <code>src/top-creatives.ts</code></td><td>Rewrite SQL strings. Simple SELECT/INSERT → Drizzle query builder; analytics math (decay, bandit posterior) → raw <code>sql`...`</code> tag (the SQL is the spec, keep it literal).</td></tr>
+<tr><td><code>drizzle.config.ts</code></td><td><strong>NEW.</strong> <code>schemaFilter: ["analytics"]</code>.</td></tr>
+<tr><td>All <code>*.test.ts</code> in <code>src/</code> and <code>src/__tests__/</code></td><td>Swap temp-SQLite priming for <code>truncatePg()</code>.</td></tr>
+</tbody>
+</table>
+
+<h3>4.3 packages/experiment</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/db.ts</code></td><td><strong>GUTTED.</strong> Drop the <code>readOnly: true</code> SQLite opener and the "must ingest first" guard. Thin re-export of <code>getDb()</code> from <code>@engineerdad/analytics</code>.</td></tr>
+<tr><td><code>src/readout.ts</code></td><td>Query rewrites to Drizzle / <code>sql`...`</code> against <code>analytics.creative_signals</code> + <code>analytics.meta_insights</code>.</td></tr>
+<tr><td><code>src/readout.test.ts</code></td><td><code>truncatePg()</code> in <code>beforeEach</code>; seed via Drizzle insert.</td></tr>
+</tbody>
+</table>
+
+<h3>4.4 packages/store</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/crud.test.ts</code>, <code>src/compliance.test.ts</code>, <code>src/filters.test.ts</code></td><td>Migrate from owned-id cleanup to <code>truncatePg()</code> (standardization — happens in commit 1).</td></tr>
+</tbody>
+</table>
+
+<h3>4.5 packages/shared (new test helper)</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/test-helpers/truncate-pg.ts</code></td><td><strong>NEW.</strong> Single exported async <code>truncatePg()</code> that issues one <code>TRUNCATE ... RESTART IDENTITY CASCADE</code> covering all 16 tables. Owns the canonical table list; new tables added here. Internally uses a lazy postgres.js client over <code>DATABASE_URL</code>.</td></tr>
+<tr><td><code>src/test-helpers/index.ts</code></td><td>Re-export.</td></tr>
+</tbody>
+</table>
+
+<pre>// packages/shared/src/test-helpers/truncate-pg.ts
+import postgres from "postgres";
+
+let sql: ReturnType&lt;typeof postgres&gt; | undefined;
+function client() {
+  if (!sql) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL not set; truncatePg() needs Postgres");
+    sql = postgres(url, { max: 2 });
+  }
+  return sql;
+}
+
+export async function truncatePg(): Promise&lt;void&gt; {
+  await client().unsafe(`
+    TRUNCATE
+      public.briefs,
+      public.scripts,
+      public.authority_articles,
+      public.creative_variants,
+      public.experiments,
+      public.performance_reports,
+      public.hypotheses,
+      public.learnings,
+      orchestrator.runs,
+      orchestrator.run_steps,
+      orchestrator.step_results,
+      analytics.meta_insights,
+      analytics.creatives,
+      analytics.events,
+      analytics.angle_tags,
+      analytics.creative_signals
+    RESTART IDENTITY CASCADE
+  `);
+}
+
+export async function closeTruncatePg(): Promise&lt;void&gt; {
+  if (sql) { await sql.end({ timeout: 5 }); sql = undefined; }
+}</pre>
+
+<h3>4.6 mcp-servers</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>mcp-servers/experiment/src/index.ts</code></td><td>Drop the <code>DEFAULT_DB_PATH</code> resolution; the package owns it. Confirm no MCP server bypasses <code>packages/analytics/db.ts</code> to construct its own handle.</td></tr>
+<tr><td><code>mcp-servers/orchestrator/src/integration.test.ts</code>, <code>eager.test.ts</code></td><td>Replace temp-SQLite fixture with <code>truncatePg()</code>.</td></tr>
+</tbody>
+</table>
+
+<h3>4.7 apps/webapp</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>src/app/lib/orchestrator.ts</code></td><td>If currently doing direct <code>node:sqlite</code> reads, delete and import <code>loadRunState</code>/<code>listRuns</code> from <code>@engineerdad/orchestrator</code> (the package already exposes them).</td></tr>
+<tr><td><code>tests/e2e/fixtures.ts</code>, <code>playwright.config.ts</code></td><td>Replace per-test SQLite copy with <code>truncatePg()</code> + Drizzle seed inserts.</td></tr>
+</tbody>
+</table>
+
+<h3>4.8 root</h3>
+<table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>vitest.config.ts</code></td><td>Drop <code>server.deps.external: ["node:sqlite", /^node:/]</code>. Add <code>sequence.concurrent: false</code> and <code>poolOptions.forks.singleFork: true</code>. Comment the constraint.</td></tr>
+<tr><td><code>package.json</code></td><td>Replace <code>store:push</code> + <code>orchestrator:push</code> with one <code>db:push</code>: <code>pnpm -r --filter '@engineerdad/store' --filter '@engineerdad/orchestrator' --filter '@engineerdad/analytics' push</code>. Old script names kept as wrappers if anything (CI, local muscle memory) calls them.</td></tr>
+<tr><td><code>pnpm-lock.yaml</code></td><td>Regenerate. <code>better-sqlite3</code> + <code>@types/better-sqlite3</code> drop out as drizzle peer flips to optional.</td></tr>
+<tr><td><code>.gitignore</code></td><td>Remove the <code>data/*.sqlite-shm</code>, <code>data/*.sqlite-wal</code>, <code>data/engineerdad-test.sqlite</code> entries (added in <code>41c84d3</code>).</td></tr>
+<tr><td><code>data/engineerdad.sqlite</code>, <code>data/engineerdad.sqlite-shm</code>, <code>data/engineerdad.sqlite-wal</code></td><td>Delete from disk. NOT committed; just <code>rm</code>. <code>data/assets/</code>, <code>data/snapshots/</code>, <code>data/postgres/pgdata</code> stay — they're unrelated.</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">5.</span> Test strategy</h2>
+
+<h3>5.1 The pattern, everywhere</h3>
+
+<pre>import { beforeEach, afterAll } from "vitest";
+import { truncatePg, closeTruncatePg } from "@engineerdad/shared/test-helpers";
+
+beforeEach(async () =&gt; { await truncatePg(); });
+afterAll(async () =&gt; { await closeTruncatePg(); });</pre>
+
+<p>Every PG-touching test file uses the same two lines. No owned-id arrays. No temp file paths. No "did I remember to seed schema X?" — <code>pnpm db:push</code> is a one-time setup; truncate restores empty state per test.</p>
+
+<h3>5.2 Whole-suite serialization</h3>
+
+<p>Truncate-all is only safe when no other test is mid-write. The root <code>vitest.config.ts</code> enforces this:</p>
+
+<pre>// vitest.config.ts
+export default defineConfig({
+  test: {
+    pool: "forks",
+    poolOptions: { forks: { singleFork: true } },   // one worker process
+    sequence: { concurrent: false },                 // sequential within file
+    // ...
+  },
+});</pre>
+
+<div class="callout warn">
+<span class="tag">Cost.</span> The full suite runs serially as of commit 1. Wall-clock impact is modest because the pre-existing PG-touching tests (store, orchestrator-postgres) are already the gating tier, and they'd serialize anyway under the new helper. Pure-unit packages (<code>packages/shared</code>, <code>packages/notion-bootstrap</code>) could in principle override with their own per-package vitest config that re-enables parallelism — out of scope for E-034, file as follow-up if anyone notices.
+</div>
+
+<h3>5.3 DB lifecycle</h3>
+
+<ul>
+  <li><strong>Local dev:</strong> <code>pnpm store:up</code> (Docker Postgres) creates both <code>engineerdad</code> and <code>engineerdad_test</code>. One-time <code>pnpm db:push</code> applies all three schemas to both. Tests <code>truncate</code> between runs — never re-push.</li>
+  <li><strong>CI:</strong> spin Postgres service; run <code>pnpm db:push</code> once; run <code>pnpm test</code>. No fixture file copying.</li>
+  <li><strong>Removed:</strong> all <code>better-sqlite3</code>-flavored fixture priming. The <code>data/</code> dir holds no test artifacts after commit 7.</li>
+</ul>
+
+<h2><span class="num">6.</span> Commit sequence</h2>
+
+<p>Seven staged commits on <code>e-034-sunset-sqlite</code>. Each leaves <code>pnpm -r build</code> + <code>pnpm test</code> green. Squash-merge to <code>main</code>.</p>
+
+<table>
+<thead><tr>
+  <th class="n">#</th>
+  <th>Title</th>
+  <th>Scope</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td class="n">1</td>
+  <td><code>chore(test): introduce truncate-pg helper; migrate existing PG tests</code></td>
+  <td>New <code>packages/shared/src/test-helpers/truncate-pg.ts</code>. Migrate store + orchestrator-postgres tests off owned-id cleanup. Flip root <code>vitest.config.ts</code> to <code>singleFork: true</code> + <code>concurrent: false</code>. <strong>No SQLite changes yet.</strong> Pure test standardization — pre-existing tests pass with new helper.</td>
+</tr>
+<tr>
+  <td class="n">2</td>
+  <td><code>feat(orchestrator): drizzle schema for runs/run_steps + port step_results</code></td>
+  <td>New <code>src/schema.ts</code> + <code>src/db.ts</code>. Drizzle owns all three orchestrator tables. <strong>Delete</strong> <code>001_step_results.sql</code> + <code>002_input_refs.sql</code>. <code>state.ts</code> still on SQLite at this commit — only the PG schema surface changes. <code>postgres.ts</code> internals route via <code>getDb().$client</code>.</td>
+</tr>
+<tr>
+  <td class="n">3</td>
+  <td><code>feat(orchestrator): port state.ts to postgres; switch webapp + MCP lib</code></td>
+  <td>Gut <code>state.ts</code>; same API, Postgres internals. Webapp <code>orchestrator.ts</code> lib points at the package. MCP integration tests use <code>truncatePg()</code>. Delete <code>001_orchestrator.sql</code>. Drop <code>node:sqlite</code> import from orchestrator package.</td>
+</tr>
+<tr>
+  <td class="n">4</td>
+  <td><code>feat(analytics): drizzle schema for events/meta_insights/creatives/angle_tags/signals</code></td>
+  <td>New <code>src/schema.ts</code> + Drizzle config. <code>pnpm db:push</code> now creates the analytics schema. Call sites still on SQLite at this commit — schema-only.</td>
+</tr>
+<tr>
+  <td class="n">5</td>
+  <td><code>feat(analytics): port db.ts + ingest + bandit + signals to postgres</code></td>
+  <td>Gut <code>db.ts</code>. Rewrite all call sites: simple SELECT/INSERT via Drizzle; analytics math (decay, bandit posterior) via <code>sql`...`</code> tag. Migrate all analytics tests to <code>truncatePg()</code>. Delete <code>001_init.sql</code>.</td>
+</tr>
+<tr>
+  <td class="n">6</td>
+  <td><code>feat(experiment): port readout reader to postgres analytics schema</code></td>
+  <td>Gut <code>experiment/db.ts</code>; thin shim over <code>@engineerdad/analytics</code> <code>getDb()</code>. Rewrite <code>readout.ts</code> queries. Tests migrate.</td>
+</tr>
+<tr>
+  <td class="n">7</td>
+  <td><code>chore: delete sqlite plumbing, drop better-sqlite3, write ADR-025, update docs</code></td>
+  <td>Drop <code>node:sqlite</code> external from <code>vitest.config.ts</code>. <code>git rm</code> any remaining <code>.sql</code> migration files. Remove <code>data/engineerdad.sqlite*</code> from disk. Clean <code>.gitignore</code>. Update <code>ARCHITECTURE.md</code> lines 35/104/144. Strip SQLite mentions from <code>README.md</code>, <code>RESUME.md</code>. Append "Superseded by E-034" footer to storage sections of ADR-008/021/022. <strong>Write</strong> <code>docs/decisions/025-postgres-only.md</code>. Open + close E-034 in <code>TASKS.md</code>.</td>
+</tr>
+</tbody>
+</table>
+
+<h3>6.1 Per-commit verification</h3>
+<ul>
+  <li><code>pnpm -r build</code> (sequential — never <code>--parallel</code>, per CLAUDE.md)</li>
+  <li><code>pnpm test</code> (full suite, now serial)</li>
+  <li><code>pnpm sync:agents:check</code></li>
+  <li>Manual smoke at commit 3 and commit 7: fresh <code>engineerdad_test</code> → <code>pnpm db:push</code> → webapp <code>/status</code> renders zero runs without error</li>
+</ul>
+
+<h2><span class="num">7.</span> Risks &amp; mitigations</h2>
+
+<table>
+<thead><tr><th style="width: 30%;">Risk</th><th>Likelihood</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr>
+  <td>Webapp orchestrator lib does its own SQLite reads (not through package)</td>
+  <td>Low</td>
+  <td>Commit 3 includes an e2e smoke against <code>/status</code>. If it regresses, the lib is doing direct reads — fix is to route through <code>@engineerdad/orchestrator</code>.</td>
+</tr>
+<tr>
+  <td>Hidden writers — an MCP server constructs its own <code>node:sqlite</code> handle bypassing the package</td>
+  <td>Medium</td>
+  <td>Pre-commit grep in commits 3 and 5: <code>rg "node:sqlite\|better-sqlite3" mcp-servers/ apps/</code>. Any hits get routed through <code>packages/*/db.ts</code>.</td>
+</tr>
+<tr>
+  <td><code>singleFork: true</code> regresses unit-test wall-clock noticeably</td>
+  <td>Low</td>
+  <td>Pure-unit packages get per-package vitest configs that re-enable parallelism. Out of scope for E-034 unless it bites; file as follow-up.</td>
+</tr>
+<tr>
+  <td>Drizzle peer-dep removal does NOT drop <code>better-sqlite3</code> from the lockfile</td>
+  <td>Medium</td>
+  <td>Acceptable. The goal is no <em>code</em> path through SQLite, not zero bytes in <code>node_modules</code>. If the peer is required for drizzle to load, leave it as an unused transitive.</td>
+</tr>
+<tr>
+  <td>Cleanup commit 7 misses a doc mention of <code>data/engineerdad.sqlite</code></td>
+  <td>Medium</td>
+  <td><code>rg -i "sqlite" --type md --type ts</code> at end of commit 7; any hit is either deleted or rewritten.</td>
+</tr>
+<tr>
+  <td>Existing local <code>data/engineerdad.sqlite</code> has unflushed run state the user cared about</td>
+  <td>Acknowledged</td>
+  <td>User chose "clean break, no migration." Worth one warning in the PR description: "your local <code>data/engineerdad.sqlite</code> is going to be deleted — back it up if you care."</td>
+</tr>
+</tbody>
+</table>
+
+<h2><span class="num">8.</span> Rollback</h2>
+
+<p>
+<strong>One-way migration.</strong> SQLite is fully gone; there's no driver-flip switch. If something blows up post-merge, the path is:
+</p>
+
+<ol>
+  <li>Revert the squash commit on <code>main</code>.</li>
+  <li><code>pnpm install</code> to restore <code>better-sqlite3</code> via the lockfile.</li>
+  <li>Re-create <code>data/engineerdad.sqlite</code> by running <code>pnpm test</code> once (the SQLite migrations recreate schema; existing rows are lost regardless).</li>
+</ol>
+
+<p>The rollback path is acceptable because (a) the local SQLite holds dev-fixture data only, (b) the branch is heavily tested before merge, and (c) the substrate already moved twice (store, step_results) without rollback being needed.</p>
+
+<h2><span class="num">9.</span> Out of scope (explicit non-goals)</h2>
+
+<ul>
+  <li><strong>Migrating <code>data/notion-ids.json</code>.</strong> Legacy notion bootstrap reference. Deleted in a separate cleanup.</li>
+  <li><strong>Re-enabling per-package vitest parallelism.</strong> If the global <code>singleFork: true</code> hurts non-PG packages, file as follow-up.</li>
+  <li><strong>CI Postgres setup changes.</strong> Assumed to already work for store + orchestrator-postgres tests. If E-034 requires CI changes, surface them in implementation, not here.</li>
+  <li><strong>Renaming any existing public API.</strong> Same function names, same arguments, same return shapes. Storage swap only.</li>
+  <li><strong>Refactoring the orchestrator state-model.</strong> Same <code>runs</code> + <code>run_steps</code> shape, just on Postgres.</li>
+  <li><strong>Bandit posterior recompute.</strong> Fresh start — empty bandit tables on day 1 of E-034. Acceptable because traffic is low; relearning is days, not weeks.</li>
+</ul>
+
+<h2><span class="num">10.</span> Done definition</h2>
+
+<ul>
+  <li><code>rg "node:sqlite\|better-sqlite3" --type ts</code> returns zero matches in <code>packages/</code>, <code>mcp-servers/</code>, <code>apps/</code>.</li>
+  <li><code>rg -i "sqlite" --type md</code> returns zero matches in <code>ARCHITECTURE.md</code>, <code>README.md</code>, <code>RESUME.md</code> (ADR-008/021/022 keep their historical sections plus a "superseded by E-034" footer).</li>
+  <li><code>data/engineerdad.sqlite</code>, <code>-shm</code>, <code>-wal</code> not present on disk.</li>
+  <li><code>pnpm -r build</code> green.</li>
+  <li><code>pnpm test</code> green, fully serial.</li>
+  <li><code>pnpm db:push</code> on fresh <code>engineerdad_test</code> creates all three schemas; webapp boots; <code>/status</code> renders zero runs.</li>
+  <li><code>docs/decisions/025-postgres-only.md</code> exists.</li>
+  <li>TASKS.md: E-034 entry exists and is marked closed in the same PR.</li>
+</ul>
+
+<footer class="doc">
+  Spec written 2026-05-26 on branch <code>e-034-sunset-sqlite</code>. Next step: <code>writing-plans</code> skill → detailed implementation plan with per-commit task breakdown. After plan: implementation in this branch, squash-merge to <code>main</code>.
+</footer>
+
+</div>
+</body>
+</html>

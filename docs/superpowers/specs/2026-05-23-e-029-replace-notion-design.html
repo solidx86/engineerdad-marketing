@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-029 — Replace Notion with containerised Postgres + review UI</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  pre.tree { background: #fcfcfd; font-size: 12.4px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p0 {
+    background: var(--bad-bg);
+    border-color: var(--bad-line);
+    color: #8b2a2a;
+  }
+  .pill.foundational {
+    background: var(--accent-soft);
+    border-color: #c4c9f2;
+    color: #3a3496;
+  }
+  .strike { color: var(--muted); }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-029 — Replace Notion with containerised Postgres + review UI</h1>
+  <p class="subtitle">Postgres in Docker compose (volume bind-mounted into the repo, gitignored), a thin MCP surface that ships IDs not bulk content, and a single-user Next.js review app for the four human gates</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-23 (updated)</dd>
+    <dt>Status</dt><dd><span class="pill">Updated — awaiting re-approval before execution resumes</span></dd>
+    <dt>Severity</dt><dd><span class="pill p0">P0</span> — successor to E-027 once the MCP-wire-cap wall was hit on the first walk</dd>
+    <dt>Scope</dt><dd><span class="pill foundational">Foundational</span> — touches data layer, MCP layer, UI layer, ops, doctrine</dd>
+    <dt>Branch</dt><dd><code>feat/agentic-rebuild</code> (continues from E-027)</dd>
+    <dt>Pairs with</dt><dd>ADR-021 (doctrine) · supersedes ADR-012 (rich_text chunking)</dd>
+    <dt>Related</dt><dd><code>docs/war-room-wishlist.md</code> · TASKS.md E-029</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context</h2>
+<p>
+  E-027 shipped on 2026-05-23 — heavy single-spawn agents fan out into per-Brief / per-Script workers. The first
+  attempt to walk <code>run_1779446750</code> through the new produce stage hit a different ceiling: the
+  conductor's inline tool-result cap (~32k tokens). <code>P0-scripts</code> queried 6 approved Scripts via the
+  Notion MCP and got back 70k chars — spilled to disk; <code>P1-fanout</code>'s <code>plan()</code> response
+  would have been comparable.
+</p>
+<p>The wall is the <strong>MCP stdio wire cap</strong>, not a Notion API limit. Two correctnesses came out of the
+post-mortem:</p>
+<ol>
+  <li><strong>The friction isn't Notion-the-UI</strong> — Notion-the-data-source returned the payload to its
+    MCP server cleanly. <code>docs/war-room-wishlist.md</code> still gates against designing a custom UI on the
+    strength of one friction; this is filed as an architectural decision, not as a war-room build.</li>
+  <li><strong>A local store with a redesigned MCP surface dissolves the wall.</strong> Today we ship bulk content
+    over the wire because per-ID reads against Notion cost 100–300 ms each. Local-process per-ID reads are
+    sub-ms. <em>Only with a local store does the cap-honoring surface become economical.</em></li>
+</ol>
+<p>
+  Concurrent payoffs from the same move retire four Notion-shaped frictions: ADR-012's rich_text 2000-char
+  chunking, the <code>filter_properties</code> dance, Notion API rate limits, all eight <code>migrate-*</code>
+  live-workspace coordination scripts.
+</p>
+
+<h2><span class="num">2.</span> Goal</h2>
+<p>
+  Replace Notion as the OS's data + human-gate substrate with <strong>Postgres running in a Docker container</strong>,
+  with the data volume bind-mounted to <code>./data/postgres/</code> (gitignored), and a single-user Next.js
+  review app. Redesign the data MCP surface to ship IDs not bulk content, so the wire cap is never approached at
+  v1 scale.
+</p>
+<p><strong>Definition of done:</strong></p>
+<ul>
+  <li>A fresh cold-start <code>/loop-once</code> walks all the way to HG3 on the new infra without any tool
+    result exceeding ~10% of the MCP wire cap.</li>
+  <li>Human approvals at HG1/HG2/HG3 happen in <code>apps/review-ui</code> at <code>http://localhost:3030</code>.</li>
+  <li>The compliance scanner runs synchronously inside the store's <code>create</code> / <code>update</code>
+    paths — same auditable choke point as today, different layer.</li>
+  <li>Postgres comes up via <code>docker compose up -d</code>; schema lands via <code>pnpm store:push</code>;
+    no per-feature migration files.</li>
+  <li>Playwright covers every UIUX-touching surface in the review app (list rendering, detail edit + persist,
+    status flip + persist, markdown side-by-side live preview). Vitest covers the data + MCP layer.</li>
+  <li><code>mcp-servers/notion/</code>, <code>packages/notion-bootstrap/</code>, and ADR-012 retired. No
+    <code>mcp__notion__*</code> tool calls remain anywhere.</li>
+  <li><code>pnpm -r build</code> + <code>pnpm test</code> + <code>pnpm test:e2e</code> + <code>pnpm sync:agents:check</code>
+    green.</li>
+</ul>
+
+<h2><span class="num">3.</span> Non-goals</h2>
+<ul>
+  <li>1:1 Notion feature parity — no comments, mentions, sharing, multi-user collab, mobile, real-time
+    presence.</li>
+  <li>Cross-machine sync. Postgres data lives at <code>./data/postgres/</code> on the local machine
+    (gitignored). Backup is whatever you do for any local Postgres — <code>pg_dump</code> on demand,
+    Time Machine, etc.</li>
+  <li>Auth. Localhost-only, single user. Postgres binds to <code>127.0.0.1:5432</code> only; the review app to
+    <code>127.0.0.1:3030</code>.</li>
+  <li>Migration of existing Notion content. Clean slate: <code>run_1779446750</code> is archived in Notion. First
+    run on new infra is a fresh cold-start.</li>
+  <li>Migration tooling at v1. Schema lands via <code>drizzle-kit push</code> against the live container; no
+    per-feature migration files committed. (The door is open to switch to <code>drizzle-kit migrate</code> later
+    if schema-evolution discipline becomes load-bearing.)</li>
+  <li>Replacing the orchestrator state tables. <code>runs</code> + <code>run_steps</code> already live in
+    SQLite (<code>data/engineerdad.sqlite</code>) and stay there — they're orchestration plumbing, not entities.
+    Two stores side-by-side: SQLite for ephemeral run state, Postgres for the 8 entity tables.</li>
+</ul>
+
+<h2><span class="num">4.</span> Current shape (what's being replaced)</h2>
+<pre class="flow">conductor ─stdio─> mcp-servers/notion ─HTTPS─> Notion API
+                                                    │
+                                                    └─> 8 DBs: Briefs, Scripts, AuthorityArticles,
+                                                              CreativeVariants, Experiments,
+                                                              PerformanceReports, Hypotheses, Learnings
+
+packages/notion-bootstrap/    — schema-as-code + 14 migrate-* scripts
+mcp-servers/notion/           — 4 tools: query, create_page, update_page, get_approval_status
+                                (compliance scanner fires here on create_page / update_page)
+docs/decisions/012-*.md       — rich_text 2000-char chunking</pre>
+
+<h2><span class="num">5.</span> Target shape</h2>
+<pre class="tree">docker-compose.yml                     — Postgres 16-alpine, bind-mount ./data/postgres
+.env.example                           — DATABASE_URL placeholder
+.gitignore                             — adds data/postgres/* (data outside git)
+
+packages/store/                        — the canonical data layer (Drizzle + postgres.js)
+├── src/
+│   ├── schema.ts                      — 8 pgTable schemas, real enums, jsonb columns
+│   ├── db.ts                          — postgres-js client from DATABASE_URL
+│   ├── crud.ts                        — query / get / create / update / setStatus / count
+│   ├── compliance.ts                  — compliance scan integration
+│   ├── filters.ts                     — flat filter DSL → Drizzle WHERE builder
+│   └── index.ts                       — public { store } singleton
+├── drizzle.config.ts                  — dialect: "postgresql"
+└── package.json                       — postgres ^3.4, drizzle-orm ^0.36, drizzle-kit ^0.28
+
+mcp-servers/store/                     — thin stdio wrapper over packages/store
+└── src/index.ts                       — 5 tools: query (IDs only), get, create, update, set_status
+
+apps/review-ui/                        — Next.js 15 App Router, single user, localhost
+├── src/app/                           — sidebar nav, dashboard, generic list + detail pages
+├── tests/e2e/                         — Playwright specs (list / edit / status / markdown preview)
+├── playwright.config.ts
+└── next.config.ts
+
+data/engineerdad.sqlite                — UNCHANGED. Orchestrator run state stays here.
+data/postgres/                         — Postgres data volume (bind mount). Gitignored.</pre>
+
+<p><strong>Human-gate UX after:</strong> Shoo opens <code>http://localhost:3030</code>. Left sidebar lists 8
+entities; clicking an entry shows a list filtered to the active run; clicking a row opens its detail with editable
+fields and a status dropdown. <code>"use server"</code> actions persist changes through <code>packages/store</code>.
+No HTTP routes to define; no client-side fetch.</p>
+
+<h2><span class="num">6.</span> The redesigned MCP surface</h2>
+<p>Five tools, all on <code>mcp-servers/store/</code>:</p>
+<table>
+  <tr><th>Tool</th><th>Returns</th><th>Used by</th></tr>
+  <tr>
+    <td><code>mcp__store__query(entity, filter, fields?)</code></td>
+    <td><code>{ id, title }[]</code> by default; <code>fields</code> opts in to small index columns.
+      <strong>Never bulk content.</strong></td>
+    <td>Stage write-steps (<code>C0-briefs</code>, <code>P0-scripts</code>) and gate checks.</td>
+  </tr>
+  <tr>
+    <td><code>mcp__store__get(entity, id)</code></td>
+    <td>Full row of one entity.</td>
+    <td>Workers in a fanout — one bulk crossing per worker, within the 200k window.</td>
+  </tr>
+  <tr>
+    <td><code>mcp__store__create(entity, props)</code></td>
+    <td><code>{ id, ok, problems? }</code>. Runs compliance scan synchronously.</td>
+    <td>Worker writes (Scripts, AuthorityArticles, CreativeVariants).</td>
+  </tr>
+  <tr>
+    <td><code>mcp__store__update(entity, id, props)</code></td>
+    <td><code>{ ok, problems? }</code>. Fill-only-if-empty mode preserved.</td>
+    <td>Article-enrichment (P4), HG-write-back.</td>
+  </tr>
+  <tr>
+    <td><code>mcp__store__set_status(entity, id, status)</code></td>
+    <td><code>{ ok }</code>.</td>
+    <td>Review UI server actions.</td>
+  </tr>
+</table>
+<div class="callout ok">
+  <span class="tag">The cap-honouring contract.</span>
+  <code>query</code> NEVER returns bulk text fields. The only path to read bulk content is <code>get(id)</code>.
+  Workers do one <code>get</code> on their assigned unit. The conductor never sees bulk content.
+</div>
+
+<h3>Flat filter DSL (replaces Notion's filter shape)</h3>
+<pre>// Today (Notion shape — verbose, dense, server-side schema-coupled)
+{ and: [
+  { property: "Run ID", rich_text: { equals: "run_..." } },
+  { property: "Approval Status", select: { equals: "Approved" } },
+]}
+
+// After (flat object — Drizzle WHERE under the hood)
+{ runId: "run_...", approvalStatus: "Approved" }
+
+// AND is implicit. Special operators only where needed:
+{ runId: "run_...", approvalStatus: { in: ["Approved", "Rejected"] } }
+{ hookCount: { gte: 30 } }</pre>
+<p>No <code>or</code> at v1 — no stage uses one. Add when needed.</p>
+
+<h2><span class="num">7.</span> The Postgres container</h2>
+<p>One service in <code>docker-compose.yml</code>. Bind mount to <code>./data/postgres/</code> so the volume sits
+inside the repo (per user direction) but the contents are <code>.gitignore</code>d.</p>
+<pre>services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: engineerdad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: engineerdad
+      POSTGRES_PASSWORD: engineerdad
+      POSTGRES_DB: engineerdad
+    ports:
+      - "127.0.0.1:5432:5432"          # localhost-only
+    volumes:
+      - ./data/postgres/pgdata:/var/lib/postgresql/data    # pgdata subdir — initdb refuses non-empty parent
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engineerdad"]
+      interval: 5s
+      timeout: 5s
+      retries: 10</pre>
+<p><strong>Init script</strong> (<code>scripts/postgres-init/01-create-test-db.sql</code>): creates the
+<code>engineerdad_test</code> database used by Playwright. Runs once on first container start.</p>
+<pre>CREATE DATABASE engineerdad_test;
+GRANT ALL PRIVILEGES ON DATABASE engineerdad_test TO engineerdad;</pre>
+<p><strong>Connection string</strong> (<code>.env</code>):</p>
+<pre>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad
+DATABASE_URL_TEST=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test</pre>
+<p><strong>Root scripts</strong>:</p>
+<table>
+  <tr><th>Script</th><th>Effect</th></tr>
+  <tr><td><code>pnpm store:up</code></td><td><code>docker compose up -d postgres</code> — start the container detached.</td></tr>
+  <tr><td><code>pnpm store:down</code></td><td><code>docker compose down</code> — stop. Data persists in the bind-mount.</td></tr>
+  <tr><td><code>pnpm store:wipe</code></td><td><code>docker compose down -v && rm -rf data/postgres/pgdata</code> — full reset. The <code>.gitkeep</code> placeholder is preserved.</td></tr>
+  <tr><td><code>pnpm store:push</code></td><td><code>drizzle-kit push</code> against the live container. Idempotent.</td></tr>
+  <tr><td><code>pnpm store:logs</code></td><td><code>docker compose logs -f postgres</code>.</td></tr>
+</table>
+
+<h2><span class="num">8.</span> Stage call-site touch-ups</h2>
+<p>
+  Every stage that calls <code>mcp__notion__query</code> changes its tool name and its filter shape; every stage
+  that reads <code>stepResult</code> for a Notion query response changes its shape from
+  <code>{ results: [{ id, properties: { ... } }] }</code> to <code>[{ id, ... small fields ... }]</code>.
+  Builders that previously embedded a property tree into a worker spawn-prompt now embed the <code>id</code> and
+  rely on the worker to call <code>mcp__store__get</code>.
+</p>
+<table>
+  <tr><th>Stage / step</th><th>What changes</th></tr>
+  <tr><td><code>tracking</code> / <code>analytics</code></td><td>No change (no Notion).</td></tr>
+  <tr><td><code>synthesize</code> S1-reason</td><td>brain's tool list: <code>mcp__notion__*</code> → <code>mcp__store__*</code>. Queries Hypotheses / Learnings via <code>get</code>.</td></tr>
+  <tr><td><code>brief</code> B1-write / B2-gate</td><td>Tool + filter flip; gate check uses store.</td></tr>
+  <tr><td><code>content</code> C0–C3</td><td>C0 returns IDs only; C1-fanout units carry <code>briefId</code>, worker fetches its Brief via <code>get</code> as first action. Same Single-Brief mode rules as E-027.</td></tr>
+  <tr><td><code>produce</code> P0–P6</td><td>P0 returns IDs only; P1-fanout units carry <code>scriptId</code> + <code>briefId</code>, worker fetches via <code>get</code>. Hook bank still flows via <code>stepResult("C1-fanout")</code>.</td></tr>
+  <tr><td><code>schedule</code> / <code>experiment</code> / <code>distribute</code></td><td>Tool flips throughout.</td></tr>
+  <tr><td><code>verify-produce.ts</code></td><td><code>projectVariant</code> reads flat camelCase store rows.</td></tr>
+</table>
+
+<h2><span class="num">9.</span> Compliance boundary preservation</h2>
+<p>
+  ADR-005's compliance choke point is intact. The boundary moves from
+  <code>mcp-servers/notion/src/handler.ts</code> to <code>packages/store/src/crud.ts</code>'s <code>create</code>
+  and <code>update</code> paths. The scanner itself (<code>packages/shared/src/compliance.ts</code>) is unchanged.
+  Both the MCP path (workers calling <code>create</code>) and the UI path (server actions calling
+  <code>store.create</code>) go through the same function — the boundary is now layer-aware, not transport-aware.
+</p>
+<div class="callout ok">
+  <span class="tag">Invariant.</span>
+  No row enters the store without compliance scan. The scan refuses a write on violation. Same shape as today.
+</div>
+
+<h2><span class="num">10.</span> The review app — minimum viable shape</h2>
+<p>
+  Next.js 15 App Router with server actions for all writes. Tailwind for layout. No client state library —
+  Next's revalidation handles list refresh after a server action.
+</p>
+<h3>Routes (8 entities, same pattern)</h3>
+<pre class="flow">/                                — dashboard: in-flight runs + counts per entity
+/briefs                          — list view (current run filter)
+/briefs/[id]                     — detail + edit + status flip
+/scripts, /scripts/[id]          — same
+/authority-articles/(...)        — same
+/creative-variants/(...)         — same
+/experiments, /performance-reports, /hypotheses, /learnings — same</pre>
+
+<h3>Server actions (one file, ~30 lines total)</h3>
+<pre>// apps/review-ui/src/app/lib/actions.ts
+"use server";
+import { store } from "@engineerdad/store";
+import { revalidatePath } from "next/cache";
+
+export async function updateRow(entity: string, id: string, patch: Record&lt;string, unknown&gt;) {
+  const r = await store.update(entity, id, patch);
+  if (!r.ok) throw new Error(r.problems.join("; "));
+  revalidatePath(`/${entityRoute(entity)}/${id}`);
+}
+
+export async function setStatus(entity: string, id: string, status: string) {
+  await store.setStatus(entity, id, status);
+  revalidatePath(`/${entityRoute(entity)}`);
+  revalidatePath(`/${entityRoute(entity)}/${id}`);
+}</pre>
+
+<h3>Field rendering — table-driven</h3>
+<p>
+  One generic detail component introspects the row's columns and renders by type:
+  <code>text → input</code>, <code>longText → textarea</code>, <code>markdown → markdown editor (textarea +
+  react-markdown preview side-by-side)</code>, <code>select → dropdown</code>, <code>multiSelect → checkbox
+  group</code>, <code>jsonb → JSON code editor</code>, <code>relation → searchable picker</code>. Authored
+  once, used 8 times.
+</p>
+
+<h2><span class="num">11.</span> Postgres-native wins (over the SQLite alternative)</h2>
+<table>
+  <tr><th>Feature</th><th>How we use it</th></tr>
+  <tr>
+    <td><code>jsonb</code> columns</td>
+    <td>multi_select fields (proofRefs, channels, keywords, hashtags…) — indexable by element via
+      <code>?</code> / <code>?|</code> / <code>?&amp;</code> operators. Sets the table for E-028 register-level
+      learning queries.</td>
+  </tr>
+  <tr>
+    <td>Native <code>uuid</code> + <code>gen_random_uuid()</code></td>
+    <td>Primary keys; no <code>randomUUID()</code> shim in app code.</td>
+  </tr>
+  <tr>
+    <td>Real <code>timestamp</code> + <code>timestamptz</code></td>
+    <td><code>createdAt</code> / <code>updatedAt</code> with timezone awareness; clean range queries.</td>
+  </tr>
+  <tr>
+    <td>Native <code>postgres.js</code> client</td>
+    <td>Pure JavaScript, zero native build. Kills the <code>better-sqlite3</code> + <code>CXXFLAGS</code> friction
+      we hit on the first run.</td>
+  </tr>
+  <tr>
+    <td>True transactions</td>
+    <td>Multi-row creates (e.g. C1-fanout worker writing N Scripts for one Brief) wrap in
+      <code>store.transaction(async (tx) =&gt; …)</code> — atomic.</td>
+  </tr>
+  <tr>
+    <td>Real concurrency</td>
+    <td>Next.js server actions + the orchestrator can write concurrently without "database is locked".</td>
+  </tr>
+</table>
+
+<h2><span class="num">12.</span> Files touched</h2>
+<table>
+  <tr><th class="n">#</th><th>Path</th><th>Change</th></tr>
+  <tr><td class="n">1</td><td><code>docker-compose.yml</code> (new, repo root)</td><td>Postgres 16-alpine service.</td></tr>
+  <tr><td class="n">2</td><td><code>scripts/postgres-init/01-create-test-db.sql</code> (new)</td><td>Creates <code>engineerdad_test</code> on first container start.</td></tr>
+  <tr><td class="n">3</td><td><code>.env.example</code> + <code>.env</code></td><td>DATABASE_URL + DATABASE_URL_TEST.</td></tr>
+  <tr><td class="n">4</td><td><code>.gitignore</code></td><td>Add <code>data/postgres/</code>.</td></tr>
+  <tr><td class="n">5</td><td><code>packages/store/</code> (new)</td><td>Drizzle pgTable schemas, postgres-js client, CRUD lib, filter DSL, compliance integration.</td></tr>
+  <tr><td class="n">6</td><td><code>mcp-servers/store/</code> (new)</td><td>Thin stdio wrapper exposing the 5 tools (§6).</td></tr>
+  <tr><td class="n">7</td><td><code>apps/review-ui/</code> (new)</td><td>Next.js 15 App Router app + Playwright E2E suite.</td></tr>
+  <tr><td class="n">8</td><td><code>packages/orchestrator/src/stages/*.ts</code></td><td>Tool name flips; filter shape flip; stepResult reader shape flip.</td></tr>
+  <tr><td class="n">9</td><td><code>packages/orchestrator/src/verifiers/verify-produce.ts</code></td><td><code>projectVariant</code> reads flat store rows.</td></tr>
+  <tr><td class="n">10</td><td><code>.claude/agents/{brain,brief-writer,content-writer,creative-director}.md</code></td><td>Allowlists flip; worker modes get "first action: mcp__store__get" line.</td></tr>
+  <tr><td class="n">11</td><td><code>.mcp.json</code></td><td>Remove <code>notion</code>, add <code>store</code>.</td></tr>
+  <tr><td class="n">12</td><td><code>docs/decisions/021-local-store-supersedes-notion.md</code></td><td>ADR-021 — doctrine doc, updated for Postgres + Docker.</td></tr>
+  <tr><td class="n">13</td><td><code>docs/decisions/012-notion-rich-text-chunking.md</code></td><td>Status: Superseded by ADR-021.</td></tr>
+  <tr><td class="n">14</td><td><code>docs/war-room-wishlist.md</code></td><td>Closing note (already added).</td></tr>
+  <tr><td class="n">15</td><td><code>mcp-servers/notion/</code> + <code>packages/notion-bootstrap/</code></td><td><strong>Delete.</strong></td></tr>
+  <tr><td class="n">16</td><td>Root <code>package.json</code> + <code>pnpm-workspace.yaml</code></td><td>Drop <code>migrate:*</code> scripts; add <code>store:up/down/wipe/push/logs</code> + <code>review</code> + <code>test:e2e</code>; register <code>apps/*</code>.</td></tr>
+  <tr><td class="n">17</td><td><code>README.md</code> + <code>RESUME.md</code> + <code>ARCHITECTURE.md</code></td><td>Setup: install Docker; <code>pnpm store:up && pnpm store:push</code>; <code>pnpm review</code>.</td></tr>
+  <tr><td class="n">18</td><td>Tests</td><td>Port <code>mcp-servers/notion/__tests__/</code> → <code>mcp-servers/store/__tests__/</code>. New Playwright suite under <code>apps/review-ui/tests/e2e/</code>. Drop <code>migrate-*</code> script tests.</td></tr>
+</table>
+
+<h2><span class="num">13.</span> Test plan</h2>
+<ul>
+  <li>
+    <strong><code>packages/store</code> unit tests.</strong> CRUD round-trips for each of 8 entities; filter
+    DSL → SQL; compliance scan refusal; fill-only-if-empty semantics. Tests run against the live
+    <code>engineerdad_test</code> database — Postgres container must be up.
+  </li>
+  <li>
+    <strong><code>mcp-servers/store</code> tool tests.</strong> Each of 5 tools handles happy path, compliance
+    refusal, not-found.
+  </li>
+  <li>
+    <strong>Stage tests.</strong> Existing stage tests stay green after the tool/filter/shape flips.
+  </li>
+  <li>
+    <strong>Playwright E2E.</strong> Five specs cover list (seeded + empty), detail-edit-persist,
+    status-flip-persists-in-list, markdown-side-by-side-live-preview. Each spec drops + recreates the
+    <code>engineerdad_test</code> schema before running.
+  </li>
+  <li>
+    <strong>End-to-end validation — the acceptance test.</strong> Mint a fresh <code>/loop-once</code> run on
+    the new infra; walk to HG1; approve 12 Briefs in the review UI; resume to HG2; approve Scripts; resume to
+    HG3. No tool result exceeds ~10% of the wire cap.
+  </li>
+</ul>
+
+<h2><span class="num">14.</span> Risks</h2>
+<div class="callout warn">
+  <span class="tag">Docker dependency.</span>
+  <code>pnpm review</code> and any orchestrator walk now require <code>docker compose up -d</code> first. If
+  Docker Desktop isn't running, nothing works. Mitigation: a <code>predev</code> npm hook in
+  <code>apps/review-ui</code> shells <code>pnpm store:up</code> + <code>pg_isready</code> before starting Next.js.
+</div>
+<div class="callout warn">
+  <span class="tag">No data in git.</span>
+  This is the explicit user decision but it means: a fresh clone has no data. Cold-start is the only way in
+  unless you carry a <code>pg_dump</code> separately. <code>pnpm store:dump</code> + <code>pnpm store:restore</code>
+  scripts are wishlist material for later if backup pain emerges.
+</div>
+<div class="callout warn">
+  <span class="tag">App scope creep.</span>
+  Review app is intentionally minimum-viable: 8 entities, one generic detail page, status flip, edit-and-save.
+  Resist adding comments, mentions, history, search, multi-user. <code>docs/war-room-wishlist.md</code> is the
+  gate for any addition.
+</div>
+<div class="callout warn">
+  <span class="tag">Drizzle dialect specificity.</span>
+  <code>pgTable</code> column types (esp. <code>jsonb</code>, <code>uuid</code>, <code>timestamptz</code>) differ
+  from <code>sqliteTable</code>. The schema in <code>packages/store/src/schema.ts</code> is
+  Postgres-specific. If we ever revert to SQLite the schema needs porting.
+</div>
+<div class="callout warn">
+  <span class="tag">Doctrine drift.</span>
+  ADR-005's "no MCP mesh" rule holds — <code>mcp-servers/store</code> does not call any other MCP server. The
+  review app is an <em>app</em> consuming <code>packages/store</code> directly, not an MCP.
+</div>
+
+<h2><span class="num">15.</span> Open questions</h2>
+<ol>
+  <li>
+    <strong>Postgres port collision.</strong> 5432 is the default. If you already run Postgres locally for
+    other projects, this collides. Plan defaults to 5432 but documents an env override
+    (<code>STORE_DB_PORT</code> → <code>docker-compose.yml</code>).
+  </li>
+  <li>
+    <strong>Backup cadence.</strong> No backups at v1. <code>pnpm store:dump</code> is wishlist material —
+    open when backup pain surfaces.
+  </li>
+  <li>
+    <strong>Connection-pool sizing.</strong> <code>postgres.js</code> defaults to 10 connections. Sufficient
+    for single-user. Document only — no tuning at v1.
+  </li>
+  <li>
+    <strong>Migrations escape hatch.</strong> <code>drizzle-kit push</code> at v1. If schema evolution gets
+    tricky (E-028 register-typed columns?) we revisit; switching to <code>drizzle-kit generate</code> +
+    <code>migrate</code> is a one-task addition, not a rewrite.
+  </li>
+</ol>
+
+<h2><span class="num">16.</span> What this unblocks / what it kills</h2>
+<p><strong>Unblocks:</strong></p>
+<ul>
+  <li>The wire-cap wall, permanently. The redesigned surface never crosses bulk content.</li>
+  <li>E-028 register-level learning — gains a typed <code>register</code> column + jsonb-indexed hook arrays.</li>
+  <li>Any future stage at any future scale — the store + thin-surface contract holds at v2/v3.</li>
+  <li>Production-shape concurrency. If the OS ever wants multi-window dev or remote access, Postgres is the
+    correct substrate.</li>
+</ul>
+<p><strong>Kills:</strong></p>
+<ul>
+  <li>ADR-012 (rich_text 2000-char chunking).</li>
+  <li>All 14 <code>migrate-*</code> live-workspace scripts.</li>
+  <li>Notion API rate-limit hesitations sprinkled across stage code.</li>
+  <li>The spill-file mechanism on the Scripts path. (Other MCP spills continue to exist where appropriate.)</li>
+  <li>The <code>better-sqlite3</code> CXXFLAGS friction.</li>
+</ul>
+<p><strong>Defers:</strong></p>
+<ul>
+  <li>The full war-room. The wishlist file remains the gate for any addition to the review UI.</li>
+  <li>Backup tooling. <code>pnpm store:dump</code> + <code>restore</code> when pain surfaces.</li>
+  <li>Per-feature migration files. <code>drizzle-kit push</code> at v1; <code>migrate</code> when needed.</li>
+</ul>
+
+<footer class="doc">
+  E-029 design — updated 2026-05-23 with Postgres + Docker substrate · pairs with ADR-021 · supersedes ADR-012 ·
+  closes the open question E-027 surfaced on its first walk.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,44 @@
+# OPPORTUNITY-COST chart — RM100,000 over 18 years: a 2% savings account vs an ILLUSTRATIVE
+# ~6% long-run balanced invested return. The honest general-audience argument: a 2% savings
+# account barely loses to general CPI, but it FORGOES a lot of potential growth versus
+# investing. Frame is opportunity cost (forgone growth), NOT inflation erosion / "a loss".
+#
+# COMPLIANCE NOTE (do not strip): the 6% is an ILLUSTRATIVE long-run balanced-portfolio
+# assumption — NOT a promised, guaranteed, assured, or projected return, and NOT tied to any
+# named fund or product. The caption carries the mandatory balanced-risk note (investing
+# carries market risk that a savings account does not; illustrative figures do not predict
+# future results). Cross-checked against corpus/compliance/banned-phrases.yaml — no banned
+# phrasing; no "guaranteed/safe/beats EPF/best fund" framing; does not state or imply
+# investing is certain to outperform saving.
+#
+# FORMULA chart — figures derived from the formulas in source_citation, no separate dataset.
+# Used by media-production when a scene argues "saving doesn't lose much to inflation, but it
+# costs you the growth you give up" / "the real price of playing it safe is forgone compounding".
+
+id: savings-vs-invested-opportunity-cost
+title_en: "The cost of playing it safe: RM100,000 over 18 years — a 2% savings account vs an illustrative 6% invested return"
+title_ms: "Kos bermain selamat: RM100,000 selama 18 tahun — akaun simpanan 2% vs pulangan pelaburan ilustrasi 6%"
+chart_type: line
+x_label_en: "Years"
+x_label_ms: "Tahun"
+y_label_en: "Nominal value (RM)"
+y_label_ms: "Nilai nominal (RM)"
+labels: [0, 5, 10, 15, 18]
+series:
+  - name_en: "Invested at an illustrative 6% (balanced, market risk applies)"
+    name_ms: "Dilaburkan pada ilustrasi 6% (berimbang, risiko pasaran terpakai)"
+    legend_label_en: "Invested ~6% (illustrative)"
+    legend_label_ms: "Dilabur ~6% (ilustrasi)"
+    semantic_role: hero          # the forgone-growth line — the opportunity-cost argument
+    values: [100000, 134000, 179000, 240000, 285000]
+  - name_en: "Saved at 2% (deposit-rate assumption)"
+    name_ms: "Disimpan pada 2% (andaian kadar deposit)"
+    legend_label_en: "Saved 2%"
+    legend_label_ms: "Disimpan 2%"
+    semantic_role: comparison    # the safe, lower-growth baseline
+    values: [100000, 110000, 122000, 135000, 143000]
+callout_en: "~RM142,000 of growth forgone by year 18"
+callout_ms: "~RM142,000 pertumbuhan dilepaskan menjelang tahun ke-18"
+caption_en: "A 2% savings account grows RM100,000 to about RM143,000 over 18 years — it roughly keeps pace with general inflation, so you are not really 'losing' money. The real cost is what you give up: the same RM100,000 invested at an illustrative long-run balanced return of ~6% a year could grow to about RM285,000. That gap — roughly RM142,000 — is the opportunity cost of playing it safe, not a loss on the savings account. Important balance: this 6% is an illustrative assumption, not a promised or projected return. Investing carries market risk — its value can fall as well as rise, and you could get back less than you put in — a risk a savings account does not have. Illustrative figures do not predict future results."
+caption_ms: "Akaun simpanan 2% membesarkan RM100,000 kepada kira-kira RM143,000 dalam 18 tahun — ia secara kasar seiring dengan inflasi am, jadi anda tidak benar-benar 'rugi' wang. Kos sebenar ialah apa yang anda lepaskan: RM100,000 yang sama, dilaburkan pada pulangan berimbang jangka panjang ilustrasi ~6% setahun, boleh membesar kepada kira-kira RM285,000. Jurang itu — kira-kira RM142,000 — ialah kos peluang bermain selamat, bukan kerugian pada akaun simpanan. Imbangan penting: 6% ini ialah andaian ilustrasi, bukan pulangan yang dijanji atau diunjur. Pelaburan membawa risiko pasaran — nilainya boleh turun dan juga naik, dan anda mungkin menerima kembali kurang daripada yang dilaburkan — risiko yang tiada pada akaun simpanan. Angka ilustrasi tidak meramal keputusan masa depan."
+source_citation: "Illustrative compounding scenario. Invested series: RM100,000 x (1.06)^t, where 6% is an ILLUSTRATIVE long-run balanced-portfolio return assumption — not a forecast, promise, or guarantee, and not tied to any specific fund. Savings series: RM100,000 x (1.02)^t, where 2% is a conservative deposit-rate assumption. Both series are nominal (not inflation-adjusted) and rounded to the nearest RM1,000. Figures are illustrative only; actual returns and deposit rates vary year to year. Investing carries market risk that a savings account does not; past or illustrative returns do not predict future results."

@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-034 — Sunset SQLite · Implementation Plan</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 22px;
+    margin: 56px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h2 .tag {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-left: 10px;
+    vertical-align: middle;
+    letter-spacing: 0.04em;
+  }
+  h3 {
+    font-size: 16px;
+    margin: 32px 0 8px;
+    color: var(--ink);
+  }
+  h3 .task-num { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+  h4 { font-size: 13.5px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.4px;
+    line-height: 1.5;
+  }
+  pre.bash { background: #1c2230; color: #e2e6ee; border-color: #1c2230; }
+  pre.bash .prompt { color: #9ed0ac; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.4px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  ul.steps { list-style: none; padding-left: 0; }
+  ul.steps > li {
+    margin: 14px 0;
+    padding-left: 28px;
+    position: relative;
+  }
+  ul.steps > li::before {
+    content: "☐";
+    position: absolute;
+    left: 0;
+    top: -1px;
+    color: var(--accent);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .step-title {
+    font-weight: 700;
+    font-size: 13.8px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .expected {
+    font-size: 12.8px;
+    color: var(--muted);
+    margin: 6px 0;
+  }
+  .expected strong { color: var(--ink); }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .files {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  .files strong { color: var(--accent); }
+  .files .file-list {
+    margin: 4px 0 0;
+    padding-left: 18px;
+  }
+  .files .file-list li { margin: 2px 0; }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .toc {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 18px 0 32px;
+    font-size: 13.4px;
+  }
+  .toc h4 { margin-top: 0; }
+  .toc ol { margin: 6px 0; padding-left: 22px; }
+  .toc ol li { margin: 4px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-034 — Sunset SQLite · Implementation Plan</h1>
+  <p class="subtitle">Seven staged commits on <code>e-034-sunset-sqlite</code>. Each leaves <code>pnpm -r build</code> + <code>pnpm test</code> green. Bite-sized TDD steps with full code, exact commands, expected output.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-26</dd>
+    <dt>Status</dt><dd><span class="pill">Plan — ready for execution</span></dd>
+    <dt>Branch</dt><dd><code>e-034-sunset-sqlite</code></dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-26-e-034-sunset-sqlite-design.html</code></dd>
+    <dt>Markdown twin</dt><dd><code>docs/superpowers/plans/2026-05-26-e-034-sunset-sqlite.md</code> (canonical for agentic execution)</dd>
+    <dt>Tech stack</dt><dd>Postgres 16 (Docker) · Drizzle ORM 0.36 · postgres.js 3.4 · Vitest (fork pool, forced single-fork) · TypeScript ESM workspace</dd>
+    <dt>For agentic workers</dt><dd>REQUIRED SUB-SKILL: <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code>. Steps use checkbox (<code>- [ ]</code>) syntax in the .md twin.</dd>
+  </dl>
+</header>
+
+<div class="toc">
+  <h4>Commit sequence</h4>
+  <ol>
+    <li><a href="#commit-1">Commit 1 — Introduce truncate-pg helper; migrate existing PG tests</a></li>
+    <li><a href="#commit-2">Commit 2 — Drizzle schema for orchestrator (runs, run_steps + port step_results)</a></li>
+    <li><a href="#commit-3">Commit 3 — Port state.ts to Postgres; switch webapp + MCP lib</a></li>
+    <li><a href="#commit-4">Commit 4 — Drizzle schema for analytics</a></li>
+    <li><a href="#commit-5">Commit 5 — Port analytics call sites to Postgres</a></li>
+    <li><a href="#commit-6">Commit 6 — Port experiment readout reader</a></li>
+    <li><a href="#commit-7">Commit 7 — Cleanup: delete plumbing, drop deps, write ADR-025</a></li>
+  </ol>
+</div>
+
+<div class="callout new">
+<span class="tag">Read the plan, then go to the markdown twin to execute.</span> This HTML is the human-review surface. The agentic execution path (subagent-driven-development / executing-plans) consumes the <code>.md</code> file because it has the checkbox tracking syntax (<code>- [ ]</code>).
+</div>
+
+<h2><span class="num">A.</span> File structure</h2>
+
+<h3>New files</h3>
+<ul>
+  <li><code>packages/shared/src/test-helpers/truncate-pg.ts</code> — single canonical truncate helper, knows all 16 tables</li>
+  <li><code>packages/shared/src/test-helpers/index.ts</code> — barrel</li>
+  <li><code>packages/orchestrator/src/schema.ts</code> — Drizzle pgSchema for <code>orchestrator.*</code></li>
+  <li><code>packages/orchestrator/src/db.ts</code> — Drizzle client singleton</li>
+  <li><code>packages/orchestrator/drizzle.config.ts</code> — drizzle-kit config</li>
+  <li><code>packages/analytics/src/schema.ts</code> — Drizzle pgSchema for <code>analytics.*</code></li>
+  <li><code>packages/analytics/src/db.ts</code> — replaces today's SQLite version, same exports</li>
+  <li><code>packages/analytics/drizzle.config.ts</code> — drizzle-kit config</li>
+  <li><code>docs/decisions/025-postgres-only.md</code> — new ADR</li>
+</ul>
+
+<h3>Deleted files</h3>
+<ul>
+  <li><code>packages/orchestrator/src/migrations/001_orchestrator.sql</code></li>
+  <li><code>packages/orchestrator/src/migrations/postgres/001_step_results.sql</code></li>
+  <li><code>packages/orchestrator/src/migrations/postgres/002_input_refs.sql</code></li>
+  <li><code>packages/analytics/src/migrations/001_init.sql</code></li>
+  <li><code>data/engineerdad.sqlite{,-shm,-wal}</code> (filesystem only, not git-tracked)</li>
+</ul>
+
+<h3>Modified files (high-level)</h3>
+<table>
+<thead><tr><th>Package</th><th>Files</th></tr></thead>
+<tbody>
+<tr><td>orchestrator</td><td>state.ts (gutted), postgres.ts (thin alias), index.ts, package.json, 5 test files</td></tr>
+<tr><td>analytics</td><td>bandit.ts, tools.ts, ingest-meta-organic.ts, creative-signals.ts, index.ts, package.json, 3 test files</td></tr>
+<tr><td>experiment</td><td>db.ts (shim), readout.ts, readout.test.ts, package.json</td></tr>
+<tr><td>store</td><td>crud.test.ts, compliance.test.ts, filters.test.ts</td></tr>
+<tr><td>webapp</td><td>src/app/lib/orchestrator.ts, tests/e2e/fixtures.ts, playwright.config.ts</td></tr>
+<tr><td>mcp-servers</td><td>experiment/src/index.ts, orchestrator/src/{integration,eager,resolve}.test.ts</td></tr>
+<tr><td>root</td><td>vitest.config.ts, package.json, .gitignore</td></tr>
+<tr><td>docs</td><td>ARCHITECTURE.md, README.md, RESUME.md, TASKS.md, ADR-008/021/022 footers, new ADR-025</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">B.</span> Pre-flight</h2>
+
+<ul class="steps">
+  <li>
+    <span class="step-title">Step 0a — Confirm branch and clean working tree</span>
+<pre class="bash"><span class="prompt">$</span> git branch --show-current
+<span class="prompt">$</span> git status --short</pre>
+    <p class="expected"><strong>Expected:</strong> <code>e-034-sunset-sqlite</code>, clean tree (spec commit <code>cdc0fc2</code> already landed).</p>
+  </li>
+  <li>
+    <span class="step-title">Step 0b — Confirm Postgres up</span>
+<pre class="bash"><span class="prompt">$</span> docker ps --format '{{.Names}}' | grep engineerdad-postgres
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -lqt | grep -E "engineerdad(_test)?"</pre>
+    <p class="expected"><strong>Expected:</strong> container running; both <code>engineerdad</code> and <code>engineerdad_test</code> listed. If missing: <code>pnpm store:up</code>.</p>
+  </li>
+  <li>
+    <span class="step-title">Step 0c — Baseline tests pass before any changes</span>
+<pre class="bash"><span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -5</pre>
+    <p class="expected"><strong>Expected:</strong> most tests pass; the two pre-existing failures (1 static-renderer flake, 1 mcp-orch integration assertion) are acknowledged baseline state, NOT caused by this branch.</p>
+  </li>
+</ul>
+
+<h2 id="commit-1"><span class="num">1.</span> Commit 1 <span class="tag">truncate-pg helper</span></h2>
+
+<p>Lands the shared helper, migrates the four existing PG-touching test files off owned-id cleanup, flips root vitest to serial. No SQLite changes yet.</p>
+
+<h3><span class="task-num">1.1</span> Create the truncate-pg helper</h3>
+<div class="files">
+<strong>Files:</strong>
+<ul class="file-list">
+  <li>Create: <code>packages/shared/src/test-helpers/truncate-pg.ts</code></li>
+  <li>Create: <code>packages/shared/src/test-helpers/index.ts</code></li>
+  <li>Modify: <code>packages/shared/package.json</code> (add <code>postgres</code> dep, <code>./test-helpers</code> export)</li>
+</ul>
+</div>
+
+<ul class="steps">
+  <li>
+    <span class="step-title">Step 1.1.1 — Add the helper file</span>
+    <p>Create <code>packages/shared/src/test-helpers/truncate-pg.ts</code>:</p>
+<pre>// Single canonical truncate helper for all PG-touching tests.
+// Owns the table list — add new tables here when schemas grow.
+import postgres from "postgres";
+
+let sql: ReturnType&lt;typeof postgres&gt; | undefined;
+
+function client() {
+  if (sql) return sql;
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL not set; truncatePg() requires Postgres. " +
+        "Run `pnpm store:up` and export DATABASE_URL.",
+    );
+  }
+  sql = postgres(url, { max: 2 });
+  return sql;
+}
+
+export async function truncatePg(): Promise&lt;void&gt; {
+  await client().unsafe(`
+    TRUNCATE
+      public.briefs, public.scripts, public.authority_articles,
+      public.creative_variants, public.experiments, public.performance_reports,
+      public.hypotheses, public.learnings,
+      orchestrator.step_results
+    RESTART IDENTITY CASCADE
+  `);
+}
+
+export async function closeTruncatePg(): Promise&lt;void&gt; {
+  if (sql) { await sql.end({ timeout: 5 }); sql = undefined; }
+}</pre>
+    <div class="callout warn">
+    <span class="tag">Important:</span> The TRUNCATE intentionally lists only tables that exist <em>today</em>. <code>orchestrator.runs</code>, <code>orchestrator.run_steps</code>, and the 5 <code>analytics.*</code> tables get added back in commits 2 and 4 as their schemas land. If TRUNCATE references a missing table, the whole statement aborts.
+    </div>
+  </li>
+  <li>
+    <span class="step-title">Step 1.1.2 — Barrel file</span>
+<pre>// packages/shared/src/test-helpers/index.ts
+export { truncatePg, closeTruncatePg } from "./truncate-pg.js";</pre>
+  </li>
+  <li>
+    <span class="step-title">Step 1.1.3 — Wire exports in packages/shared/package.json</span>
+    <p>Add to <code>dependencies</code>: <code>"postgres": "^3.4.5"</code>. Add to <code>exports</code>:</p>
+<pre>"./test-helpers": {
+  "types": "./dist/test-helpers/index.d.ts",
+  "import": "./dist/test-helpers/index.js"
+}</pre>
+  </li>
+  <li>
+    <span class="step-title">Step 1.1.4 — Install + build + smoke</span>
+<pre class="bash"><span class="prompt">$</span> pnpm install
+<span class="prompt">$</span> pnpm --filter @engineerdad/shared build
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test \
+    node -e "import('@engineerdad/shared/test-helpers').then(m =&gt; m.truncatePg().then(() =&gt; m.closeTruncatePg()).then(() =&gt; console.log('OK')))"</pre>
+    <p class="expected"><strong>Expected:</strong> <code>OK</code> printed.</p>
+  </li>
+</ul>
+
+<h3><span class="task-num">1.2</span> Migrate store tests off local <code>truncateAll</code></h3>
+<div class="files">
+<strong>Files:</strong>
+<ul class="file-list">
+  <li>Modify: <code>packages/store/src/{crud,compliance,filters}.test.ts</code></li>
+  <li>Modify: <code>packages/store/package.json</code> (add <code>@engineerdad/shared</code> if absent)</li>
+</ul>
+</div>
+<p>Replace each file's local <code>truncateAll</code> + <code>beforeEach</code> block with the shared helper:</p>
+<pre>import { describe, it, expect, beforeEach, afterAll } from "vitest";
+import { db } from "./db.js";
+import { makeCrud } from "./crud.js";
+import { truncatePg, closeTruncatePg } from "@engineerdad/shared/test-helpers";
+
+beforeEach(async () =&gt; { await truncatePg(); });
+afterAll(async () =&gt; { await closeTruncatePg(); });</pre>
+<pre class="bash"><span class="prompt">$</span> pnpm --filter @engineerdad/store test 2&gt;&amp;1 | tail -10</pre>
+
+<h3><span class="task-num">1.3</span> Migrate orchestrator-postgres test off owned-id cleanup</h3>
+<div class="files">
+<strong>Files:</strong>
+<ul class="file-list"><li>Modify: <code>packages/orchestrator/src/postgres.test.ts</code></li></ul>
+</div>
+<p>Delete <code>OWNED_RUN_IDS</code>, <code>admin</code>, <code>cleanOwned()</code>. Replace setup with:</p>
+<pre>import { describe, it, expect, beforeEach, afterAll } from "vitest";
+import {
+  writeStepResult, loadPayload, closePostgres,
+  StepResultNotFoundError, getOrchestratorSql,
+} from "./postgres.js";
+import { truncatePg, closeTruncatePg } from "@engineerdad/shared/test-helpers";
+
+beforeEach(async () =&gt; { await truncatePg(); });
+afterAll(async () =&gt; { await closeTruncatePg(); await closePostgres(); });</pre>
+<pre class="bash"><span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test \
+    pnpm vitest run packages/orchestrator/src/postgres.test.ts 2&gt;&amp;1 | tail -10</pre>
+
+<h3><span class="task-num">1.4</span> Flip root vitest to serial</h3>
+<div class="files"><strong>Files:</strong> Modify <code>vitest.config.ts</code></div>
+<pre>import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    globals: false,
+    environment: "node",
+    include: ["**/*.{test,spec}.{ts,mjs}"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/tests/e2e/**"],
+    passWithNoTests: true,
+    pool: "forks",
+    // E-034: truncate-all tests require serial execution across the whole suite.
+    poolOptions: { forks: { singleFork: true } },
+    sequence: { concurrent: false },
+    server: { deps: { external: ["node:sqlite", /^node:/] } }, // removed in commit 7
+  },
+});</pre>
+<pre class="bash"><span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -10</pre>
+<p class="expected"><strong>Expected:</strong> same pass/fail counts as baseline. Wall-clock ~17-20s (was ~14s).</p>
+
+<h3><span class="task-num">1.5</span> Commit</h3>
+<pre class="bash"><span class="prompt">$</span> git add packages/shared packages/store/src/{crud,compliance,filters}.test.ts \
+        packages/orchestrator/src/postgres.test.ts \
+        packages/orchestrator/package.json vitest.config.ts pnpm-lock.yaml
+<span class="prompt">$</span> git commit -m "chore(test): introduce truncate-pg helper; migrate existing PG tests"</pre>
+
+<h2 id="commit-2"><span class="num">2.</span> Commit 2 <span class="tag">orchestrator schema</span></h2>
+
+<p>Add <code>schema.ts</code> + <code>db.ts</code>. Port <code>step_results</code> from raw SQL to Drizzle. Delete the two PG migration files. <code>state.ts</code> still on SQLite.</p>
+
+<h3><span class="task-num">2.1</span> Add Drizzle deps</h3>
+<div class="files"><strong>Files:</strong> Modify <code>packages/orchestrator/package.json</code></div>
+<pre>"dependencies": { "drizzle-orm": "^0.36.0", ...existing... },
+"devDependencies": { "drizzle-kit": "^0.28.0" }
+"scripts": { "push": "drizzle-kit push", "db:push": "drizzle-kit push", ... }</pre>
+<pre class="bash"><span class="prompt">$</span> pnpm install</pre>
+
+<h3><span class="task-num">2.2</span> Author the schema</h3>
+<div class="files"><strong>Files:</strong> Create <code>packages/orchestrator/src/schema.ts</code></div>
+<pre>import {
+  pgSchema, text, integer, jsonb, timestamp, uniqueIndex, index, primaryKey,
+} from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+export const orchestratorSchema = pgSchema("orchestrator");
+
+export const runs = orchestratorSchema.table("runs", {
+  id: text("id").primaryKey(),
+  stage: text("stage").notNull(),
+  status: text("status").notNull(),
+  params: jsonb("params"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const runSteps = orchestratorSchema.table(
+  "run_steps",
+  {
+    runId: text("run_id").notNull().references(() =&gt; runs.id, { onDelete: "cascade" }),
+    stepId: text("step_id").notNull(),
+    stage: text("stage").notNull(),
+    status: text("status").notNull(),
+    result: jsonb("result"),
+    problems: jsonb("problems").$type&lt;string[]&gt;().notNull().default(sql`'[]'::jsonb`),
+    attempts: integer("attempts").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) =&gt; ({
+    pk: primaryKey({ columns: [t.runId, t.stepId] }),
+    runIdx: index("run_steps_run_idx").on(t.runId),
+  }),
+);
+
+export const stepResults = orchestratorSchema.table(
+  "step_results",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    stepId: text("step_id").notNull(),
+    unitIndex: integer("unit_index"),
+    payload: jsonb("payload").notNull(),
+    payloadKind: text("payload_kind"),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) =&gt; ({
+    runStepIdx: index("step_results_run_step_idx").on(t.runId, t.stepId),
+    inputIdempotency: uniqueIndex("step_results_input_idempotency_idx")
+      .on(t.runId, t.stepId, t.unitIndex, t.payloadKind)
+      .where(sql`${t.payloadKind} IS NOT NULL`),
+  }),
+);</pre>
+
+<h3><span class="task-num">2.3</span> Add Drizzle client</h3>
+<div class="files"><strong>Files:</strong> Create <code>packages/orchestrator/src/db.ts</code></div>
+<pre>import postgres from "postgres";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import * as schema from "./schema.js";
+
+let cachedClient: ReturnType&lt;typeof postgres&gt; | undefined;
+let cachedDb: PostgresJsDatabase&lt;typeof schema&gt; | undefined;
+
+function url(): string {
+  const u = process.env.DATABASE_URL;
+  if (!u) throw new Error("DATABASE_URL not set; @engineerdad/orchestrator requires Postgres.");
+  return u;
+}
+
+export function getDb(): PostgresJsDatabase&lt;typeof schema&gt; {
+  if (cachedDb) return cachedDb;
+  cachedClient = postgres(url(), { max: 5 });
+  cachedDb = drizzle(cachedClient, { schema });
+  return cachedDb;
+}
+
+export function getSql(): ReturnType&lt;typeof postgres&gt; {
+  if (!cachedClient) getDb();
+  return cachedClient!;
+}
+
+export async function closeDb(): Promise&lt;void&gt; {
+  if (cachedClient) await cachedClient.end({ timeout: 5 });
+  cachedClient = undefined;
+  cachedDb = undefined;
+}
+
+export function resetDbCache(): void {
+  cachedClient = undefined;
+  cachedDb = undefined;
+}</pre>
+
+<h3><span class="task-num">2.4</span> drizzle-kit config</h3>
+<div class="files"><strong>Files:</strong> Create <code>packages/orchestrator/drizzle.config.ts</code></div>
+<pre>import { defineConfig } from "drizzle-kit";
+const DATABASE_URL = process.env.DATABASE_URL
+  ?? "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+export default defineConfig({
+  schema: "./src/schema.ts",
+  dialect: "postgresql",
+  schemaFilter: ["orchestrator"],
+  dbCredentials: { url: DATABASE_URL },
+});</pre>
+
+<h3><span class="task-num">2.5</span> Repoint postgres.ts at shared client</h3>
+<p>In <code>packages/orchestrator/src/postgres.ts</code>, delete the standalone <code>let cached: Sql</code> + <code>client()</code>. Replace with:</p>
+<pre>import { getSql, closeDb } from "./db.js";
+function client() { return getSql(); }
+export async function closePostgres(): Promise&lt;void&gt; { await closeDb(); }</pre>
+<pre class="bash"><span class="prompt">$</span> pnpm --filter @engineerdad/orchestrator build</pre>
+
+<h3><span class="task-num">2.6</span> Push schema to both DBs</h3>
+<pre class="bash"><span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad \
+    -c "DROP SCHEMA IF EXISTS orchestrator CASCADE;"
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad_test \
+    -c "DROP SCHEMA IF EXISTS orchestrator CASCADE;"
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad \
+    pnpm --filter @engineerdad/orchestrator db:push
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test \
+    pnpm --filter @engineerdad/orchestrator db:push
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad_test -c "\dt orchestrator.*"</pre>
+<p class="expected"><strong>Expected:</strong> three tables — <code>runs</code>, <code>run_steps</code>, <code>step_results</code>.</p>
+
+<h3><span class="task-num">2.7</span> Expand truncate-pg to include orchestrator tables</h3>
+<p>Add three lines to the TRUNCATE in <code>truncate-pg.ts</code>: <code>orchestrator.runs, orchestrator.run_steps, orchestrator.step_results</code>. Rebuild shared.</p>
+
+<h3><span class="task-num">2.8</span> Delete the PG migration files</h3>
+<pre class="bash"><span class="prompt">$</span> git rm packages/orchestrator/src/migrations/postgres/001_step_results.sql
+<span class="prompt">$</span> git rm packages/orchestrator/src/migrations/postgres/002_input_refs.sql
+<span class="prompt">$</span> rmdir packages/orchestrator/src/migrations/postgres 2&gt;/dev/null || true</pre>
+<div class="callout warn">
+Keep <code>001_orchestrator.sql</code> (the SQLite migration) — <code>state.ts</code> still imports it for the SQLite migration apply. Deleted in commit 3 when <code>state.ts</code> is ported.
+</div>
+
+<h3><span class="task-num">2.9</span> Build + test + commit</h3>
+<pre class="bash"><span class="prompt">$</span> pnpm -r build
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -10
+<span class="prompt">$</span> git add packages/orchestrator/{src/schema.ts,src/db.ts,src/postgres.ts,drizzle.config.ts,package.json} \
+            packages/shared/src/test-helpers/truncate-pg.ts pnpm-lock.yaml
+<span class="prompt">$</span> git commit -m "feat(orchestrator): drizzle schema for runs/run_steps + port step_results"</pre>
+
+<h2 id="commit-3"><span class="num">3.</span> Commit 3 <span class="tag">port state.ts</span></h2>
+
+<p>Gut <code>state.ts</code>, async-ify the public API, propagate <code>await</code> through engine/webapp/MCP callers. Delete the SQLite migration.</p>
+
+<div class="callout bad">
+<span class="tag">API SHAPE CHANGE:</span> All five state functions become <code>async</code>. <code>createRun</code>, <code>upsertStep</code>, <code>setRunStage</code> return <code>Promise&lt;void&gt;</code>. <code>loadRunState</code> returns <code>Promise&lt;RunState | null&gt;</code>. <code>listRuns</code> returns <code>Promise&lt;RunSummary[]&gt;</code>. Every caller needs <code>await</code>. TypeScript surfaces every miss at build time.
+</div>
+
+<h3><span class="task-num">3.1</span> Rewrite state.ts</h3>
+<div class="files">
+<strong>Files:</strong>
+<ul class="file-list">
+  <li>Modify: <code>packages/orchestrator/src/state.ts</code> (full rewrite)</li>
+  <li>Delete: <code>packages/orchestrator/src/migrations/001_orchestrator.sql</code></li>
+  <li>Modify: <code>packages/orchestrator/package.json</code> (drop migrations cpSync)</li>
+</ul>
+</div>
+<pre>import { eq, sql } from "drizzle-orm";
+import { getDb, closeDb, resetDbCache as resetClientCache } from "./db.js";
+import { runs, runSteps } from "./schema.js";
+import type {
+  RunStage, RunStatus, RunState, RunStepState, StepStatus,
+} from "./types.js";
+
+export function resetDbCache(): void { resetClientCache(); }
+
+export async function createRun(
+  runId: string, stage: RunStage, params: Record&lt;string, unknown&gt;,
+): Promise&lt;void&gt; {
+  await getDb().insert(runs).values({ id: runId, stage, status: "active", params });
+}
+
+export async function loadRunState(runId: string): Promise&lt;RunState | null&gt; {
+  const db = getDb();
+  const runRow = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
+  if (runRow.length === 0) return null;
+  const stepRows = await db.select().from(runSteps).where(eq(runSteps.runId, runId))
+    .orderBy(runSteps.updatedAt);
+  const steps: RunStepState[] = stepRows.map((r) =&gt; ({
+    stepId: r.stepId, stage: r.stage, status: r.status as StepStatus,
+    result: r.result ?? null, problems: (r.problems ?? []) as string[], attempts: r.attempts,
+  }));
+  return {
+    runId: runRow[0].id,
+    stage: runRow[0].stage as RunStage,
+    status: runRow[0].status as RunStatus,
+    params: (runRow[0].params ?? {}) as Record&lt;string, unknown&gt;,
+    steps,
+  };
+}
+
+export async function upsertStep(runId: string, step: RunStepState): Promise&lt;void&gt; {
+  await getDb().insert(runSteps).values({
+    runId, stepId: step.stepId, stage: step.stage, status: step.status,
+    result: step.result ?? null, problems: step.problems as string[], attempts: step.attempts,
+  }).onConflictDoUpdate({
+    target: [runSteps.runId, runSteps.stepId],
+    set: {
+      stage: step.stage, status: step.status, result: step.result ?? null,
+      problems: step.problems as string[], attempts: step.attempts, updatedAt: sql`now()`,
+    },
+  });
+}
+
+export async function setRunStage(
+  runId: string, stage: RunStage, status: RunStatus,
+): Promise&lt;void&gt; {
+  await getDb().update(runs).set({ stage, status, updatedAt: sql`now()` })
+    .where(eq(runs.id, runId));
+}
+
+export interface RunSummary {
+  runId: string; stage: RunStage; status: RunStatus;
+  stepCount: number; createdAt: number; updatedAt: number;
+}
+
+export async function listRuns(): Promise&lt;RunSummary[]&gt; {
+  const rows = await getDb().execute(sql`
+    SELECT r.id, r.stage, r.status, r.created_at, r.updated_at,
+           (SELECT COUNT(*) FROM orchestrator.run_steps s WHERE s.run_id = r.id) AS step_count
+    FROM orchestrator.runs r
+    ORDER BY r.created_at DESC
+  `);
+  return (rows as unknown as Array&lt;{
+    id: string; stage: string; status: string;
+    created_at: Date; updated_at: Date; step_count: string;
+  }&gt;).map((r) =&gt; ({
+    runId: r.id, stage: r.stage as RunStage, status: r.status as RunStatus,
+    stepCount: Number(r.step_count),
+    createdAt: r.created_at.getTime(), updatedAt: r.updated_at.getTime(),
+  }));
+}
+
+export { closeDb };</pre>
+
+<h3><span class="task-num">3.2</span> Find + await every caller</h3>
+<pre class="bash"><span class="prompt">$</span> rg -n "createRun\(|loadRunState\(|upsertStep\(|setRunStage\(|listRuns\(" --type ts \
+      packages mcp-servers apps</pre>
+<p>For each match in an async function, prefix with <code>await</code>. Sync callers become async, propagating upward. Build until clean:</p>
+<pre class="bash"><span class="prompt">$</span> pnpm --filter @engineerdad/orchestrator build 2&gt;&amp;1 | tail -30</pre>
+
+<h3><span class="task-num">3.3</span> Migrate the 5 test files (state, engine ×3, postgres)</h3>
+<p>For each: replace the temp-SQLite setup (<code>getDb(tempPath)</code>, <code>resetDbCache</code>) with:</p>
+<pre>import { beforeEach, afterAll } from "vitest";
+import { truncatePg, closeTruncatePg } from "@engineerdad/shared/test-helpers";
+import { closeDb } from "./db.js";
+
+beforeEach(async () =&gt; { await truncatePg(); });
+afterAll(async () =&gt; { await closeTruncatePg(); await closeDb(); });</pre>
+<p>Convert any <code>db.prepare(...).run(...)</code> seeders to use the public API (<code>createRun</code>, <code>upsertStep</code>). Async-ify test bodies that need <code>await</code>.</p>
+
+<h3><span class="task-num">3.4</span> Switch the webapp orchestrator lib</h3>
+<div class="files"><strong>Files:</strong> Modify <code>apps/webapp/src/app/lib/orchestrator.ts</code></div>
+<p>Drop <code>getDb</code>, <code>DEFAULT_DB_PATH</code> from imports; delete the <code>ensureDbPrimed()</code> function and all call sites. The lib reads through <code>loadRunState</code> / <code>listRuns</code> from the package.</p>
+<pre class="bash"><span class="prompt">$</span> rg "node:sqlite|DEFAULT_DB_PATH|engineerdad\.sqlite|ENGINEERDAD_SQLITE_DB" apps/webapp</pre>
+<p>Address each hit.</p>
+<pre class="bash"><span class="prompt">$</span> pnpm --filter webapp build 2&gt;&amp;1 | tail -15
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm --filter webapp dev &amp;
+<span class="prompt">$</span> sleep 4 &amp;&amp; curl -s http://localhost:3030/status | head -50 &amp;&amp; kill %1</pre>
+
+<h3><span class="task-num">3.5</span> Migrate MCP server tests</h3>
+<p>Same truncate-pg setup for <code>mcp-servers/orchestrator/src/{integration,eager,resolve}.test.ts</code>.</p>
+
+<h3><span class="task-num">3.6</span> Delete SQLite migration + cpSync</h3>
+<pre class="bash"><span class="prompt">$</span> git rm packages/orchestrator/src/migrations/001_orchestrator.sql
+<span class="prompt">$</span> rmdir packages/orchestrator/src/migrations 2&gt;/dev/null || true</pre>
+<p>Simplify build script to <code>"build": "tsc -p tsconfig.json"</code>.</p>
+
+<h3><span class="task-num">3.7</span> Build + test + commit</h3>
+<pre class="bash"><span class="prompt">$</span> pnpm -r build &amp;&amp; \
+    DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -8
+<span class="prompt">$</span> git add packages/orchestrator apps/webapp mcp-servers/orchestrator
+<span class="prompt">$</span> git commit -m "feat(orchestrator): port state.ts to postgres; switch webapp + MCP lib"</pre>
+
+<h2 id="commit-4"><span class="num">4.</span> Commit 4 <span class="tag">analytics schema</span></h2>
+
+<p>Schema-only. Adds <code>analytics/src/schema.ts</code> + drizzle config + creates the PG schema. Call sites stay on SQLite.</p>
+
+<h3><span class="task-num">4.1</span> Deps</h3>
+<pre>// packages/analytics/package.json
+"dependencies": {
+  "@engineerdad/shared": "workspace:*",
+  "drizzle-orm": "^0.36.0",
+  "postgres": "^3.4.5",
+  "zod": "^3.23.8"
+},
+"devDependencies": { "drizzle-kit": "^0.28.0" },
+"scripts": { ..., "push": "drizzle-kit push", "db:push": "drizzle-kit push" }</pre>
+
+<h3><span class="task-num">4.2</span> Author schema</h3>
+<div class="files"><strong>Files:</strong> Create <code>packages/analytics/src/schema.ts</code></div>
+<pre>import {
+  pgSchema, text, integer, real, jsonb, bigint, bigserial,
+  primaryKey, uniqueIndex, index,
+} from "drizzle-orm/pg-core";
+
+export const analyticsSchema = pgSchema("analytics");
+
+export const metaInsights = analyticsSchema.table("meta_insights", {
+  date: text("date").notNull(),
+  adId: text("ad_id").notNull(),
+  adsetId: text("adset_id"),
+  campaignId: text("campaign_id"),
+  spend: real("spend"),
+  impressions: integer("impressions"),
+  clicks: integer("clicks"),
+  ctr: real("ctr"),
+  cpm: real("cpm"),
+  leads: integer("leads"),
+  purchases: integer("purchases"),
+  value: real("value"),
+  avgWatchSec: real("avg_watch_sec"),
+  rawJson: jsonb("raw_json"),
+}, (t) =&gt; ({
+  pk: primaryKey({ columns: [t.date, t.adId] }),
+  adIdx: index("meta_insights_ad_idx").on(t.adId),
+  dateIdx: index("meta_insights_date_idx").on(t.date),
+}));
+
+export const creatives = analyticsSchema.table("creatives", {
+  adId: text("ad_id").primaryKey(),
+  name: text("name"),
+  hook: text("hook"),
+  angle: text("angle"),
+  persona: text("persona"),
+  format: text("format"),
+  language: text("language"),
+  briefPageId: text("brief_page_id"),
+  variantPageId: text("variant_page_id"),
+  launchedAt: text("launched_at"),
+});
+
+export const events = analyticsSchema.table("events", {
+  id: text("id").primaryKey(),
+  ts: bigint("ts", { mode: "number" }).notNull(),
+  eventName: text("event_name").notNull(),
+  source: text("source"),
+  payloadJson: jsonb("payload_json"),
+}, (t) =&gt; ({
+  tsIdx: index("events_ts_idx").on(t.ts),
+  nameIdx: index("events_name_idx").on(t.eventName),
+}));
+
+export const angleTags = analyticsSchema.table("angle_tags", {
+  adId: text("ad_id").notNull(),
+  tagKind: text("tag_kind").notNull(),
+  tagValue: text("tag_value").notNull(),
+}, (t) =&gt; ({
+  pk: primaryKey({ columns: [t.adId, t.tagKind, t.tagValue] }),
+  kindIdx: index("angle_tags_kind_idx").on(t.tagKind, t.tagValue),
+}));
+
+export const creativeSignals = analyticsSchema.table("creative_signals", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  variantId: text("variant_id").notNull(),
+  channel: text("channel").notNull(),
+  platform: text("platform"),
+  kpiName: text("kpi_name").notNull(),
+  kpiValue: real("kpi_value").notNull(),
+  ts: bigint("ts", { mode: "number" }).notNull(),
+  source: text("source").notNull(),
+}, (t) =&gt; ({
+  unique: uniqueIndex("creative_signals_dedup_idx")
+    .on(t.variantId, t.channel, t.platform, t.kpiName, t.ts),
+  variantIdx: index("creative_signals_variant_idx").on(t.variantId),
+  channelTsIdx: index("creative_signals_channel_ts_idx").on(t.channel, t.ts),
+}));</pre>
+
+<h3><span class="task-num">4.3</span> drizzle-kit config</h3>
+<pre>// packages/analytics/drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+const DATABASE_URL = process.env.DATABASE_URL
+  ?? "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+export default defineConfig({
+  schema: "./src/schema.ts",
+  dialect: "postgresql",
+  schemaFilter: ["analytics"],
+  dbCredentials: { url: DATABASE_URL },
+});</pre>
+
+<h3><span class="task-num">4.4</span> Push to both DBs</h3>
+<pre class="bash"><span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad \
+    pnpm --filter @engineerdad/analytics db:push
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test \
+    pnpm --filter @engineerdad/analytics db:push
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad_test -c "\dt analytics.*"</pre>
+<p class="expected"><strong>Expected:</strong> 5 tables.</p>
+
+<h3><span class="task-num">4.5</span> Expand truncate-pg</h3>
+<p>Add 5 lines to TRUNCATE: <code>analytics.meta_insights, analytics.creatives, analytics.events, analytics.angle_tags, analytics.creative_signals</code>. Rebuild shared.</p>
+
+<h3><span class="task-num">4.6</span> Test + commit</h3>
+<pre class="bash"><span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -8
+<span class="prompt">$</span> git add packages/analytics/{src/schema.ts,drizzle.config.ts,package.json} \
+            packages/shared/src/test-helpers/truncate-pg.ts pnpm-lock.yaml
+<span class="prompt">$</span> git commit -m "feat(analytics): drizzle schema for events/meta_insights/creatives/angle_tags/signals"</pre>
+
+<h2 id="commit-5"><span class="num">5.</span> Commit 5 <span class="tag">analytics call sites</span></h2>
+
+<p>Gut <code>analytics/db.ts</code>; rewrite 7 call-site files to Drizzle / <code>sql``</code>; migrate tests; delete SQLite migration.</p>
+
+<div class="callout new">
+<span class="tag">Decision rule:</span> Default to Drizzle for simple <code>SELECT col FROM t WHERE col = ?</code> / single-table inserts. Use <code>sql``</code> for: multi-table aggregations, window functions, time-window arithmetic, the bandit posterior math. <em>If the SQL is the spec, keep it literal.</em>
+</div>
+
+<h3><span class="task-num">5.1</span> Rewrite db.ts</h3>
+<div class="files"><strong>Files:</strong> Modify <code>packages/analytics/src/db.ts</code></div>
+<pre>import postgres from "postgres";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import * as schema from "./schema.js";
+
+let cachedClient: ReturnType&lt;typeof postgres&gt; | undefined;
+let cachedDb: PostgresJsDatabase&lt;typeof schema&gt; | undefined;
+
+function url(): string {
+  const u = process.env.DATABASE_URL;
+  if (!u) throw new Error("DATABASE_URL not set; @engineerdad/analytics requires Postgres.");
+  return u;
+}
+
+export function getDb(): PostgresJsDatabase&lt;typeof schema&gt; {
+  if (cachedDb) return cachedDb;
+  cachedClient = postgres(url(), { max: 5 });
+  cachedDb = drizzle(cachedClient, { schema });
+  return cachedDb;
+}
+
+export function getSql(): ReturnType&lt;typeof postgres&gt; {
+  if (!cachedClient) getDb();
+  return cachedClient!;
+}
+
+export async function closeDb(): Promise&lt;void&gt; {
+  if (cachedClient) await cachedClient.end({ timeout: 5 });
+  cachedClient = undefined;
+  cachedDb = undefined;
+}
+
+export function resetDbCache(): void {
+  cachedClient = undefined;
+  cachedDb = undefined;
+}</pre>
+<p>In <code>src/index.ts</code> replace <code>export { getDb, resetDbCache, DEFAULT_DB_PATH }</code> with <code>export { getDb, getSql, resetDbCache, closeDb }</code>.</p>
+
+<h3><span class="task-num">5.2</span> Rewrite call-site files</h3>
+<p>For each of <code>bandit.ts</code>, <code>tools.ts</code> (<code>ingestMetaInsights</code>, <code>costPerAngle</code>, <code>decayCurve</code>, <code>topCreatives</code>, <code>engagementPerAngle</code>, <code>upsertCreative</code>, <code>logEvent</code>), <code>ingest-meta-organic.ts</code>, <code>creative-signals.ts</code>:</p>
+
+<ol>
+  <li>Replace every <code>const db = getDb(); db.prepare(...).all/get/run(...)</code> with <code>const db = getDb(); await db.execute(sql\`...\`)</code> or Drizzle query builder where appropriate.</li>
+  <li>Qualify all table names with their schema: <code>meta_insights</code> → <code>analytics.meta_insights</code>, etc.</li>
+  <li>Mark the enclosing function <code>async</code>; return <code>Promise&lt;...&gt;</code>.</li>
+</ol>
+
+<p>Example — bandit insert/upsert:</p>
+<pre>import { sql } from "drizzle-orm";
+import { getDb } from "./db.js";
+import { creatives } from "./schema.js";
+
+export async function upsertCreative(c: Creative): Promise&lt;void&gt; {
+  await getDb().insert(creatives).values(c).onConflictDoUpdate({
+    target: creatives.adId,
+    set: { name: c.name, hook: c.hook, angle: c.angle, /* ... */ },
+  });
+}</pre>
+
+<p>Example — analytics math kept literal:</p>
+<pre>export async function decayCurve(args: DecayCurveInput): Promise&lt;DecayCurveOutput&gt; {
+  const rows = await getDb().execute(sql`
+    SELECT date, SUM(spend) AS spend, SUM(leads) AS leads
+    FROM analytics.meta_insights
+    WHERE ad_id = ANY(${args.ad_ids})
+      AND date &gt;= ${args.window_start}
+    GROUP BY date
+    ORDER BY date
+  `);
+  return /* shape unchanged */;
+}</pre>
+
+<h3><span class="task-num">5.3</span> Cascade await through callers</h3>
+<pre class="bash"><span class="prompt">$</span> rg -n "ingestMetaInsights\(|banditAllocate\(|banditUpdate\(|costPerAngle\(|decayCurve\(|topCreatives\(|engagementPerAngle\(|upsertCreative\(|logEvent\(|ingestMetaOrganicInsights\(" \
+      --type ts packages mcp-servers apps</pre>
+<p>Prefix each call with <code>await</code>; propagate <code>async</code> upward.</p>
+<pre class="bash"><span class="prompt">$</span> pnpm -r build 2&gt;&amp;1 | tail -10</pre>
+
+<h3><span class="task-num">5.4</span> Migrate analytics tests</h3>
+<p>For <code>bandit.test.ts</code>, <code>__tests__/ingest-meta-organic.test.ts</code>, <code>__tests__/creative-signals.test.ts</code> — same setup block; seed via Drizzle <code>.insert(metaInsights).values(...)</code> instead of <code>db.prepare("INSERT...").run(...)</code>. Async-ify test bodies.</p>
+
+<h3><span class="task-num">5.5</span> Delete SQLite migration + commit</h3>
+<pre class="bash"><span class="prompt">$</span> git rm packages/analytics/src/migrations/001_init.sql
+<span class="prompt">$</span> rmdir packages/analytics/src/migrations 2&gt;/dev/null || true
+<span class="prompt">$</span> # also simplify build script: "build": "tsc -p tsconfig.json"
+<span class="prompt">$</span> pnpm -r build &amp;&amp; \
+    DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -10
+<span class="prompt">$</span> git add packages/analytics packages/orchestrator mcp-servers
+<span class="prompt">$</span> git commit -m "feat(analytics): port db.ts + ingest + bandit + signals to postgres"</pre>
+
+<h2 id="commit-6"><span class="num">6.</span> Commit 6 <span class="tag">experiment readout</span></h2>
+
+<h3><span class="task-num">6.1</span> Gut experiment/db.ts</h3>
+<div class="files"><strong>Files:</strong> Modify <code>packages/experiment/src/db.ts</code>, add workspace dep</div>
+<pre>// packages/experiment/src/db.ts
+import { getDb, getSql, closeDb } from "@engineerdad/analytics";
+export { getDb, getSql, closeDb };
+export function resetExperimentDbCache(): void { /* no-op */ }</pre>
+<p>Add to <code>packages/experiment/package.json</code>: <code>"@engineerdad/analytics": "workspace:*"</code>. Run <code>pnpm install</code>.</p>
+
+<h3><span class="task-num">6.2</span> Rewrite readout.ts</h3>
+<pre>import { sql } from "drizzle-orm";
+import { getDb } from "./db.js";
+
+export async function readout(experimentId: string): Promise&lt;ReadoutResult&gt; {
+  const db = getDb();
+  const rows = await db.execute(sql`
+    SELECT variant_id, kpi_name, AVG(kpi_value) AS mean_value, COUNT(*) AS n
+    FROM analytics.creative_signals
+    WHERE variant_id IN (...)
+    GROUP BY variant_id, kpi_name
+  `);
+  /* rest of math */
+}</pre>
+
+<h3><span class="task-num">6.3</span> Migrate readout.test.ts</h3>
+<p>Standard truncate-pg setup; seed via <code>sql`INSERT INTO analytics.creative_signals ...`</code> or import <code>creativeSignals</code> from analytics if it's re-exported.</p>
+
+<h3><span class="task-num">6.4</span> Update experiment MCP server</h3>
+<pre class="bash"><span class="prompt">$</span> grep -n "node:sqlite\|DEFAULT_DB_PATH\|engineerdad\.sqlite" mcp-servers/experiment/src/index.ts</pre>
+<p>Remove SQLite path-resolution code; the MCP server imports from <code>@engineerdad/experiment</code> only.</p>
+
+<h3><span class="task-num">6.5</span> Build + test + commit</h3>
+<pre class="bash"><span class="prompt">$</span> pnpm -r build &amp;&amp; \
+    DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test 2&gt;&amp;1 | tail -10
+<span class="prompt">$</span> git add packages/experiment mcp-servers/experiment pnpm-lock.yaml
+<span class="prompt">$</span> git commit -m "feat(experiment): port readout reader to postgres analytics schema"</pre>
+
+<h2 id="commit-7"><span class="num">7.</span> Commit 7 <span class="tag">cleanup + ADR</span></h2>
+
+<h3><span class="task-num">7.1</span> Drop node:sqlite vitest external</h3>
+<p>In <code>vitest.config.ts</code>, delete the entire <code>server: { deps: { external: ... } }</code> block.</p>
+
+<h3><span class="task-num">7.2</span> Delete data/ SQLite files</h3>
+<pre class="bash"><span class="prompt">$</span> rm -f data/engineerdad.sqlite data/engineerdad.sqlite-shm data/engineerdad.sqlite-wal</pre>
+<p>(<code>data/assets/</code>, <code>data/snapshots/</code>, <code>data/postgres/</code>, <code>data/notion-ids.json</code> untouched.)</p>
+
+<h3><span class="task-num">7.3</span> Clean .gitignore</h3>
+<p>Remove three lines added in commit <code>41c84d3</code>: <code>data/*.sqlite-shm</code>, <code>data/*.sqlite-wal</code>, <code>data/engineerdad-test.sqlite</code>. Remove their surrounding comments.</p>
+
+<h3><span class="task-num">7.4</span> Verify zero SQLite code references</h3>
+<pre class="bash"><span class="prompt">$</span> rg "node:sqlite|better-sqlite3" --type ts packages mcp-servers apps
+<span class="prompt">$</span> rg "DEFAULT_DB_PATH|engineerdad\.sqlite|ENGINEERDAD_SQLITE_DB" --type ts packages mcp-servers apps</pre>
+<p class="expected"><strong>Expected:</strong> zero matches each.</p>
+
+<h3><span class="task-num">7.5</span> Regenerate lockfile</h3>
+<pre class="bash"><span class="prompt">$</span> pnpm install
+<span class="prompt">$</span> grep -c "better-sqlite3" pnpm-lock.yaml</pre>
+<p class="expected"><strong>Expected:</strong> as low as practical (ideally 0; transitive leftovers acceptable).</p>
+
+<h3><span class="task-num">7.6</span> Root package.json db:push aggregate</h3>
+<pre>"db:push": "pnpm --filter @engineerdad/store push && pnpm --filter @engineerdad/orchestrator push && pnpm --filter @engineerdad/analytics push && DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm --filter @engineerdad/store push && DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm --filter @engineerdad/orchestrator push && DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm --filter @engineerdad/analytics push"</pre>
+<p>Delete old <code>store:push</code> and <code>orchestrator:push</code>.</p>
+
+<h3><span class="task-num">7.7</span> Update ARCHITECTURE.md / README.md / RESUME.md</h3>
+<pre class="bash"><span class="prompt">$</span> grep -n "sqlite\|SQLite" ARCHITECTURE.md README.md RESUME.md</pre>
+<p>Rewrite each hit. The three ARCHITECTURE.md lines (35, 104, 144) become Postgres-three-schema descriptions.</p>
+
+<h3><span class="task-num">7.8</span> Append "Superseded by E-034" footers</h3>
+<p>To ADR-008, ADR-021, ADR-022 — append a short footer linking forward to ADR-025. Don't rewrite the body.</p>
+
+<h3><span class="task-num">7.9</span> Write ADR-025</h3>
+<div class="files"><strong>Files:</strong> Create <code>docs/decisions/025-postgres-only.md</code></div>
+<p>Captures context (dual-substrate tax), decision (one DB, three schemas, Drizzle everywhere, truncate-pg helper, serial suite), consequences. Cross-references the spec + this plan.</p>
+
+<h3><span class="task-num">7.10</span> Close E-034 in TASKS.md</h3>
+
+<h3><span class="task-num">7.11</span> Final verification</h3>
+<pre class="bash"><span class="prompt">$</span> pnpm -r build
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm test
+<span class="prompt">$</span> pnpm sync:agents:check
+<span class="prompt">$</span> # Fresh-DB smoke:
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad_test \
+    -c "DROP SCHEMA IF EXISTS orchestrator CASCADE; DROP SCHEMA IF EXISTS analytics CASCADE;"
+<span class="prompt">$</span> DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test pnpm db:push
+<span class="prompt">$</span> docker exec -i engineerdad-postgres psql -U engineerdad -d engineerdad_test -c "\dn"</pre>
+<p class="expected"><strong>Expected:</strong> schemas <code>public</code>, <code>orchestrator</code>, <code>analytics</code> all present.</p>
+
+<h3><span class="task-num">7.12</span> Commit + branch hygiene</h3>
+<pre class="bash"><span class="prompt">$</span> git add vitest.config.ts .gitignore package.json pnpm-lock.yaml \
+            ARCHITECTURE.md README.md RESUME.md TASKS.md docs/decisions
+<span class="prompt">$</span> git commit -m "chore: delete sqlite plumbing, drop better-sqlite3, write ADR-025"
+<span class="prompt">$</span> git log --oneline main..HEAD
+<span class="prompt">$</span> git push -u origin e-034-sunset-sqlite</pre>
+<p class="expected"><strong>Expected:</strong> 8 commits ahead of <code>main</code> (1 spec + 7 implementation).</p>
+
+<h2><span class="num">C.</span> Done checklist</h2>
+<ul class="steps">
+  <li><span class="step-title"><code>rg "node:sqlite|better-sqlite3" --type ts packages mcp-servers apps</code> → 0 matches</span></li>
+  <li><span class="step-title"><code>rg -i "sqlite" ARCHITECTURE.md README.md RESUME.md</code> → 0 matches</span></li>
+  <li><span class="step-title"><code>data/engineerdad.sqlite{,-shm,-wal}</code> not present on disk</span></li>
+  <li><span class="step-title"><code>pnpm -r build</code> green</span></li>
+  <li><span class="step-title"><code>pnpm test</code> green, fully serial (wall-clock ~17-20s)</span></li>
+  <li><span class="step-title">Fresh <code>engineerdad_test</code> → <code>pnpm db:push</code> creates all three schemas</span></li>
+  <li><span class="step-title">Webapp boots; <code>/status</code> renders zero runs without error</span></li>
+  <li><span class="step-title"><code>docs/decisions/025-postgres-only.md</code> exists</span></li>
+  <li><span class="step-title"><code>TASKS.md</code> E-034 entry exists and is marked closed</span></li>
+  <li><span class="step-title">Branch <code>e-034-sunset-sqlite</code>: 8 commits ahead of <code>main</code></span></li>
+</ul>
+
+<h2><span class="num">D.</span> Notes for the implementing engineer</h2>
+<ul>
+  <li><strong>Sequence matters.</strong> Each commit assumes the previous landed.</li>
+  <li><strong>TS catches mistakes.</strong> If you forget <code>await</code> after async-ifying analytics, the build fails. Trust the build.</li>
+  <li><strong>Drizzle vs <code>sql``</code>.</strong> Drizzle for plumbing (CRUD); raw <code>sql``</code> for spec-bearing analytics math.</li>
+  <li><strong><code>sequence.concurrent: false</code> is global.</strong> Tests using <code>it.concurrent</code> will be overridden.</li>
+  <li><strong>No data migration.</strong> Back up <code>data/engineerdad.sqlite</code> if you care; the migration is one-way.</li>
+  <li><strong>Wall-clock impact:</strong> +4-6s on <code>pnpm test</code>. Bounded by static-renderer's 12s Playwright test.</li>
+</ul>
+
+<footer class="doc">
+  Plan written 2026-05-26 on branch <code>e-034-sunset-sqlite</code>. The .md twin (<code>docs/superpowers/plans/2026-05-26-e-034-sunset-sqlite.md</code>) is the canonical version for agentic execution — its checkbox syntax (<code>- [ ]</code>) is what subagent-driven-development / executing-plans consume.
+</footer>
+
+</div>
+</body>
+</html>

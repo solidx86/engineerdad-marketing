@@ -1,0 +1,32 @@
+# Start-age penalty — RM200/month at age 0, 5, 10, 15 → portfolio value at age 18
+# Source: corpus/courses/compounding-dca.md "What the same RM200/month does at different
+# start ages (8% assumption)" — the canonical Cost-of-Waiting table.
+# Used by media-production when a scene argues "time is the most valuable variable",
+# "the latency penalty", "every 5 years of delay roughly halves the result",
+# "the best time to start was yesterday", "I'll start later", or "when I'm more settled"
+# (objection myth d0-start-later).
+
+id: start-age-penalty
+title_en: "RM200/month, 8% return — portfolio value at age 18 by start age"
+title_ms: "RM200/sebulan, pulangan 8% — nilai portfolio pada usia 18 mengikut umur permulaan"
+chart_type: bar
+x_label_en: "Age started"
+x_label_ms: "Umur mula"
+y_label_en: "Value at age 18 (RM)"
+y_label_ms: "Nilai pada usia 18 (RM)"
+labels:
+  - "Age 0 (18y horizon)"
+  - "Age 5 (13y horizon)"
+  - "Age 10 (8y horizon)"
+  - "Age 15 (3y horizon)"
+series:
+  - name_en: "Portfolio value at age 18"
+    name_ms: "Nilai portfolio pada usia 18"
+    semantic_role: hero
+    values: [100000, 57000, 28000, 9000]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+callout_en: "Age 0 vs Age 15: ~11× more"
+callout_ms: "Usia 0 vs Usia 15: ~11× lebih"
+caption_en: "Same RM200/month. Same 8% return assumption. The only thing that changes is when you start. Starting at birth produces roughly 2× the result of starting at age 5, and ~11× the result of starting at age 15. This is the Latency Penalty — every year of delay is one year of compounding lost forever."
+caption_ms: "RM200/sebulan yang sama. Andaian pulangan 8% yang sama. Yang berubah hanyalah bila anda mula. Mula dari kelahiran menghasilkan kira-kira 2× keputusan mula pada usia 5, dan ~11× keputusan mula pada usia 15. Inilah Penalti Kelewatan — setiap tahun melengahkan ialah satu tahun berkompaun yang hilang selamanya."
+source_citation: "Figures from corpus/courses/compounding-dca.md (canonical 'RM200/month at different start ages' table; 8% annual return, monthly compounding, no initial deposit). Illustrative only — actual fund returns vary year to year. Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

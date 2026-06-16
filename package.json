@@ -1,0 +1,57 @@
+{
+  "name": "engineerdad-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.10.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r --parallel build",
+    "sync:agents": "node scripts/sync-agents.mjs",
+    "test:worker": "node scripts/test-static-worker.mjs",
+    "test:reel-frames": "node scripts/test-reel-frames.mjs",
+    "sync:agents:check": "node scripts/sync-agents.mjs --check",
+    "refresh:funds": "node scripts/refresh-funds-corpus.mjs",
+    "harvest:epf": "node scripts/harvest-epf-simulations.mjs",
+    "build:tables": "node scripts/build-derivative-tables.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "store:up": "docker compose up -d --wait postgres",
+    "store:down": "docker compose down",
+    "store:wipe": "docker compose down -v && rm -rf data/postgres/pgdata",
+    "db:sandbox": "node scripts/db-sandbox.mjs",
+    "db:snapshot": "node scripts/db-snapshot.mjs",
+    "db:sandbox:drop": "node scripts/db-sandbox-drop.mjs",
+    "db:generate": "pnpm --filter @engineerdad/store exec drizzle-kit generate && pnpm --filter @engineerdad/orchestrator exec drizzle-kit generate && pnpm --filter @engineerdad/analytics exec drizzle-kit generate",
+    "db:migrate": "pnpm --filter @engineerdad/store exec drizzle-kit migrate && pnpm --filter @engineerdad/orchestrator exec drizzle-kit migrate && pnpm --filter @engineerdad/analytics exec drizzle-kit migrate",
+    "lint:migrations": "node scripts/check-schema-migrations.mjs",
+    "store:logs": "docker compose logs -f postgres",
+    "review": "pnpm --filter @engineerdad/webapp dev",
+    "test:e2e": "pnpm --filter @engineerdad/webapp test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "exceljs": "^4.4.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.22.3",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "postgres": "^3.4.5"
+  }
+}

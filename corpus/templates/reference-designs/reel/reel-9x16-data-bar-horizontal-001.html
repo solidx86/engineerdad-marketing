@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#1B2B6B; --navy-dark:#111c45; --orange:#F07621; --teal:#00B4A6;
+    --offwhite:#F7F8FC; --warm-white:#FEFEFE; --text:#1a1a2e; --muted:#6b7280;
+    --font-head:'Playfair Display',Georgia,serif; --font-body:'Inter',system-ui,sans-serif;
+  }
+  * { font-variant-numeric: lining-nums tabular-nums; box-sizing: border-box; }
+  body { width:1080px; height:1920px; margin:0; overflow:hidden; position:relative;
+    font-family:var(--font-body); color:var(--text); background:var(--offwhite); }
+  .frame { position:absolute; top:280px; left:72px; right:130px; display:flex; flex-direction:column; }
+  .kicker { font-weight:600; font-size:38px; letter-spacing:2px; text-transform:uppercase; color:var(--orange); margin:0 0 16px; }
+  .headline { font-family:var(--font-head); font-weight:900; font-size:100px; line-height:1.05; color:var(--navy-dark); margin:0; }
+  .support { font-weight:500; font-size:40px; line-height:1.3; color:var(--text); margin:32px 0 0; }
+  .callout { align-self:flex-start; margin:32px 0 0; background:var(--navy-dark); color:var(--warm-white);
+    font-weight:600; font-size:38px; line-height:1.1; padding:18px 28px; border-radius:12px; border-left:8px solid var(--orange); }
+  .chart-wrapper { margin-top:40px; margin-bottom:48px; height:520px; position:relative; }
+  canvas { display:block; }
+  .source { font-weight:400; font-size:24px; line-height:1.35; color:var(--muted); margin:0; }
+  .logo-mark { position:absolute; bottom:24px; right:24px; z-index:100; pointer-events:none; }
+  .logo-text { font-family:var(--font-head); font-size:28px; font-weight:700; line-height:1; letter-spacing:-0.5px; }
+  .logo-text .engineer { color:var(--navy); } .logo-text .dad { color:var(--orange); }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <p class="kicker">Fee Drag</p>
+    <h1 class="headline">The fee you don't feel</h1>
+    <p class="support">Same RM300/month, same 6% return — only the annual fee changes.</p>
+    <div class="callout">2.0% vs 0.5%: ~3&times; more lost to fees</div>
+    <div class="chart-wrapper">
+      <canvas id="chart" width="878" height="520"></canvas>
+    </div>
+    <p class="source">Illustrative compound-cost math only — RM300/month contributed monthly over 30 years at 6% gross annual return; each value is the future value of the annuity at the gross rate minus the same annuity at the net-of-fee rate, rounded. Not a specific fund. Public Mutual fund fees and projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS).</p>
+  </div>
+  <div class="logo-mark"><div class="logo-text"><span class="engineer">Engineer</span><span class="dad">Dad</span></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    window.__chartsReady = false;
+    const tokens = { hero:'#F07621', comparison:'#1B2B6B', tick:'#6b7280', grid:'#e5e7f0' };
+    const cfg = {
+      type: 'bar',
+      data: {
+        labels: ['0.5% per year','1.0% per year','1.5% per year','2.0% per year'],
+        datasets: [{
+          label: 'Lost to fees over 30 years',
+          data: [27000, 52000, 74000, 93000],
+          backgroundColor: [tokens.comparison, tokens.comparison, tokens.comparison, tokens.hero],
+          borderRadius: 6, borderWidth: 0
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: false, animation: false, maintainAspectRatio: false,
+        layout: { padding: { top: 8, bottom: 8, left: 8, right: 24 } },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: {
+            title: { display: true, text: 'Lost to fees over 30 years (RM)', font: { family: "'Inter', sans-serif", size: 26, weight: '500' }, color: tokens.tick, padding: { top: 10 } },
+            ticks: { font: { family: "'Inter', sans-serif", size: 26 }, color: tokens.tick, stepSize: 20000, callback: (v) => 'RM' + (v/1000) + 'k' },
+            grid: { color: tokens.grid }, beginAtZero: true, max: 100000
+          },
+          y: {
+            title: { display: true, text: 'Annual fee', font: { family: "'Inter', sans-serif", size: 26, weight: '500' }, color: tokens.tick },
+            ticks: { font: { family: "'Inter', sans-serif", size: 28 }, color: tokens.tick },
+            grid: { display: false }
+          }
+        }
+      }
+    };
+    new Chart(document.getElementById('chart'), cfg);
+    setTimeout(() => { window.__chartsReady = true; }, 400);
+  </script>
+</body>
+</html>

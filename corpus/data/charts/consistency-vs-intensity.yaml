@@ -1,0 +1,27 @@
+# Consistency vs Intensity — RM200/mo for 18 years vs RM500/mo for 6 months
+# Source: corpus/courses/compounding-dca.md tactical-setup rule — "RM200/month that
+# runs for 18 years beats RM500/month that stops after 6". Also surfaces as one of the
+# four canonical "starter mistakes" in corpus/courses/content-recipes.md.
+# Used by media-production when scene argues "consistency beats intensity", "don't
+# start too aggressive", "pick a number you can sustain on an average month", or
+# "starter mistake #2".
+
+id: consistency-vs-intensity
+title_en: "RM200/mo for 18 years vs RM500/mo for 6 months (then stops)"
+title_ms: "RM200/sebulan selama 18 tahun vs RM500/sebulan selama 6 bulan (kemudian berhenti)"
+chart_type: bar
+x_label_en: "Contribution pattern"
+x_label_ms: "Corak sumbangan"
+y_label_en: "Value at year 18 (RM)"
+y_label_ms: "Nilai pada tahun ke-18 (RM)"
+labels:
+  - "RM200/mo × 18 years (RM43,200 contributed)"
+  - "RM500/mo × 6 months (RM3,000 contributed, sits for 17.5y)"
+series:
+  - name_en: "Projected value at year 18 (8% annual return)"
+    name_ms: "Nilai dianggar pada tahun ke-18 (pulangan tahunan 8%)"
+    semantic_role: hero
+    values: [96000, 12000]
+caption_en: "Both plans started enthusiastically. The first contributed RM43,200 in steady drips and compounded into RM96,000. The second contributed RM3,000 in a brief sprint, then stopped — even with 17.5 years of compounding, it ends at RM12,000. Time, not intensity, is what compounding rewards. Pick a number you can sustain on an average month, not your best one."
+caption_ms: "Kedua-dua pelan dimulakan dengan semangat. Yang pertama menyumbang RM43,200 dalam titisan tetap dan berkompaun menjadi RM96,000. Yang kedua menyumbang RM3,000 dalam pecutan singkat, kemudian berhenti — walaupun dengan 17.5 tahun berkompaun, ia berakhir pada RM12,000. Masa, bukan kesungguhan, yang dihargai oleh kompaun. Pilih jumlah yang anda boleh kekalkan pada bulan purata, bukan bulan terbaik anda."
+source_citation: "Both scenarios at 8% annual return, monthly compounding. Scenario A: RM200/month for 216 months. Scenario B: RM500/month for 6 months (~RM3,050 by month 6), then no further contributions, compounded for the remaining 210 months. Anchored to the tactical-setup rule in corpus/courses/compounding-dca.md. Illustrative — actual fund returns vary; Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

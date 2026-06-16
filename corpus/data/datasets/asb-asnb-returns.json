@@ -1,0 +1,114 @@
+{
+  "verified_at": "2026-06-15",
+  "verification_status": "verified",
+  "volatility": "variable",
+  "source": "Per-row citations below. ASB declared distributions fetched 2026-06-15 from the ASNB FY2025 income-distribution announcement (https://www.asnb.com.my/V2/pdf/asb/press%20release_asb%20income%20distribution_2025.pdf and asnb.com.my income-distribution pages), corroborated by The Edge Malaysia (theedgemalaysia.com/node/786562) and RinggitPlus FY2025 distribution write-up. 12-month fixed-deposit board rates fetched 2026-06-15 from RinggitPlus FD comparison (https://ringgitplus.com/en/fixed-deposit/12-month/). EPF declared dividends from owned corpus/data/datasets/epf-dividend-history.json (verified 2026-05-21) — not refetched. Malaysian equity realized-return anchor and active-fund dispersion from owned corpus/data/datasets/us-vs-my-returns.json (FBM KLCI factsheet, verified 2026-06-11) and owned corpus/proof/fund-universe-stats-snapshot.md (Apr 2026 weighted-alpha screen) — not refetched.",
+  "notes": "Inputs for a RISK-RETURN POSITIONING chart, NOT a returns ranking (SC App.1 §I1a 'sufficiently similar features' / §I1b undue prominence; EngineerDad EPF/ASB comparison rule). The instruments do different jobs at different risk tiers and must not be lined up as a single winner table. Two parts: (1) ASB declared annual distributions by year (sen per unit on the fixed RM1.00 ASNB price ≈ % return; ASB is principal-stable — fixed-price, never a negative distribution year on record — but the return is NON-GUARANTEED and declared annually by PNB); (2) four positioning rows giving each tier a return figure and a documented relative capital-risk index for the x-axis. The capital-risk index (1 = principal-stable / statutory floor, 5 = full market risk) is a DOCUMENTED QUALITATIVE ordering, not a sourced market statistic — it encodes capital-loss exposure, not volatility math. Honest core, visible in the figures: over recent windows EPF (~5.5-6.3%) and ASB (~5.0-5.75%) have returned MORE than broad Malaysian equity's realized capital return (FBM KLCI 1.2% pa 5y, 6.7% pa 3y), so equity does NOT tower over the capital-stable tier — the equity band OVERLAPS it and carries real downside (universe median drawdown -3.93% from each fund's high, deepest on file -49.32%). The legitimate equity case is long-horizon growth potential and active alpha (Apr 2026 equity-fund median weighted alpha +2.04 vs benchmark), accepting that the return is uncertain and can be negative in any year — never a claim that UT is safer than or beats EPF/ASB. EPF carries the EPF Act 1991 §27 guaranteed-minimum dividend (2.5% nominal). All figures flagged volatility 'variable' (declared/board rates change); re-verify before reuse after 2027-06-15.",
+  "data": [
+    {
+      "id": "asb-fy2025",
+      "instrument": "ASB (Amanah Saham Bumiputera)",
+      "year": 2025,
+      "distribution_sen_per_unit": 5.75,
+      "breakdown": "5.20 sen dividend + 0.55 sen bonus",
+      "approx_return_pct": 5.75,
+      "principal_basis": "Fixed-price RM1.00 unit (NAV does not fluctuate); principal-stable, distribution non-guaranteed, declared annually by PNB",
+      "volatility": "variable",
+      "as_at": "FY ended 31 Dec 2025, announced 19 Dec 2025",
+      "source": "ASNB FY2025 income-distribution press release (asnb.com.my/V2/pdf/asb/press release_asb income distribution_2025.pdf, fetched 2026-06-15); The Edge Malaysia 'PNB declares RM10.4b in dividends or 5.75 sen a unit for flagship ASB' (theedgemalaysia.com/node/786562); RinggitPlus 'ASB FY2025 Distribution' (fetched 2026-06-15)"
+    },
+    {
+      "id": "asb-fy2024",
+      "instrument": "ASB",
+      "year": 2024,
+      "distribution_sen_per_unit": 5.75,
+      "breakdown": "5.50 sen dividend + 0.25 sen bonus",
+      "approx_return_pct": 5.75,
+      "volatility": "variable",
+      "as_at": "FY ended 31 Dec 2024",
+      "source": "RinggitPlus / ASNB historical distribution tables (fetched 2026-06-15)"
+    },
+    {
+      "id": "asb-fy2023",
+      "instrument": "ASB",
+      "year": 2023,
+      "distribution_sen_per_unit": 5.25,
+      "breakdown": "4.25 sen dividend + 1.00 sen bonus",
+      "approx_return_pct": 5.25,
+      "volatility": "variable",
+      "as_at": "FY ended 31 Dec 2023",
+      "source": "RinggitPlus / ASNB historical distribution tables (fetched 2026-06-15)"
+    },
+    {
+      "id": "asb-fy2022",
+      "instrument": "ASB",
+      "year": 2022,
+      "distribution_sen_per_unit": 5.10,
+      "breakdown": "3.35 sen dividend + 1.25 sen bonus + 0.50 sen additional bonus",
+      "approx_return_pct": 5.10,
+      "volatility": "variable",
+      "as_at": "FY ended 31 Dec 2022",
+      "source": "RinggitPlus / ASNB historical distribution tables (fetched 2026-06-15)"
+    },
+    {
+      "id": "asb-fy2021",
+      "instrument": "ASB",
+      "year": 2021,
+      "distribution_sen_per_unit": 5.00,
+      "breakdown": "4.25 sen dividend + 0.75 sen bonus",
+      "approx_return_pct": 5.00,
+      "volatility": "variable",
+      "as_at": "FY ended 31 Dec 2021",
+      "source": "RinggitPlus / ASNB historical distribution tables (fetched 2026-06-15)"
+    },
+    {
+      "id": "pos-fd",
+      "tier": "Fixed deposit (12-month conventional)",
+      "capital_risk_index": 1.0,
+      "return_pct": 2.5,
+      "return_range_pct": "2.0-2.55 board rate; promo campaigns ~3.0-3.2",
+      "capital_basis": "Capital-guaranteed nominal; PIDM-insured up to RM250,000 per depositor per bank; contractual fixed rate for the tenure",
+      "job": "Parking / capital preservation / near-term liquidity buffer",
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-15",
+      "source": "RinggitPlus 12-month FD comparison (https://ringgitplus.com/en/fixed-deposit/12-month/, fetched 2026-06-15): conventional 12-month board rates ~2.00-2.55% p.a., promotional campaigns to ~3.0-3.2%. PIDM coverage RM250k per depositor per member bank (pidm.gov.my, well-established statutory fact)"
+    },
+    {
+      "id": "pos-asb",
+      "tier": "ASB (ASNB)",
+      "capital_risk_index": 1.6,
+      "return_pct": 5.4,
+      "return_range_pct": "5.00-5.75 over FY2021-FY2025 (avg ~5.37); latest FY2025 5.75",
+      "capital_basis": "Principal-stable (fixed RM1.00 unit price); no negative distribution year on record; distribution non-guaranteed and declared annually",
+      "job": "Capital-stable medium-term savings; restricted eligibility (Bumiputera)",
+      "volatility": "variable",
+      "as_at": "FY2021-FY2025",
+      "source": "ASB declared distributions, this dataset rows asb-fy2021..asb-fy2025 (ASNB / The Edge / RinggitPlus, fetched 2026-06-15)"
+    },
+    {
+      "id": "pos-epf",
+      "tier": "EPF (Akaun Persaraan, Simpanan Konvensional)",
+      "capital_risk_index": 2.2,
+      "return_pct": 5.9,
+      "return_range_pct": "5.35-6.30 over 2022-2025 declared; statutory minimum 2.5% nominal",
+      "capital_basis": "EPF Act 1991 §27 guarantees a minimum 2.5% nominal annual dividend on conventional savings; principal not exposed to market loss; illiquid until retirement/withdrawal conditions",
+      "job": "Mandatory retirement floor with a statutory guaranteed minimum; long-lock",
+      "volatility": "variable",
+      "as_at": "2022-2025 declared",
+      "source": "Owned corpus/data/datasets/epf-dividend-history.json (verified 2026-05-21): conventional declared 2022 5.35, 2023 5.50, 2024 6.30, 2025 6.15. EPF Act 1991 §27 guaranteed-minimum 2.5% dividend (statutory)"
+    },
+    {
+      "id": "pos-equity-ut",
+      "tier": "Equity unit trust (risk-matched active fund band)",
+      "capital_risk_index": 4.5,
+      "return_band_pct": [3, 9],
+      "return_band_basis": "Illustrative wide band, NOT guaranteed and can be NEGATIVE in any year. Anchored to broad Malaysian equity realized return (FBM KLCI capital return 1.2% pa 5y / 6.7% pa 3y, owned us-vs-my-returns.json) plus active-management dispersion (Public Mutual equity median weighted alpha +2.04 vs benchmark, Apr 2026, owned fund-universe-stats-snapshot.md). The band deliberately OVERLAPS the capital-stable tier — recent realized equity return did not exceed EPF/ASB.",
+      "downside_evidence": "Universe median drawdown -3.93% from each fund's all-time-high NAV; deepest drawdown on file -49.32% (owned fund-universe-stats-snapshot.md, Apr 2026). Principal is at market risk; NAV fluctuates daily.",
+      "capital_basis": "Full market risk; no capital guarantee; carries a sales charge and annual management fee (see corpus/data/datasets/sales-charge-by-channel.json, robo-fee-tiers.json)",
+      "job": "Long-horizon growth potential and active alpha for money that can stay invested through drawdowns; a different job from the capital-stable tier, not a higher-return substitute for it",
+      "volatility": "variable",
+      "as_at": "owned anchors verified 2026-06-11 (KLCI) / Apr 2026 (fund universe)",
+      "source": "Owned corpus/data/datasets/us-vs-my-returns.json (FBM KLCI factsheet, FTSE Russell, as at 2026-05-29, fetched 2026-06-11) + owned corpus/proof/fund-universe-stats-snapshot.md (EngineerDad weighted-alpha screen, Apr 2026: equity median weighted alpha +2.04, median drawdown -3.93%, deepest -49.32%). No individual fund named or recommended (FIMM)."
+    }
+  ]
+}

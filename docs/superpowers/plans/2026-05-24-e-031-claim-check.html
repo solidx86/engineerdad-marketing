@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-031 Plan — Claim-Check for worker output transmission</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+    --changed-bg: #fff6e9;
+    --changed-line: #f0c478;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.6;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 15.5px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h2 .phase {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: white;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; display: flex; align-items: baseline; gap: 8px; }
+  h3 .num {
+    color: var(--accent);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 13px;
+  }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.4px;
+    line-height: 1.5;
+  }
+  .callout {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 13.4px;
+  }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout.changed { background: var(--changed-bg); border: 1px solid var(--changed-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout .tag { font-weight: 700; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 13.2px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 32px; }
+  .files {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 4px 0 10px;
+    padding-left: 14px;
+  }
+  .files li::before { content: "📄 "; opacity: 0.6; }
+  .steps { font-size: 13.2px; }
+  .steps li { margin: 3px 0; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1.5px 8px;
+    border-radius: 999px;
+    background: var(--new-bg);
+    border: 1px solid var(--new-line);
+    color: #5839c5;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge.changed { background: var(--changed-bg); border-color: var(--changed-line); color: #7c5613; }
+  .badge.unchanged { background: var(--line); border-color: var(--line); color: var(--muted); }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-031 Implementation Plan — Claim-Check transmission</h1>
+  <p class="subtitle">Workers persist outputs to <code>orchestrator.step_results</code>; the conductor carries refs; the orchestrator MCP dereferences server-side. Four phases, 18 tasks.</p>
+  <dl class="meta">
+    <dt>Plan</dt><dd><code>docs/superpowers/plans/2026-05-24-e-031-claim-check.md</code> (canonical, executable)</dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-24-e-031-claim-check-design.html</code></dd>
+    <dt>ADR</dt><dd><code>docs/decisions/022-claim-check-worker-output.md</code> (Draft → flipped to Accepted at PR merge)</dd>
+    <dt>Branch</dt><dd><code>feat/e-031-claim-check</code> (new, off <code>feat/agentic-rebuild</code>)</dd>
+    <dt>Status</dt><dd>Draft — awaiting approval before execution</dd>
+    <dt>Tasks</dt><dd>18 across 4 phases</dd>
+  </dl>
+</header>
+
+<h2>Goal &amp; architecture</h2>
+<p><strong>Goal:</strong> Ship Claim-Check (Hohpe EIP) for the <code>/loop</code> conductor's transmission path so reshape during transmission becomes structurally impossible. Every worker returns a 50-byte <code>{stepResultId}</code> ref; the orchestrator MCP resolves refs to full payloads at the verify/advance boundary; the engine and verifiers see fully-materialized inputs exactly as today.</p>
+<p><strong>Architecture:</strong> New <code>orchestrator</code> schema in the existing Postgres container. New <code>step_results</code> table with <code>JSONB</code> payload + <code>sr_</code>-prefixed ULID IDs. Two new MCP tools (<code>write_step_result</code>, <code>read_step_result</code>). New <code>resolve.ts</code> helper at the MCP layer. Per-kind enforcement rejects inline for <code>spawn</code> / <code>fanout</code>. Four agent prompts + <code>loop.md</code> updated. Engine, state.ts, verifiers, <code>stepResult&lt;T&gt;()</code> consumers — all unchanged.</p>
+
+<h2>Pinned forks</h2>
+<table>
+  <tr><th>Question</th><th>Decision</th></tr>
+  <tr><td>Substrate</td><td><strong>Postgres</strong>, new <code>orchestrator</code> schema in the existing <code>engineerdad</code> database</td></tr>
+  <tr><td>Worker write path</td><td>New MCP tool <code>mcp__orchestrator__write_step_result</code> (bypasses entity-store compliance scanner)</td></tr>
+  <tr><td>Read path</td><td>New MCP tool <code>mcp__orchestrator__read_step_result</code> (auditable opt-in transparency)</td></tr>
+  <tr><td>Dereference site</td><td><strong>MCP layer</strong> — <code>mcp-servers/orchestrator/src/index.ts</code>. Engine + state.ts untouched.</td></tr>
+  <tr><td>ID format</td><td>ULID with <code>sr_</code> prefix → <code>sr_01HZA9...</code></td></tr>
+  <tr><td>Back-compat</td><td><strong>Hard-cut</strong> for spawn + fanout kinds. write + gate keep inline.</td></tr>
+  <tr><td>Rollout</td><td>All four worker agents at once on the feature branch</td></tr>
+  <tr><td>Naming</td><td>"Claim-Check" — Hohpe EIP. Google ADK's "handle pattern" as alt term.</td></tr>
+</table>
+
+<div class="callout new">
+  <span class="tag">The win — default opaque, opt-in transparent.</span>
+  <p>The conductor physically cannot reshape what it doesn't hold. To reason over worker output (failure-aware retry, meta-orchestration, debugging) the conductor must take an explicit, auditable <code>read_step_result</code> tool call. Implicit reshape during transmission becomes structurally impossible; audited reasoning remains possible. This is exactly Google ADK's <code>LoadArtifactsTool</code> shape: materialize when needed, never by accident.</p>
+</div>
+
+<h2><span class="phase">PHASE A</span> Postgres substrate + ULID</h2>
+
+<h3><span class="num">1</span> Create feature branch + bootstrap <span class="badge unchanged">no file changes</span></h3>
+<ul class="files">
+  <li>(branch + repo prep — no code edits)</li>
+</ul>
+<ul class="steps">
+  <li><code>git checkout -b feat/e-031-claim-check</code> off <code>feat/agentic-rebuild</code>.</li>
+  <li>Confirm Postgres up; review UI port 3030 free; HG2 snapshot at <code>data/snapshots/hg2-run_1779557517/</code> intact (Phase D restores from it).</li>
+</ul>
+
+<h3><span class="num">2</span> Add <code>ulid</code> dependency + helper <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>packages/orchestrator/package.json</code> (add <code>ulid</code> dep)</li>
+  <li><code>packages/orchestrator/src/ulid.ts</code></li>
+  <li><code>packages/orchestrator/src/ulid.test.ts</code></li>
+</ul>
+<ul class="steps">
+  <li><code>newStepResultId()</code> → <code>sr_</code> + 26-char ULID; <code>isStepResultId()</code> validator.</li>
+  <li>Test: prefix check, length 29, 10 000 unique smoke, validator rejects junk.</li>
+</ul>
+
+<h3><span class="num">3</span> Migration SQL + push script <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>packages/orchestrator/src/migrations/postgres/001_step_results.sql</code></li>
+  <li><code>packages/orchestrator/package.json</code> (<code>db:push</code> script)</li>
+  <li><code>package.json</code> root (<code>orchestrator:push</code> alias)</li>
+</ul>
+<pre><code>CREATE SCHEMA IF NOT EXISTS orchestrator;
+CREATE TABLE IF NOT EXISTS orchestrator.step_results (
+  id          TEXT        PRIMARY KEY,
+  run_id      TEXT        NOT NULL,
+  step_id     TEXT        NOT NULL,
+  unit_index  INTEGER,
+  payload     JSONB       NOT NULL,
+  size_bytes  INTEGER     NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS step_results_run_step_idx
+  ON orchestrator.step_results (run_id, step_id);</code></pre>
+<ul class="steps">
+  <li><code>pnpm orchestrator:push</code> applies; <code>\dt orchestrator.*</code> verifies.</li>
+</ul>
+
+<h3><span class="num">4</span> <code>postgres.ts</code> CRUD <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>packages/orchestrator/package.json</code> (add <code>postgres</code> dep)</li>
+  <li><code>packages/orchestrator/src/postgres.ts</code></li>
+  <li><code>packages/orchestrator/src/postgres.test.ts</code></li>
+</ul>
+<ul class="steps">
+  <li><code>writeStepResult({runId, stepId, unitIndex?, payload}) → string</code> (the <code>sr_</code> id).</li>
+  <li><code>loadPayload(stepResultId) → unknown</code>; throws <code>StepResultNotFoundError</code> on missing.</li>
+  <li>Lazy postgres.js connection on <code>DATABASE_URL</code>; cached singleton.</li>
+  <li>Tests against live <code>engineerdad_test</code> DB (mirror <code>packages/store</code> pattern): round-trip, size_bytes audit, large-payload (50 KB) round-trip, missing-id error.</li>
+</ul>
+
+<h2><span class="phase">PHASE B</span> MCP layer — write/read tools + resolve</h2>
+
+<h3><span class="num">5</span> Extend MCP schemas <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>mcp-servers/orchestrator/src/schemas.ts</code></li>
+</ul>
+<pre><code>const StepResultRef = z.object({ stepResultId: z.string().regex(/^sr_/) });
+
+export const WriteStepResultInputSchema = z.object({
+  runId:     z.string().min(1),
+  stepId:    z.string().min(1),
+  unitIndex: z.number().int().nonnegative().optional(),
+  payload:   z.unknown(),
+});
+
+export const ReadStepResultInputSchema = z.object({
+  stepResultId: z.string().regex(/^sr_/),
+});
+
+export const VerifyInputSchema = z.object({
+  runId:  z.string().min(1),
+  stepId: z.string().min(1),
+  result: z.union([
+    StepResultRef,           // spawn
+    z.array(StepResultRef),  // fanout
+    z.unknown(),             // write / gate (inline)
+  ]),
+});
+// AdvanceInputSchema mirrors VerifyInputSchema.</code></pre>
+
+<h3><span class="num">6</span> <code>resolve.ts</code> helper + tests <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>mcp-servers/orchestrator/src/resolve.ts</code></li>
+  <li><code>mcp-servers/orchestrator/src/resolve.test.ts</code></li>
+</ul>
+<ul class="steps">
+  <li><code>isRef(x)</code> typeguard.</li>
+  <li><code>resolveRefs(result)</code>: single ref → payload; array of refs → array of payloads; anything else → pass through.</li>
+  <li>Tests: spawn shape, fanout shape, inline pass-through (string / object / mixed array), empty array, missing ref → typed error.</li>
+</ul>
+
+<h3><span class="num">7</span> Wire new tools + resolve into handlers <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>mcp-servers/orchestrator/src/index.ts</code></li>
+</ul>
+<ul class="steps">
+  <li>Register <code>write_step_result</code> tool (delegates to <code>writeStepResult</code>).</li>
+  <li>Register <code>read_step_result</code> tool (delegates to <code>loadPayload</code>).</li>
+  <li>Wrap <code>verify</code> + <code>advance</code> handlers with <code>resolveRefs</code> after <code>coerceResult</code>. <code>StepResultNotFoundError</code> surfaces as <code>{ok: false, problems: ["stepResultId not found: ..."]}</code> for verify.</li>
+</ul>
+
+<h3><span class="num">8</span> Per-kind enforcement <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>mcp-servers/orchestrator/src/index.ts</code> (extend)</li>
+  <li><code>mcp-servers/orchestrator/src/resolve.ts</code> (or new <code>enforce.ts</code>)</li>
+  <li><code>mcp-servers/orchestrator/src/resolve.test.ts</code> (extend)</li>
+</ul>
+<ul class="steps">
+  <li><code>enforceKind(stepId, result, registry)</code>: spawn requires ref; fanout requires array of refs; write/gate untouched.</li>
+  <li>Top-of-handler call in <code>verify</code> + <code>advance</code>. Throws <code>ContractError</code>; verify returns <code>{ok: false}</code>, advance surfaces.</li>
+  <li>Tests: spawn-inline → reject, fanout-inline → reject, fanout-single-ref → reject (must be array), write-inline → tolerate, gate-inline → tolerate.</li>
+</ul>
+
+<h2><span class="phase">PHASE C</span> Worker prompts + loop.md</h2>
+
+<div class="callout changed">
+  <span class="tag">Source of truth:</span> the four <code>.claude/agents/*.md</code> files are <em>synced</em> from <code>packages/shared/src/prompts/*.md</code> by <code>pnpm sync:agents</code>. Edit the source fragments — not the synced outputs — or your changes get overwritten.
+</div>
+
+<h3><span class="num">9</span> brain.md <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>packages/shared/src/prompts/brain.md</code> (or wherever the source lives — grep for "EMIT")</li>
+  <li><code>.claude/agents/brain.md</code> (re-synced)</li>
+</ul>
+<ul class="steps">
+  <li>Add <code>mcp__orchestrator__write_step_result</code> to <code>tools:</code> frontmatter.</li>
+  <li>§9 EMIT: after writing PerformanceReport + Hypotheses, call <code>write_step_result({runId, stepId: "S1-reason", payload: memo})</code>. Final message = <code>{stepResultId}</code>.</li>
+</ul>
+
+<h3><span class="num">10</span> brief-writer.md <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>packages/shared/src/prompts/brief-writer.md</code></li>
+  <li><code>.claude/agents/brief-writer.md</code></li>
+</ul>
+<ul class="steps">
+  <li>Add tool. §Step 8: after writing 12 Briefs, call <code>write_step_result({runId, stepId: "B1-write", payload: {runId, angles, rejected, notes, ok}})</code>. Final message = <code>{stepResultId}</code>.</li>
+</ul>
+
+<h3><span class="num">11</span> content-writer.md <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>packages/shared/src/prompts/content-writer.md</code></li>
+  <li><code>.claude/agents/content-writer.md</code></li>
+</ul>
+<ul class="steps">
+  <li>Add tool.</li>
+  <li>Single-Brief mode: <code>write_step_result({runId, stepId: "C1-fanout", unitIndex: i, payload: {briefId, hooks, scripts, ...}})</code>. <strong>Include <code>hooks</code></strong> — produce's <code>hookBanksFromC1</code> reads it.</li>
+  <li>Article mode: <code>write_step_result({runId, stepId: "C2-articles", payload: {articles, notes}})</code>.</li>
+</ul>
+
+<h3><span class="num">12</span> creative-director.md <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>packages/shared/src/prompts/creative-director.md</code></li>
+  <li><code>.claude/agents/creative-director.md</code></li>
+</ul>
+<ul class="steps">
+  <li>Add tool.</li>
+  <li>Update hard rule: <em>"Never write the <strong>entity</strong> store. Never render. Never spawn. <strong>Always</strong> persist your final output via <code>mcp__orchestrator__write_step_result</code> before emitting."</em></li>
+  <li>Return shape: emit <code>{stepResultId}</code>; the persisted payload is still the full <code>CreativePlan</code>.</li>
+</ul>
+
+<h3><span class="num">13</span> loop.md <span class="badge changed">changed</span></h3>
+<ul class="files">
+  <li><code>.claude/commands/loop.md</code></li>
+</ul>
+<ul class="steps">
+  <li>§2 spawn: "Worker's final message is <code>{stepResultId}</code>. Pass verbatim as result."</li>
+  <li>§2 fanout: "Each worker's final message is <code>{stepResultId}</code>. Pass <code>[{stepResultId}, ...]</code> verbatim."</li>
+  <li>§2 write + gate: unchanged.</li>
+  <li>New §Rules line: claim-check transmission — never resolve <code>stepResultId</code> during normal transmission; <code>read_step_result</code> is auditable opt-in.</li>
+</ul>
+
+<h3><span class="num">14</span> Sync + smoke <span class="badge unchanged">build</span></h3>
+<ul class="files">
+  <li>(via <code>pnpm sync:agents</code>)</li>
+</ul>
+<ul class="steps">
+  <li><code>pnpm sync:agents</code>; <code>pnpm sync:agents:check</code> green; <code>pnpm -r build</code> green.</li>
+</ul>
+
+<h2><span class="phase">PHASE D</span> Verification + PR</h2>
+
+<h3><span class="num">15</span> Integration test — end-to-end fanout with refs <span class="badge">new</span></h3>
+<ul class="files">
+  <li><code>packages/orchestrator/src/engine.integration.test.ts</code> (extend)</li>
+</ul>
+<ul class="steps">
+  <li>Fixture workers persist; conductor wraps refs; verify + advance pass.</li>
+  <li><code>run_steps.result</code> contains fully-materialized array (deep-equal to fixtures).</li>
+  <li><code>orchestrator.step_results</code> has N rows.</li>
+  <li>Negative test: missing-ref → <code>{ok: false, problems: ["stepResultId not found: ..."]}</code>.</li>
+</ul>
+
+<h3><span class="num">16</span> Live cold-start walk <span class="badge unchanged">no code</span></h3>
+<ul class="files">
+  <li>(verification walk — no code)</li>
+</ul>
+<ul class="steps">
+  <li>Wipe DB; apply both migrations; restart Claude Code if needed.</li>
+  <li><code>/loop-once</code> → HG1; approve 4 Briefs; snapshot. <code>/content</code> → HG2; approve 2 articles + 4 scripts; snapshot. <code>/produce</code> → HG3; snapshot.</li>
+  <li>Per-stage SQL check:
+    <pre><code>SELECT step_id, count(*), avg(size_bytes), max(size_bytes)
+  FROM orchestrator.step_results WHERE run_id = '&lt;run&gt;'
+  GROUP BY step_id ORDER BY step_id;</code></pre>
+  </li>
+  <li>Confirm cardinality: 1 from S1, 1 (or 12 if per-Brief) from B1, 4 from C1, 1 from C2, 4 from P1.</li>
+  <li>Confirm <code>run_steps.result</code> in SQLite contains the fully-materialized JSON at <code>C1-fanout</code> and <code>P1-fanout</code> (not refs).</li>
+  <li>Confirm no harness "Output too large" persist-to-disk events.</li>
+</ul>
+
+<h3><span class="num">17</span> Doctrine-alignment manual probe <span class="badge unchanged">no code</span></h3>
+<ul class="steps">
+  <li>Manually call <code>verify</code> with inline payload on a fanout step → expect <code>{ok: false, problems: ["fanout step ... requires ..."]}</code>.</li>
+  <li>Manually call <code>read_step_result</code> with a real id → payload returns. Capture for PR description.</li>
+</ul>
+
+<h3><span class="num">18</span> Open PR + merge <span class="badge unchanged">git ops</span></h3>
+<ul class="steps">
+  <li>Push branch; open PR titled <em>"E-031: Claim-Check for worker output transmission"</em>.</li>
+  <li>PR checklist: all tests green, <code>-r build</code> clean, <code>sync:agents:check</code> clean, live walk completed, HG3 snapshot committed, ADR-022 flipped Draft → Accepted in the diff.</li>
+  <li>Squash-merge into <code>feat/agentic-rebuild</code>.</li>
+</ul>
+
+<h2>Definition of done</h2>
+<table>
+  <tr><th>Check</th><th>Source</th></tr>
+  <tr><td>Every fanout worker's final message ≤ 200 bytes</td><td>SPEC §3</td></tr>
+  <tr><td><code>orchestrator.step_results</code> rows match expected cardinality</td><td>SPEC §3, Task 16</td></tr>
+  <tr><td><code>run_steps.result</code> SQLite still contains fully-materialized JSON</td><td>SPEC §3, Task 16</td></tr>
+  <tr><td><code>verifyProduce</code> ground-truth check passes on resolved payloads</td><td>SPEC §3</td></tr>
+  <tr><td>No harness "Output too large" persist-to-disk events</td><td>SPEC §3, Task 16</td></tr>
+  <tr><td>Inline payload for spawn/fanout is rejected</td><td>SPEC §10, Task 17</td></tr>
+  <tr><td>ADR-022 flipped Draft → Accepted</td><td>Task 18</td></tr>
+</table>
+
+<h2>Notes for the executor</h2>
+<ul>
+  <li><strong>Branch hygiene.</strong> Land each Task as its own commit (or 2–3 tiny related ones together). Squash only at PR merge.</li>
+  <li><strong>Sequential build.</strong> <code>pnpm -r build</code> — never <code>--parallel</code>. <code>packages/orchestrator</code> must build before <code>mcp-servers/orchestrator</code>.</li>
+  <li><strong>MCP server restart.</strong> After Phase B lands, kill the orchestrator MCP process (or restart Claude Code) so the new code loads.</li>
+  <li><strong>Test-DB env.</strong> <code>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test</code> for the orchestrator test setup; mirror <code>packages/store</code>'s scripts.</li>
+  <li><strong>Source of truth for agent prompts.</strong> Edit <code>packages/shared/src/prompts/*.md</code>, not the synced output. <code>grep -rn "EMIT" packages/shared/src/prompts/</code> finds the source.</li>
+  <li><strong>render-worker audit.</strong> During Phase D, check whether render-worker returns large inline payloads. If yes, file a Task 14.5; if it already returns asset URLs (small), no change.</li>
+</ul>
+
+<footer class="doc">
+  <p>E-031 implementation plan · 2026-05-24 · companion to SPEC + ADR-022 · 18 tasks across 4 phases.</p>
+</footer>
+
+</div>
+</body>
+</html>

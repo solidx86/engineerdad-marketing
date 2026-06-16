@@ -1,0 +1,25 @@
+# Media generation cost guardrails — read by mcp-servers/media-providers/gemini/src/policy.ts
+# Pricing facts: ADR-013 (verified 2026-05-10).
+# Per-bucket allowlists map Brain's 70/20/10 budget buckets to which models OS04 may call.
+
+daily_video_gen_budget_usd: 50
+daily_image_gen_budget_usd: 10        # ~250 standard Nano Banana images
+
+buckets:
+  "70":              # proven winners — premium OK
+    allowed_video_tiers: [premium, fast]
+    allowed_image_models: [gemini-3-pro-image-preview, gemini-2.5-flash-image]
+    max_clips_per_run: 20
+    max_images_per_run: 60
+  "20":              # adjacent variants — fast tier only
+    allowed_video_tiers: [fast]
+    allowed_image_models: [gemini-2.5-flash-image]
+    max_clips_per_run: 30
+    max_images_per_run: 90
+  "10":              # wild cards — cheap or free only
+    allowed_video_tiers: [free, fast]
+    allowed_image_models: [gemini-2.5-flash-image]
+    max_clips_per_run: 10
+    max_images_per_run: 30
+
+fallback_on_failure: stock-footage    # videos only; images have no fallback (re-prompt or skip)

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Migration Policy &amp; Branch Sandbox Isolation — Design Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .meta { font-size: 0.85rem; color: #666; margin-bottom: 2.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #333; }
+  p { margin-bottom: 0.9rem; }
+  ul, ol { margin: 0.5rem 0 0.9rem 1.4rem; }
+  li { margin-bottom: 0.35rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.75rem 0 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.83em; line-height: 1.55; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1rem; font-size: 0.9rem; }
+  th { text-align: left; background: #f4f4f4; padding: 0.5rem 0.75rem; border: 1px solid #ddd; font-weight: 600; }
+  td { padding: 0.45rem 0.75rem; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .callout { border-left: 4px solid #e05; background: #fff5f5; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .callout.info { border-color: #07a; background: #f0f8ff; }
+  .callout.warn { border-color: #f90; background: #fffaf0; }
+  .tag { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1em 0.5em; border-radius: 3px; margin-right: 0.3rem; }
+  .tag.accepted { background: #d4edda; color: #155724; }
+  .tag.adr { background: #e2e3e5; color: #383d41; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>DB Migration Policy &amp; Branch Sandbox Isolation</h1>
+  <div class="meta">
+    <span><strong>Date:</strong> 2026-05-26</span>
+    <span><strong>ADR:</strong> 027</span>
+    <span><span class="tag accepted">Accepted</span></span>
+    <span><span class="tag adr">Builds on ADR-025</span></span>
+  </div>
+
+  <h2>1. Context &amp; Footguns</h2>
+
+  <p>ADR-025 consolidated the Marketing OS onto a single Postgres substrate. That was the right call, but it left three footguns unfixed:</p>
+
+  <ol>
+    <li><strong>Root <code>db:push</code> targets the live DB.</strong> It runs <code>drizzle-kit push</code> against <code>engineerdad</code> (and <code>engineerdad_test</code>) with no branch isolation. Destructive schema ops surface as CLI prompts, not code-level gates.</li>
+    <li><strong>No branch isolation.</strong> All branch dev work and the live record share the same <code>engineerdad</code> DB. Schema divergence between branches is invisible until conflict.</li>
+    <li><strong><code>truncatePg()</code> has no DB safety check.</strong> It reads <code>process.env.DATABASE_URL</code> with no guard. If the shell has <code>DATABASE_URL</code> pointing at <code>engineerdad</code>, every <code>beforeEach</code> in the 85-file vitest suite truncates the live DB. This has already happened.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Live DB status:</strong> <code>engineerdad</code> was wiped by a test run in the prior session. Decision: accept the loss and move on. <code>corpus/</code> is the source of truth; the live DB is rebuilt by running <code>/loop</code> cold. This policy prevents recurrence.
+  </div>
+
+  <h2>2. Decisions</h2>
+
+  <h3>2.1 Branch Sandbox DBs</h3>
+
+  <p>Each working branch gets its own Postgres database named <code>engineerdad_sb_&lt;slug&gt;</code>, where <code>&lt;slug&gt;</code> is derived from the git branch name (lowercase, <code>/</code> and non-alphanumeric replaced with <code>_</code>, truncated at 40 chars).</p>
+
+  <p><strong><code>pnpm db:sandbox</code></strong> — the setup command:</p>
+  <ol>
+    <li>Reads current branch via <code>git symbolic-ref --short HEAD</code>.</li>
+    <li>Derives and sanitizes the DB name.</li>
+    <li>Creates the database if it doesn't exist (idempotent).</li>
+    <li>Runs <code>drizzle-kit push</code> for all three packages against it.</li>
+    <li>Writes <code>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_sb_&lt;slug&gt;</code> to <code>.env.local</code> at the repo root.</li>
+  </ol>
+
+  <p><strong>Env precedence:</strong> Vitest (built on Vite) loads <code>.env</code> then <code>.env.local</code>, with <code>.env.local</code> winning. So tests automatically pick up the sandbox URL. Explicit shell exports and CI environment variables override both.</p>
+
+  <p><code>.env</code> keeps its stable fallback <code>DATABASE_URL=...engineerdad</code>. <code>.env.local</code> holds only the sandbox override and is gitignored.</p>
+
+  <p><strong><code>pnpm db:sandbox:drop</code></strong> — hygiene command:</p>
+  <p>Queries Postgres for all <code>engineerdad_sb_%</code> databases, checks which corresponding branches still exist locally, lists orphans, and drops them after a y/n prompt. Run occasionally; no automation, no risk of accidental drops.</p>
+
+  <h3>2.2 Versioned Migrations</h3>
+
+  <p><strong>Hybrid model:</strong> <code>drizzle-kit push</code> is retained for sandbox dev (fast iteration, no SQL files needed mid-branch). Versioned SQL is required at commit time when <code>schema.ts</code> changes.</p>
+
+  <p><strong>Per-package migration folders:</strong> each package gets its own <code>drizzle/</code> output directory (<code>drizzle-kit</code>'s default). No unified folder — the schemas are cleanly separated by Postgres schema (<code>public</code>, <code>orchestrator</code>, <code>analytics</code>) and packages own their migrations independently.</p>
+
+  <p><strong>New root commands:</strong></p>
+  <table>
+    <thead><tr><th>Command</th><th>What it does</th><th>When to run</th></tr></thead>
+    <tbody>
+      <tr><td><code>pnpm db:sandbox</code></td><td>Create/update branch sandbox via push; write <code>.env.local</code></td><td>Once per branch, re-run after schema changes during dev</td></tr>
+      <tr><td><code>pnpm db:generate</code></td><td><code>drizzle-kit generate</code> for all three packages → SQL in <code>packages/*/drizzle/</code></td><td>Before committing a <code>schema.ts</code> change</td></tr>
+      <tr><td><code>pnpm db:migrate</code></td><td><code>drizzle-kit migrate</code> for all three packages against <code>DATABASE_URL</code></td><td>After merging to main, against live <code>engineerdad</code> DB</td></tr>
+      <tr><td><code>pnpm db:sandbox:drop</code></td><td>List and drop orphaned sandbox DBs</td><td>Occasional hygiene</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Root <code>db:push</code> is retired.</strong> The individual package <code>push</code> scripts (<code>"push": "drizzle-kit push"</code> in each package's <code>package.json</code>) remain as internal primitives called by <code>db:sandbox</code>.</p>
+
+  <p><strong>Dev workflow for a schema change:</strong></p>
+  <ol>
+    <li>Edit <code>schema.ts</code> in the relevant package.</li>
+    <li><code>pnpm db:sandbox</code> — push to branch sandbox immediately.</li>
+    <li><code>pnpm db:generate</code> — produce the SQL migration file.</li>
+    <li>Commit <code>schema.ts</code> + generated SQL together.</li>
+  </ol>
+
+  <p><strong>CI lint rule:</strong> if any <code>packages/*/src/schema.ts</code> is modified in a commit, the corresponding <code>packages/*/drizzle/*.sql</code> must also be present. Implemented as a lint script (not a git hook — hooks are not portable across Claude Code sessions).</p>
+
+  <p><strong>Post-merge to main:</strong> run <code>pnpm db:migrate</code> manually against the live DB. Single-dev laptop operation; a human gate here is appropriate.</p>
+
+  <h3>2.3 <code>truncatePg()</code> Safety Guard</h3>
+
+  <p>The safety check moves from inside <code>client()</code> to module load — it throws the moment the file is imported, before any test runs.</p>
+
+  <pre><code>// packages/shared/src/test-helpers/truncate-pg.ts (module load, top of file)
+const _url = process.env.DATABASE_URL ?? "";
+const _safe = /_test$/.test(_url) || /engineerdad_sb_/.test(_url);
+if (!_safe) {
+  throw new Error(
+    `truncatePg() refuses to run against '${_url || "(unset)"}'. ` +
+    `DATABASE_URL must end with _test or contain engineerdad_sb_. ` +
+    `Run \`pnpm db:sandbox\` to set up your branch sandbox.`
+  );
+}</code></pre>
+
+  <p>The existing <code>DATABASE_URL</code> null-check inside <code>client()</code> is retained as a belt-and-suspenders fallback, but the module-load guard catches misconfigurations before any pool is opened.</p>
+
+  <h3>2.4 CLAUDE.md — Operational Rules</h3>
+
+  <p>A new <strong>"Database workflow"</strong> section is added to <code>CLAUDE.md</code> immediately after the existing build/dev commands table. These are the rules Claude Code must follow:</p>
+
+  <ul>
+    <li><strong>Never run the root <code>db:push</code> script</strong> — it is retired and must not be re-added. It targets the live DB directly.</li>
+    <li><strong>Before running tests</strong>, ensure <code>DATABASE_URL</code> in <code>.env.local</code> points at an <code>_test</code> or <code>engineerdad_sb_*</code> DB. <code>truncatePg()</code> hard-stops the suite if it doesn't.</li>
+    <li><strong><code>pnpm db:sandbox</code></strong> — run once per branch. Re-run after any <code>schema.ts</code> change during dev.</li>
+    <li><strong>Schema change on a branch</strong> — edit <code>schema.ts</code>, run <code>pnpm db:sandbox</code>, then <code>pnpm db:generate</code> before committing. Generated SQL in <code>packages/*/drizzle/</code> must be committed alongside <code>schema.ts</code>.</li>
+    <li><strong>After merging to main</strong> — run <code>pnpm db:migrate</code> against the live DB once.</li>
+    <li><strong><code>pnpm db:sandbox:drop</code></strong> — run occasionally to clean up orphaned sandbox DBs.</li>
+  </ul>
+
+  <h2>3. ADR-027 Summary</h2>
+
+  <p><strong>Title:</strong> <code>027-db-migration-policy-and-sandbox-isolation</code><br>
+  <strong>Supersedes:</strong> the migration mechanism described in ADR-025 (which deferred this question).<br>
+  <strong>Tracker:</strong> E-035 (to be created)</p>
+
+  <p><strong>Consequences:</strong></p>
+  <ul>
+    <li>Tests require <code>pnpm db:sandbox</code> on first branch use. Suite hard-stops if <code>DATABASE_URL</code> is wrong — intentional.</li>
+    <li>Schema changes require two commands before commit (<code>db:sandbox</code> + <code>db:generate</code>). Small overhead, large safety gain.</li>
+    <li>Live DB recovery after a wipe: <code>pnpm db:migrate</code> on a fresh <code>engineerdad</code> DB, then cold <code>/loop</code> to regenerate store entities from <code>corpus/</code>.</li>
+    <li>No SQLite regression — ADR-025 is stable, this builds on it.</li>
+    <li>Two branches can run <code>/loop</code> simultaneously against their own sandbox DBs without <code>run_id</code> collision.</li>
+  </ul>
+
+  <h2>4. Out of Scope</h2>
+  <ul>
+    <li>Backups and durability — separate concern.</li>
+    <li>Remote staging environment — single-machine ops; sandbox isolation is the substitute.</li>
+    <li>Automated migration on merge — human gate is the right call for a one-person operation.</li>
+  </ul>
+
+  <h2>5. Files Affected</h2>
+  <table>
+    <thead><tr><th>File</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/shared/src/test-helpers/truncate-pg.ts</code></td><td>Add module-load safety guard</td></tr>
+      <tr><td><code>package.json</code></td><td>Retire <code>db:push</code>; add <code>db:sandbox</code>, <code>db:generate</code>, <code>db:migrate</code>, <code>db:sandbox:drop</code></td></tr>
+      <tr><td><code>scripts/db-sandbox.mjs</code></td><td>New — branch sandbox setup script</td></tr>
+      <tr><td><code>scripts/db-sandbox-drop.mjs</code></td><td>New — orphan sandbox cleanup script</td></tr>
+      <tr><td><code>scripts/postgres-init/01-create-test-db.sql</code></td><td>No change — sandbox DBs are created dynamically by script</td></tr>
+      <tr><td><code>packages/{store,orchestrator,analytics}/drizzle.config.ts</code></td><td>Add <code>out: "./drizzle"</code> explicitly</td></tr>
+      <tr><td><code>CLAUDE.md</code></td><td>Add "Database workflow" section</td></tr>
+      <tr><td><code>docs/decisions/027-db-migration-policy-and-sandbox-isolation.md</code></td><td>New ADR</td></tr>
+      <tr><td><code>.gitignore</code></td><td><code>.env.local</code> already gitignored. <code>packages/*/drizzle/</code> has no gitignore entry and needs none — migration SQL and <code>drizzle/meta/</code> snapshots are all committed.</td></tr>
+    </tbody>
+  </table>
+
+</div>
+</body>
+</html>

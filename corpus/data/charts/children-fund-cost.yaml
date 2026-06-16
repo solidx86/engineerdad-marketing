@@ -1,0 +1,29 @@
+# Education inflation — Malaysian local degree cost, today vs 18 years from now
+# Source: corpus/courses/children-fund-101.md anchor (RM40K-60K today, RM100K+ at age 18
+# via 5-6% education inflation).
+# Used by media-production when scene argues "education inflation outpaces savings"
+# or "RM100K target by age 18."
+
+id: children-fund-cost
+title_en: "Cost of a local Malaysian degree — today vs 18 years from now"
+title_ms: "Kos ijazah tempatan Malaysia — hari ini vs 18 tahun dari sekarang"
+chart_type: bar
+x_label_en: "Time horizon"
+x_label_ms: "Jangka masa"
+y_label_en: "Tuition cost (RM)"
+y_label_ms: "Kos pengajian (RM)"
+labels:
+  - "Today (2026)"
+  - "Age 18 (2044, at 5% education inflation)"
+series:
+  - name_en: "Local degree cost"
+    name_ms: "Kos ijazah tempatan"
+    semantic_role: hero
+    values: [50000, 120000]
+  - name_en: "What bank savings (2% interest) would grow RM50,000 to"
+    name_ms: "Pertumbuhan RM50,000 dalam simpanan bank (faedah 2%)"
+    semantic_role: floor          # the "do nothing" baseline that loses to inflation
+    values: [50000, 71000]
+caption_en: "Today's RM50,000 degree becomes RM120,000 in 18 years at 5% education inflation. The same RM50,000 in a savings account at 2% interest grows to only RM71,000 — a RM49,000 shortfall. The gap is what equity-tilt unit trusts are designed to close."
+caption_ms: "Ijazah RM50,000 hari ini menjadi RM120,000 dalam 18 tahun pada inflasi pendidikan 5%. RM50,000 yang sama dalam akaun simpanan pada faedah 2% hanya tumbuh kepada RM71,000 — kekurangan RM49,000. Jurang ini ialah apa yang dana amanah saham direka untuk menutup."
+source_citation: "Local degree cost anchor: corpus/courses/children-fund-101.md (RM40K-60K today range; RM100K+ in 18y per 5-6% education inflation; midpoint RM50K and 5% used here for chart simplicity). Bank savings rate: ~2% conservative MMD assumption. Illustrative only."

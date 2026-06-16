@@ -1,0 +1,43 @@
+# Dollar-cost averaging — market price vs YOUR average cost per unit, over 20 years
+# Source: ILLUSTRATIVE market path. A single investor contributes a fixed RM200/month
+# (RM2,400/year) for 21 years on a volatile-but-rising market. Two series are derived
+# from the same price path:
+#   • "Market price"  = price per unit each year (the volatile line).
+#   • "Your avg cost" = total invested ÷ cumulative units owned (the smoother line).
+# Because the fixed ringgit buys MORE units when the price is low, every crash drags the
+# average-cost line DOWN (or flattens its climb) — the year-3 and year-9 dips are visible
+# averaging-down moments. End state: avg cost ≈ RM1.86 while the market sits at RM4.50, so
+# the units are worth ~2.4× what they cost. This is the mechanical point of DCA.
+# Units math (RM2,400/yr ÷ price): cum units 27,026 on RM50,400 invested → 50400/27026 = 1.865.
+# Used by media-production when a scene argues "keep buying through the dips", "crashes are
+# when you buy cheap", "averaging down", or "time in the market beats timing the market."
+
+id: dca-20y-line
+title_en: "DCA over 20 years — your average cost vs the market price"
+title_ms: "DCA selama 20 tahun — kos purata anda vs harga pasaran"
+chart_type: line
+x_label_en: "Year"
+x_label_ms: "Tahun"
+y_label_en: "Price per unit (RM)"
+y_label_ms: "Harga seunit (RM)"
+labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+series:
+  - name_en: "Your average cost per unit"
+    name_ms: "Kos purata seunit anda"
+    legend_label_en: "Your avg cost"
+    legend_label_ms: "Kos purata anda"
+    semantic_role: hero
+    values: [1.00, 1.09, 1.19, 1.14, 1.16, 1.22, 1.28, 1.35, 1.36, 1.36, 1.39, 1.43, 1.48, 1.54, 1.59, 1.63, 1.67, 1.72, 1.76, 1.81, 1.86]
+  - name_en: "Market price per unit"
+    name_ms: "Harga pasaran seunit"
+    legend_label_en: "Market price"
+    legend_label_ms: "Harga pasaran"
+    semantic_role: comparison
+    values: [1.00, 1.20, 1.45, 1.00, 1.30, 1.60, 1.85, 2.10, 1.50, 1.30, 1.75, 2.20, 2.60, 2.95, 3.30, 2.40, 2.90, 3.50, 3.20, 3.90, 4.50]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+# Read directly off the two endpoints: avg cost RM1.86, market price RM4.50.
+callout_en: "Avg cost RM1.86 vs RM4.50 market"
+callout_ms: "Kos purata RM1.86 vs pasaran RM4.50"
+caption_en: "A fixed RM200/month buys more units when the price is low, so every crash drags your average cost down. After 20 years your average cost sits far below the market price — the units are worth more than they cost you. That gap is the whole point of dollar-cost averaging."
+caption_ms: "RM200/sebulan yang tetap membeli lebih banyak unit apabila harga rendah, jadi setiap kejatuhan menarik turun kos purata anda. Selepas 20 tahun, kos purata anda jauh di bawah harga pasaran — unit bernilai lebih daripada kos anda. Jurang itulah inti purata kos dolar."
+source_citation: "Illustrative market path only — not a specific fund and not a forecast. A fixed RM200/month over 21 years on a stylised volatile-but-rising index; the average-cost line is total invested ÷ cumulative units. Actual fund returns vary year to year and can be negative. Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

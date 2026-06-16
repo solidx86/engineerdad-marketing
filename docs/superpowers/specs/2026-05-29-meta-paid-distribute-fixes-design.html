@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meta-paid distribute fixes — design</title>
+<style>
+  body { font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+  h1 { font-size: 1.9rem; border-bottom: 3px solid #2563eb; padding-bottom: .4rem; }
+  h2 { font-size: 1.35rem; margin-top: 2.4rem; color: #1e3a8a; border-bottom: 1px solid #e5e7eb; padding-bottom: .25rem; }
+  h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #334155; }
+  code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font: 13px/1.5 "SF Mono", Menlo, Consolas, monospace; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .94rem; }
+  th, td { border: 1px solid #d1d5db; padding: .5rem .7rem; text-align: left; vertical-align: top; }
+  th { background: #eff6ff; }
+  .meta { color: #64748b; font-size: .9rem; }
+  .meta strong { color: #334155; }
+  .chosen { background: #ecfdf5; border-left: 4px solid #10b981; padding: .75rem 1rem; border-radius: 0 6px 6px 0; margin: .8rem 0; }
+  .rejected { background: #fef2f2; border-left: 4px solid #ef4444; padding: .75rem 1rem; border-radius: 0 6px 6px 0; margin: .8rem 0; }
+  .note { background: #fffbeb; border-left: 4px solid #f59e0b; padding: .75rem 1rem; border-radius: 0 6px 6px 0; margin: .8rem 0; }
+  ol li, ul li { margin: .3rem 0; }
+  .tag { display: inline-block; background: #1e3a8a; color: #fff; font-size: .7rem; font-weight: 600; padding: .1rem .45rem; border-radius: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<h1>Meta-paid distribute fixes — design</h1>
+<p class="meta"><strong>Date:</strong> 2026-05-29 &nbsp;·&nbsp; <strong>Branch:</strong> <code>feat/meta-paid-unblock</code> &nbsp;·&nbsp; <strong>Status:</strong> Design — pending implementation plan</p>
+
+<h2>Context</h2>
+<p>The B-025/26/27 meta-paid-unblock spec shipped and passed its E2E acceptance walk through <strong>campaign + adset creation</strong> (run <code>run_1780029260</code>, sandbox <code>engineerdad_sb_feat_meta_paid_unblock</code>, 2026-05-29):</p>
+<ul>
+  <li>B-026 <code>experiments.experiment_status = full</code> (4 cells) — validated after the required Claude Code restart (stale in-memory store schema; see <code>mcp-restart-after-rebuild</code>).</li>
+  <li>B-027 targeting reached the Graph API correctly (geo MY, age 25–55, locales [6 EN, 41 BM]).</li>
+  <li>B-025 budget split (RM200/day across 4 cells).</li>
+  <li>ADR-015: campaign + 4 adsets created <strong>PAUSED</strong>.</li>
+</ul>
+<p>The walk then surfaced <strong>four defects downstream of the spec's scope</strong> that block actual ad posting. This design covers fixing them. One blocker is <strong>external and out of scope</strong> for code: the Meta app behind <code>act_943950444894075</code> lacks <code>ads_management</code> standard access, so <code>POST /adimages</code> returns OAuthException code 3. That is an account/App-Review task tracked in <code>project-meta-app-capability-blocker</code>; this design assumes it is resolved before the live re-run.</p>
+
+<h2>Defects (empirical, from the walk)</h2>
+<table>
+  <tr><th>ID</th><th>Symptom</th><th>Root cause</th></tr>
+  <tr><td><strong>A</strong></td><td>All 8 Meta-paid rows would fail <code>create_ad_creative</code> even past the upload step</td><td><code>creativeStep()</code> emits no <code>page_id</code>/<code>link_url</code> and sends <code>call_to_action</code> as a bare string; <code>createAdCreative</code> + MCP schema require both fields and a <code>{type, value?}</code> CTA object</td></tr>
+  <tr><td><strong>B</strong></td><td>Adsets rejected until the worker improvised</td><td><code>adsetStep()</code> omits <code>bid_strategy</code>; Meta now also mandates the Advantage-Audience flag</td></tr>
+  <tr><td><strong>C</strong></td><td>D2a-setup worker returned inline JSON; conductor had to <code>write_step_result</code> by hand</td><td><code>setupPromptFor()</code> (and the D2b route prompt) instruct the worker to "Return a JSON object" — violates ADR-022 (every other spawn worker persists + returns <code>{stepResultId}</code>)</td></tr>
+  <tr><td><strong>D</strong></td><td>Meta-organic publish blocked by compliance preflight</td><td><code>organicCaptionEn</code> was clipped mid-sentence during authoring, losing the mandatory FIMM/SC footer (consultant credential, risk warning, prospectus availability). The compliance gate worked correctly — the caption is the bug</td></tr>
+</table>
+
+<h2>Doctrine grounding (ADR-022 / 023 / 024)</h2>
+<p>The unified rule: <strong>the conductor is a reasoning surface; bulk and integration detail never cross its tool channel; deploy-config lives in the execution layer (<code>packages/&lt;name&gt;</code>), reached by in-process calls — not pushed through <code>step_results</code> or the conductor.</strong></p>
+<p>For Defect A this decides <em>where</em> <code>page_id</code>/<code>link_url</code> are injected:</p>
+<div class="chosen"><strong>Chosen — MCP defaults from env.</strong> <code>writes.ts</code> already reads <code>AD_ACCOUNT_ID</code> and <code>META_TOKEN</code> via <code>requireEnv()</code> at this exact layer. <code>page_id</code>/<code>link_url</code> are the same class of Meta deploy-config. Injecting them here colocates Meta config in one place (ADR-005 thin-adapter, ADR-023 "integration detail lives in the package"), and the values <strong>never enter step args, never get staged to <code>step_results</code>, never touch the conductor</strong> — so ADR-022/024 are not engaged at all.</div>
+<div class="rejected"><strong>Rejected — planner bakes from env.</strong> <code>creativeStep()</code> runs inside <code>build()</code>; ADR-024 enumerates what <code>build()</code> may do (pure computation, <code>ctx.stageInput</code>) and reading <code>process.env</code> is not among them. The baked values would then flow into the ADR-024 staged-input payload → persisted in <code>step_results</code> → read back by the worker, using the claim-check substrate as a config carrier (out of ADR-022's stated scope) and splitting Meta config across two layers.</div>
+<p>The flip case — a <em>per-campaign</em> landing URL — would be ADR-018 routing territory and belong in the planner or a Brief field. We chose a <strong>static</strong> <code>LANDING_URL</code>, so it is deploy-config and lands in the MCP layer.</p>
+
+<h2>The fixes</h2>
+
+<h3>Fix A — <code>create_ad_creative</code> deploy-config <span class="tag">Option 1</span></h3>
+<ol>
+  <li><strong><code>mcp-servers/meta-ads/src/index.ts</code></strong> — make <code>page_id</code> and <code>link_url</code> schema fields <strong>optional</strong> (<code>z.string().min(1).optional()</code> / <code>z.string().url().optional()</code>). Keep <code>call_to_action</code> accepting both the object shape and a bare string (see step 2).</li>
+  <li><strong><code>packages/meta-ads/src/writes.ts</code> <code>createAdCreative</code></strong> — when <code>page_id</code> is absent, default to <code>requireEnv("META_ORGANIC_PAGE_ID")</code>; when <code>link_url</code> is absent, default to <code>requireEnv("LANDING_URL")</code>. Normalize <code>call_to_action</code>: if it arrives as a string <code>ctaType</code>, wrap to <code>{ type: ctaType, value: { link: &lt;resolved link_url&gt; } }</code>; if it arrives as the object shape, pass through (filling <code>value.link</code> from the resolved <code>link_url</code> when missing).</li>
+  <li><strong><code>plan-distribution.ts</code> <code>creativeStep()</code></strong> — leave <code>page_id</code>/<code>link_url</code> out (the MCP fills them); keep <code>call_to_action: spec.ctaType</code> as the bare string (MCP normalizes).</li>
+  <li><strong><code>.env</code></strong> — add <code>LANDING_URL=https://engineerdad.my</code>.</li>
+</ol>
+
+<h3>Fix B — adset <code>bid_strategy</code> + Advantage-Audience</h3>
+<ol>
+  <li><strong><code>plan-distribution.ts</code> <code>adsetStep()</code></strong> — add <code>bid_strategy: "LOWEST_COST_WITHOUT_CAP"</code> (the no-bid-amount default; safe with <code>daily_budget_cents</code> and no <code>bid_amount</code>).</li>
+  <li><strong><code>plan-distribution.ts</code> <code>targetingForCell()</code></strong> — add <code>targeting_automation: { advantage_audience: 0 }</code> to the returned targeting object, preserving the explicit age/locale/geo targeting (no Meta auto-expansion).</li>
+  <li>Confirm <code>createAdset</code> (<code>writes.ts</code>) forwards <code>bid_strategy</code> (it already accepts the field) and passes <code>targeting</code> through verbatim (so <code>targeting_automation</code> reaches the API).</li>
+</ol>
+<p>These are deterministic paid-campaign policy with no env dependency, so they belong in the planner (ADR-018: the planner owns mechanical routing/policy; the MCP executes).</p>
+
+<div class="note"><strong>Budget model — deliberately per-adset (ABO), not campaign-level (CBO).</strong>
+The daily budget is set on each <strong>adset</strong> via the existing <code>daily_budget_cents</code> in <code>adsetStep()</code> — there is one adset per experiment cell (angle). On the walk this materialized as RM51.86 × 3 cells + RM44.44 = <strong>RM200.02/day total</strong>, where <code>dailyBudgetMyr = 200</code> comes from Brain's <code>experimentParams.dailyBudgetMyr</code> (Fix B does not touch this — it only adds <code>bid_strategy</code> + the Advantage-Audience flag). The campaign carries <strong>no</strong> budget: CBO is off (<code>is_adset_budget_sharing_enabled</code> defaults false, per the B-025/26/27 work), and ads inherit their adset's budget — budget is never set per-ad.
+<br><br>
+This is intentional for a <em>fair angle experiment</em>: per-adset budgeting guarantees each angle-cell gets a fixed, controlled daily spend, so the experiment's per-angle signal isn't confounded by Meta reallocating a shared pool toward an early front-runner. CBO (one campaign-level RM200/day pool that Meta optimizes across angles) would maximize aggregate results but bias spend toward whichever angle Meta favours early — defeating the per-angle readout the experiment exists to produce. We therefore keep ABO.
+<br><br>
+Note on <code>bid_strategy: "LOWEST_COST_WITHOUT_CAP"</code>: "WITHOUT_CAP" means no per-result <em>bid</em> cap, <strong>not</strong> "no budget". The per-adset <code>daily_budget_cents</code> is a hard spend ceiling that this bid strategy operates within. The bid-capped alternatives (<code>COST_CAP</code> / <code>LOWEST_COST_WITH_BID_CAP</code>) require a <code>bid_amount</code> — the field whose absence made Meta reject the adsets on the walk — so the no-bid-cap default is the correct choice here. (ADR-015 also keeps every entity PAUSED, so $0 actually spends until a human activates in Ads Manager.)</div>
+
+<h3>Fix C — D2a/D2b worker contract (ADR-022 compliance)</h3>
+<ol>
+  <li><strong><code>distribute.ts</code> <code>setupPromptFor()</code></strong> — append the ADR-022 contract: <em>"Before your final message, call <code>mcp__orchestrator__write_step_result({ runId, stepId, payload })</code> with your result object as <code>payload</code>, then return only <code>{ stepResultId }</code>."</em> Mirror the wording in <code>corpus/templates/worker-prompts/render-worker.md</code>.</li>
+  <li><strong>D2b route prompt</strong> (the <code>routePromptFor</code>-equivalent in <code>distribute.ts</code>) — same contract appended. The D2b workers return <code>{ rowId, channel, status, … }</code> inline today; they must persist + return a ref.</li>
+  <li>This removes the conductor-side <code>write_step_result</code> workaround used during the walk. The verify/advance path then receives proper refs for both steps.</li>
+</ol>
+
+<h3>Fix D — organic caption missing compliance footer (prompt rule + produce verifier)</h3>
+<p><strong>Investigation result:</strong> there is <em>no</em> code-clipping bug. <code>produce.ts:392</code> stores <code>organicCaptionEn = v.organic.captionEn</code> verbatim from the creative-director's CreativePlan — no <code>slice</code>/<code>substring</code>/column limit anywhere in the produce path. The truncated caption (<code>"…does not constitute personal financial"</code>) was <strong>emitted that way by the creative-director agent</strong>: it generated a long caption that ran out before the compliance footer. Root cause is authoring, and the failure only surfaced at the Meta-organic publish boundary (late, after the whole pipeline ran).</p>
+<p>Two-layer fix, matching the repo's compliance defense-in-depth (agent prompt + verifier, as Fix B-016 did for briefs):</p>
+<ol>
+  <li><strong>Prompt rule</strong> — <code>.claude/agents/creative-director.md</code> (and its prompt fragment under <code>packages/shared/src/prompts/</code> if sourced there; run <code>pnpm sync:agents</code> after): a HARD RULE that every organic caption (<code>captionEn</code> / <code>captionMs</code>) MUST end with the full bilingual FIMM/SC compliance footer — consultant credential (Shoo Kyuk Wei + Public Mutual + FIMM/UTC), the past-performance risk warning, and the prospectus/PHS pointer — and must never be truncated.</li>
+  <li><strong>Produce-stage verifier (deterministic backstop)</strong> — extend <code>verifyProduce()</code> (<code>packages/orchestrator/src/verifiers/verify-produce.ts</code>) to run <code>checkCompliance()</code> from <code>@engineerdad/meta-ads</code> (<strong>already an orchestrator dependency</strong> — <code>package.json:24</code>) on the <code>organicCaptionEn</code> / <code>organicCaptionBm</code> of every organic-channel variant. A caption missing its footer contains none of the sentinel regulator phrases (<code>past performance</code>, <code>fimm</code>, <code>public mutual</code>, …) and fails — surfacing the problem at <strong>HG3</strong>, in-pipeline, instead of at the Meta boundary. This requires carrying the caption text into the P5-confirm projection (today <code>projectVariant</code> reduces it to a boolean <code>organicSpecComplete</code>; add the raw <code>organicCaptionEn</code>/<code>Bm</code> fields and the EN/MS channel flag the check needs).</li>
+</ol>
+<p><strong>Layering:</strong> the produce verifier is the early sentinel check (catches truncation/footer-missing); the meta-organic publish gate stays as the authoritative final check (the strict 3-block consultant/risk/prospectus preflight) — unchanged. The fix is upstream of that gate, not in it.</p>
+
+<h2>Testing strategy</h2>
+<p>TDD per fix (red → green):</p>
+<ul>
+  <li><strong>Fix A</strong> — unit tests on <code>createAdCreative</code>: (i) absent <code>page_id</code>/<code>link_url</code> default from env; (ii) bare-string <code>call_to_action</code> normalizes to the object shape with <code>value.link</code>; (iii) object-shape CTA passes through. Update the <code>planMetaPaid</code> integration test to assert <code>creativeStep()</code> no longer needs the fields and the routed plan is well-formed.</li>
+  <li><strong>Fix B</strong> — unit tests on <code>adsetStep()</code> (asserts <code>bid_strategy</code>) and <code>targetingForCell()</code> (asserts <code>targeting_automation.advantage_audience: 0</code> alongside the existing geo/age/locales). Extend the <code>planMetaPaid</code> integration test.</li>
+  <li><strong>Fix C</strong> — assert <code>setupPromptFor()</code> and the D2b route prompt contain the <code>write_step_result</code> + <code>{stepResultId}</code> contract line (string-contains test, consistent with how render-worker prompt expectations are tested).</li>
+  <li><strong>Fix D</strong> — (i) <code>verify-produce</code> unit test: a variant whose <code>organicCaptionEn</code> is truncated/footer-less fails verification; one with the full footer passes; non-organic-channel variants are unaffected. (ii) <code>produce.ts</code> <code>projectVariant</code> test asserting the raw caption fields are carried through P5-confirm. (iii) creative-director prompt assertion (string-contains for the new HARD RULE) consistent with how brief-writer's canonical-angle rule is tested.</li>
+</ul>
+<div class="note"><strong>Out-of-scope acceptance:</strong> the Meta app capability gap is external. The plan cannot green a live Meta write. Final acceptance is re-running the failed D2b rows on <code>run_1780029260</code> (idempotent — all rows are <code>adId</code>/<code>fbPostId</code> null, retry-safe) once <code>ads_management</code> standard access is granted.</div>
+
+<h2>Rollout</h2>
+<ul>
+  <li>All fixes are on <code>feat/meta-paid-unblock</code>, folded into the same PR as the B-025/26/27 work (they live in the same distribution path the spec touched).</li>
+  <li><code>.env</code> gains <code>LANDING_URL</code>; document it in the PR and any env template.</li>
+  <li><code>pnpm -r --filter='!@engineerdad/webapp' build</code> then <strong>restart Claude Code</strong> before the live re-run (MCP processes must reload the meta-ads dist).</li>
+  <li>TASKS.md: close the walk's findings; note the external capability blocker as a non-code prerequisite.</li>
+</ul>
+
+<h2>Non-goals</h2>
+<ul>
+  <li>Fixing the Meta app <code>ads_management</code> capability (external / App Review).</li>
+  <li>Activating any Meta entity (ADR-015 — ACTIVE is human-only, forever).</li>
+  <li>Per-campaign / per-brief landing URLs (static <code>LANDING_URL</code> only).</li>
+  <li>Any change to the compliance preflight gate (it behaved correctly).</li>
+</ul>
+
+</body>
+</html>

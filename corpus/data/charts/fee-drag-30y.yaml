@@ -1,0 +1,34 @@
+# Fee drag over 30 years — what a "small" annual fee quietly removes
+# Source: ILLUSTRATIVE compound-cost math. RM300/month contributed monthly for 30 years
+# on a 6% gross annual return. Each bar is the RM lost to fees over the full 30 years at
+# that annual fee level (gross FV minus net-of-fee FV). Figures are the FV of a monthly
+# annuity at the gross rate minus the same annuity at the net (gross − fee) rate, rounded.
+# A horizontal/ranked bar suits this: few categories, long-ish labels, one dramatic spread.
+# Used by media-production when a scene argues "fees compound against you", "a 1% fee is
+# not small over 30 years", or "check the expense ratio before you check the brochure."
+
+id: fee-drag-30y
+title_en: "RM300/month, 30 years — how much each fee level quietly removes"
+title_ms: "RM300/sebulan, 30 tahun — berapa banyak setiap aras yuran senyap-senyap mengambil"
+chart_type: bar_horizontal   # ranked horizontal bar (indexAxis: 'y') — few categories, long labels, one dramatic spread
+x_label_en: "Lost to fees over 30 years (RM)"
+x_label_ms: "Hilang kepada yuran selama 30 tahun (RM)"
+y_label_en: "Annual fee"
+y_label_ms: "Yuran tahunan"
+labels:
+  - "0.5% per year"
+  - "1.0% per year"
+  - "1.5% per year"
+  - "2.0% per year"
+series:
+  - name_en: "Lost to fees over 30 years"
+    name_ms: "Hilang kepada yuran selama 30 tahun"
+    semantic_role: hero
+    values: [27000, 52000, 74000, 93000]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+# 2.0% vs 0.5% over 30 years: RM93k vs RM27k ≈ 3.4× the drag for a 1.5pp higher fee.
+callout_en: "2.0% vs 0.5%: ~3× more lost to fees"
+callout_ms: "2.0% vs 0.5%: ~3× lebih hilang kepada yuran"
+caption_en: "Same RM300/month, same 6% gross return — only the annual fee changes. Over 30 years a 2% fee removes ~RM93,000 versus ~RM27,000 at 0.5%. A fee that sounds small is a large, silent withdrawal once it compounds."
+caption_ms: "RM300/sebulan yang sama, pulangan kasar 6% yang sama — hanya yuran tahunan berubah. Selama 30 tahun yuran 2% mengambil ~RM93,000 berbanding ~RM27,000 pada 0.5%. Yuran yang kedengaran kecil ialah pengeluaran besar yang senyap apabila ia berkompaun."
+source_citation: "Illustrative compound-cost math only — RM300/month contributed monthly over 30 years at 6% gross annual return; each value is the future value of the annuity at the gross rate minus the same annuity at the net-of-fee rate, rounded. Not a specific fund. Public Mutual fund fees and projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

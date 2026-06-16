@@ -1,0 +1,38 @@
+# Single-country vs Load-balanced — the geographic-diversification picture
+# Source: corpus/courses/content-recipes.md Bug Series Part 3 ("Single Point of Failure
+# — single-country risk. Unit trusts as the Load Balancer distributing MYR globally")
+# + corpus/courses/children-fund-101.md ("geography: domestic / Asia-Pac / global;
+# blend reduces single-country risk").
+# Used by media-production when scene argues "single-point-of-failure", "the Load
+# Balancer metaphor", "why all-MYR is concentration risk", "geographic
+# diversification 101", or "QQQ/SPY crush Malaysian funds"
+# (objection myth d2-qqq-spy-crush-my-funds).
+
+id: single-country-vs-global
+title_en: "Concentrated vs Load-balanced — geographic allocation in two portfolios"
+title_ms: "Tertumpu vs Diseimbangkan — peruntukan geografi dalam dua portfolio"
+chart_type: bar
+x_label_en: "Geography"
+x_label_ms: "Geografi"
+y_label_en: "Allocation (%)"
+y_label_ms: "Peruntukan (%)"
+labels:
+  - "Malaysia (MYR)"
+  - "Asia ex-MYR"
+  - "Global developed"
+series:
+  - name_en: "Load-balanced portfolio"
+    name_ms: "Portfolio diseimbangkan"
+    semantic_role: hero          # the diversified target shape
+    values: [30, 35, 35]
+  - name_en: "Concentrated (MYR-only) portfolio"
+    name_ms: "Portfolio tertumpu (MYR sahaja)"
+    semantic_role: floor          # the do-nothing default — single point of failure
+    values: [100, 0, 0]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+# A framing line, not a figure — the convention allows either.
+callout_en: "100% home = one point of failure"
+callout_ms: "100% di rumah = satu titik kegagalan"
+caption_en: "An all-MYR portfolio looks 'safe because it's home' — but it's a single point of failure. One currency, one economy, one cycle. The load-balanced shape spreads the same money across three regions whose risks aren't correlated. When one region drags, the others can carry. The diversification isn't decorative; it's how engineering systems survive."
+caption_ms: "Portfolio MYR sepenuhnya kelihatan 'selamat kerana di rumah' — tetapi ia titik kegagalan tunggal. Satu mata wang, satu ekonomi, satu kitaran. Bentuk diseimbangkan menyebarkan wang yang sama merentas tiga rantau yang risikonya tidak berkorelasi. Apabila satu rantau menarik turun, yang lain boleh memikul. Kepelbagaian bukan hiasan; itulah cara sistem kejuruteraan bertahan."
+source_citation: "Illustrative target allocations matching the brand's geographic-diversification framing in corpus/courses/children-fund-101.md and the Load Balancer metaphor in corpus/courses/content-recipes.md. Actual allocation depends on risk profile, fund availability, and licensed Consultant guidance. Not a recommendation."

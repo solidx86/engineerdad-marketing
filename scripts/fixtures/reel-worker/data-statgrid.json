@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_statgrid",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "Two small leaks — the coffee habit and one extra dinner out a week — quietly add up to seventeen hundred ringgit a month you could be investing.", "onScreenText": "Two leaks, RM1,740/month", "chartRef": "lifestyle-bloat-leaks", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "surface the two recoverable monthly amounts as a couple of punchy headline figures, not a chart" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

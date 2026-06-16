@@ -1,0 +1,24 @@
+{
+  "name": "@engineerdad/mcp-media-providers-gemini",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "mcp-media-providers-gemini": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node --env-file=../../../.env dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
+  }
+}

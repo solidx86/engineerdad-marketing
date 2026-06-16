@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Meta-paid Unblock Implementation Plan · 2026-05-29</title>
+<style>
+  body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 18px; color: #1c1c1c; background: #fbfaf7; }
+  h1 { font-size: 26px; margin: 0 0 8px; border-bottom: 2px solid #b34a1f; padding-bottom: 10px; }
+  h2 { font-size: 20px; margin-top: 36px; border-bottom: 1px solid #ddd; padding-bottom: 4px; color: #b34a1f; }
+  h3 { font-size: 17px; margin-top: 26px; color: #2a5dad; }
+  h4 { font-size: 14px; margin-top: 18px; color: #444; text-transform: uppercase; letter-spacing: 0.04em; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: #f3efe7; padding: 1px 6px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f3efe7; padding: 12px 14px; border-radius: 6px; font-size: 13px; line-height: 1.5; overflow-x: auto; border-left: 3px solid #b34a1f; }
+  blockquote { background: #fffbea; border-left: 4px solid #b88410; margin: 14px 0; padding: 10px 16px; font-size: 14px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  hr { border: 0; border-top: 1px solid #ddd; margin: 28px 0; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .task { background: #fff; border: 1px solid #e5e1d8; border-radius: 6px; padding: 14px 18px; margin: 14px 0; }
+  .task h3 { margin-top: 0; }
+  .files { background: #f7f5ef; padding: 10px 14px; border-radius: 4px; font-size: 13px; margin: 8px 0 14px; }
+  .step { margin: 10px 0; }
+  .step-label { font-weight: 600; color: #2f7a3a; }
+  input[type="checkbox"] { margin-right: 8px; }
+  .note { background: #eef4ff; border-left: 3px solid #2a5dad; padding: 8px 12px; margin: 10px 0; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Meta-paid Unblock Implementation Plan</h1>
+<div class="meta">2026-05-29 · branch <code>feat/meta-paid-unblock</code> · spec: <code>docs/superpowers/specs/2026-05-29-meta-paid-unblock-design.html</code></div>
+
+<blockquote><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code> to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</blockquote>
+
+<p><strong>Goal:</strong> Close B-025 + B-026 + B-027 and add the webapp angle-visibility surface so a multi-angle <code>/loop-once</code> lands ≥1 Meta-paid PAUSED campaign with ≥1 adset per occupied cell (Carousel + Feed creatives) in Ads Manager.</p>
+
+<p><strong>Architecture:</strong> Three independent bug fixes plus a webapp surface, sequenced as: schema migration → B-025 (experiment tri-state verifier + writer) → B-027 (Meta-paid D2a planner + MCP schema) → B-026 (brief-writer angle taxonomy enforcement) → /reflect downstream → webapp visibility → manual E2E acceptance walk. Each layer is testable independently with vitest unit tests; the final acceptance is a real <code>/loop-once</code> to HG4 against a test Meta ad account.</p>
+
+<p><strong>Tech Stack:</strong> TypeScript / pnpm monorepo · Drizzle ORM over Postgres 16 · Next.js 15 App Router (apps/webapp) · vitest · MCP stdio servers · Claude Code agentic subagents.</p>
+
+<hr />
+
+<h2>Repo conventions to respect</h2>
+<ul>
+  <li><strong>Always <code>pnpm -r build</code> sequentially</strong> — never <code>--parallel</code> (races on <code>@engineerdad/shared</code>). After webapp changes, either kill <code>next dev</code> first or skip the webapp: <code>pnpm -r --filter='!@engineerdad/webapp' build</code>.</li>
+  <li><strong>Branch sandbox DB workflow</strong> — <code>pnpm db:sandbox</code> once per branch (and after every <code>schema.ts</code> change); <code>pnpm db:generate</code> to produce SQL; commit <code>schema.ts</code> + the generated <code>packages/*/drizzle/</code> files together. <code>pnpm lint:migrations</code> enforces this.</li>
+  <li><strong>Single test run</strong> — <code>pnpm vitest run &lt;path&gt;</code> or <code>pnpm vitest run &lt;path&gt; -t "&lt;test name&gt;"</code>.</li>
+  <li><strong>Restart Claude Code</strong> after editing <code>.mcp.json</code>, <code>.claude/settings.json</code>, or after the first <code>pnpm db:sandbox</code> on a branch (MCP layer freezes its DB URL at session start).</li>
+  <li><strong>DB queries</strong> — <code>docker exec engineerdad-postgres psql -U engineerdad -d &lt;db&gt; -c "..."</code>. No Node <code>pg</code> scripts.</li>
+  <li><strong>Agent prompt edits</strong> — <code>.claude/agents/&lt;name&gt;.md</code> is the runtime file. Fragments under <code>packages/shared/src/prompts/</code> (<code>bilingual.md</code>, <code>house-style.md</code>, <code>tactical-piliero.md</code>) are pasted by <code>pnpm sync:agents</code>. There is no <code>packages/shared/src/prompts/brief-writer.md</code> — edit <code>.claude/agents/brief-writer.md</code> directly.</li>
+</ul>
+
+<h2>Pre-flight (do once before Task 1)</h2>
+
+<div class="task">
+<p class="step"><input type="checkbox" /><span class="step-label">Step P1:</span> Confirm clean branch + working DB</p>
+<pre>git status                                # working tree clean (besides expected)
+git checkout -b feat/meta-paid-unblock
+pnpm db:sandbox                           # creates sandbox DB; writes DATABASE_URL to .env.local
+docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "SELECT COUNT(*) FROM experiments;"
+# Expected: count = 0 (matches spec §3.2.2 backfill claim)
+docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "SELECT COUNT(*) FROM briefs WHERE angle IS NULL;"
+# Expected: count = 0 (matches spec §3.1.5 backfill claim)</pre>
+<p>If either count is non-zero, STOP and revisit the migration strategy with the spec author before proceeding.</p>
+<p class="step"><input type="checkbox" /><span class="step-label">Step P2:</span> Restart Claude Code so the MCP layer picks up the sandbox <code>DATABASE_URL</code> from <code>.env.local</code>.</p>
+</div>
+
+<hr />
+
+<h2>Part A — Schema foundation</h2>
+
+<div class="task">
+<h3>Task 1: Add <code>experiment_status</code> column + tighten <code>briefs.angle</code> to NOT NULL</h3>
+<div class="files">
+<strong>Files:</strong><br />
+Modify: <code>packages/store/src/schema.ts</code><br />
+Create: <code>packages/store/drizzle/&lt;auto-named&gt;.sql</code> (generated)<br />
+Test: <code>packages/store/src/schema.test.ts</code> (extend if exists; create otherwise)
+</div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Modify schema.ts</p>
+<p>Open <code>packages/store/src/schema.ts</code>. Find the <code>briefs</code> table definition (around line 75 — has <code>persona</code>, <code>angle</code>, <code>funnelStage</code>, <code>budgetBucket</code>).</p>
+<p>Change <code>angle: text("angle"),</code> to <code>angle: text("angle").notNull(),</code></p>
+<p>Find the <code>experiments</code> table. Add this column near the other text columns:</p>
+<pre>experimentStatus: text("experiment_status").notNull(),</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Push schema to sandbox + generate migration</p>
+<pre>pnpm db:sandbox          # re-pushes schema to branch sandbox
+pnpm db:generate         # produces SQL under packages/store/drizzle/</pre>
+<p>Inspect the generated SQL. Expected: one <code>ALTER TABLE briefs ALTER COLUMN angle SET NOT NULL;</code> plus one <code>ALTER TABLE experiments ADD COLUMN experiment_status text NOT NULL;</code>. No other changes.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Run <code>pnpm lint:migrations</code> — expected PASS once Step 5 commits.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Verify migration applied to sandbox</p>
+<pre>SANDBOX_DB=$(grep DATABASE_URL .env.local | sed 's|.*/||')
+docker exec engineerdad-postgres psql -U engineerdad -d $SANDBOX_DB -c "\d experiments"
+docker exec engineerdad-postgres psql -U engineerdad -d $SANDBOX_DB -c "\d briefs"</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 5:</span> Commit</p>
+<pre>git add packages/store/src/schema.ts packages/store/drizzle/
+git commit -m "feat(store): add experiments.experiment_status; tighten briefs.angle NOT NULL
+
+Spec §3.1.5 + §3.2.2. Live verified 0 affected rows on engineerdad
+before migration. Closes part of B-025 + B-026 prerequisites."</pre>
+</div>
+
+<div class="task">
+<h3>Task 2: Add <code>ExperimentStatus</code> union + <code>classifyExperimentStatus</code> helper to shared</h3>
+<div class="files">
+<strong>Files:</strong><br />
+Modify: <code>packages/shared/src/zod.ts</code> (or wherever ExperimentParams lives)<br />
+Create: <code>packages/shared/src/experiment-status.ts</code><br />
+Create: <code>packages/shared/src/experiment-status.test.ts</code><br />
+Modify: <code>packages/shared/src/index.ts</code> (re-export)
+</div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Locate the right home for the union</p>
+<pre>grep -rn "ExperimentParams" packages/shared/src/</pre>
+<p>If <code>ExperimentParams</code> is in <code>zod.ts</code>, add the union there. Otherwise add next to the existing experiment-related types. Plan below assumes <code>zod.ts</code>.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Add the union to the chosen file</p>
+<pre>export const EXPERIMENT_STATUS = ["full", "degraded", "single-cell", "broken"] as const;
+export type ExperimentStatus = (typeof EXPERIMENT_STATUS)[number];</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Write the failing test (create <code>packages/shared/src/experiment-status.test.ts</code>)</p>
+<pre>import { describe, expect, it } from "vitest";
+import { classifyExperimentStatus } from "./experiment-status.js";
+
+describe("classifyExperimentStatus", () =&gt; {
+  it("returns 'full' when every cell is occupied", () =&gt; {
+    expect(classifyExperimentStatus({ occupied: 3, total: 3 })).toBe("full");
+    expect(classifyExperimentStatus({ occupied: 1, total: 1 })).toBe("full");
+  });
+
+  it("returns 'degraded' when ≥2 occupied and ≥1 empty", () =&gt; {
+    expect(classifyExperimentStatus({ occupied: 2, total: 3 })).toBe("degraded");
+    expect(classifyExperimentStatus({ occupied: 4, total: 5 })).toBe("degraded");
+  });
+
+  it("returns 'single-cell' when exactly 1 occupied", () =&gt; {
+    expect(classifyExperimentStatus({ occupied: 1, total: 3 })).toBe("single-cell");
+  });
+
+  it("returns 'broken' when 0 occupied", () =&gt; {
+    expect(classifyExperimentStatus({ occupied: 0, total: 3 })).toBe("broken");
+    expect(classifyExperimentStatus({ occupied: 0, total: 0 })).toBe("broken");
+  });
+});</pre>
+<pre>pnpm vitest run packages/shared/src/experiment-status.test.ts
+# Expected: FAIL (Cannot find module './experiment-status.js')</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Implement the helper (create <code>packages/shared/src/experiment-status.ts</code>)</p>
+<pre>import type { ExperimentStatus } from "./zod.js";
+
+export function classifyExperimentStatus(input: { occupied: number; total: number }): ExperimentStatus {
+  const { occupied, total } = input;
+  if (occupied === 0) return "broken";
+  if (occupied === 1) return "single-cell";
+  if (occupied &gt;= 2 &amp;&amp; occupied &lt; total) return "degraded";
+  return "full";
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 5:</span> Re-export from index.ts</p>
+<pre>export * from "./experiment-status.js";</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 6:</span> Run + build</p>
+<pre>pnpm vitest run packages/shared/src/experiment-status.test.ts
+pnpm --filter @engineerdad/shared build</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 7:</span> Commit</p>
+<pre>git add packages/shared/src/
+git commit -m "feat(shared): add ExperimentStatus union + classifyExperimentStatus helper
+
+Spec §3.2.1 + §3.2.3. Shared by verify-experiment and the webapp's
+HG1 approval-guidance preview so the two cannot diverge."</pre>
+</div>
+
+<hr />
+
+<h2>Part B — B-025: experiment tri-state</h2>
+
+<div class="task">
+<h3>Task 3: Update <code>verify-experiment</code> to return tri-state</h3>
+<div class="files">
+<strong>Files:</strong> <code>packages/orchestrator/src/verifiers/verify-experiment.ts</code> · <code>packages/orchestrator/src/types.ts</code> (extend VerifyResult if needed) · <code>verify-experiment.test.ts</code>
+</div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Check whether <code>VerifyResult</code> already carries a <code>data</code> field</p>
+<pre>grep -n "interface VerifyResult\|type VerifyResult" packages/orchestrator/src/types.ts</pre>
+<p>If <code>VerifyResult</code> is <code>{ ok: boolean; problems: string[] }</code> only, extend it:</p>
+<pre>export interface VerifyResult {
+  ok: boolean;
+  problems: string[];
+  data?: Record&lt;string, unknown&gt;;
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Write failing tests</p>
+<pre>import { describe, expect, it } from "vitest";
+import { verifyExperiment } from "./verify-experiment.js";
+import type { AllocatedCell } from "../experiment/allocation.js";
+
+function cell(id: string, n: number, pct = 33.3): AllocatedCell {
+  return {
+    cellId: id,
+    factorLevels: { angle: id },
+    variantPageIds: Array.from({ length: n }, (_, i) =&gt; `v_${id}_${i}`),
+    allocationPct: pct,
+  };
+}
+
+describe("verifyExperiment tri-state", () =&gt; {
+  it("3-of-3 → full + ok", () =&gt; {
+    const r = verifyExperiment([cell("A", 1), cell("B", 1), cell("C", 1, 33.4)], true);
+    expect(r.ok).toBe(true);
+    expect(r.data?.experimentStatus).toBe("full");
+  });
+
+  it("2-of-3 → degraded + ok", () =&gt; {
+    const r = verifyExperiment([cell("A", 1), cell("B", 1), cell("C", 0, 33.4)], true);
+    expect(r.ok).toBe(true);
+    expect(r.data?.experimentStatus).toBe("degraded");
+  });
+
+  it("1-of-3 → single-cell + ok", () =&gt; {
+    const r = verifyExperiment([cell("A", 1), cell("B", 0), cell("C", 0, 33.4)], true);
+    expect(r.ok).toBe(true);
+    expect(r.data?.experimentStatus).toBe("single-cell");
+  });
+
+  it("0-of-3 → broken + ok:false", () =&gt; {
+    const r = verifyExperiment([cell("A", 0), cell("B", 0), cell("C", 0, 33.4)], true);
+    expect(r.ok).toBe(false);
+    expect(r.problems[0]).toMatch(/all cells empty/i);
+  });
+
+  it("still fails when experiment row not created", () =&gt; {
+    const r = verifyExperiment([cell("A", 1)], false);
+    expect(r.ok).toBe(false);
+  });
+});</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Rewrite <code>verify-experiment.ts</code></p>
+<pre>import type { VerifyResult } from "../types.js";
+import type { AllocatedCell } from "../experiment/allocation.js";
+import { classifyExperimentStatus, type ExperimentStatus } from "@engineerdad/shared";
+
+export function verifyExperiment(
+  cells: AllocatedCell[],
+  experimentRowCreated: boolean,
+): VerifyResult {
+  const problems: string[] = [];
+
+  if (!experimentRowCreated) problems.push("Experiment row was not created");
+
+  if (cells.length === 0) {
+    problems.push("experiment design produced no cells");
+    return { ok: false, problems };
+  }
+
+  const occupied = cells.filter((c) =&gt; c.variantPageIds.length &gt; 0).length;
+  const experimentStatus: ExperimentStatus = classifyExperimentStatus({ occupied, total: cells.length });
+
+  if (experimentStatus === "broken") {
+    problems.push("all cells empty: no approved variants mapped to any cell");
+  }
+
+  const sum = cells.reduce((a, c) =&gt; a + c.allocationPct, 0);
+  if (Math.abs(sum - 100) &gt; 0.5) {
+    problems.push(`allocation sums to ${sum}, expected 100`);
+  }
+
+  return { ok: problems.length === 0, problems, data: { experimentStatus } };
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Run + build</p>
+<pre>pnpm vitest run packages/orchestrator/src/verifiers/verify-experiment.test.ts
+pnpm --filter @engineerdad/orchestrator build</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 5:</span> Commit</p>
+<pre>git add packages/orchestrator/src/verifiers/verify-experiment.ts packages/orchestrator/src/verifiers/verify-experiment.test.ts packages/orchestrator/src/types.ts
+git commit -m "feat(orchestrator): verify-experiment tri-state (B-025)
+
+Spec §3.2.3."</pre>
+</div>
+
+<div class="task">
+<h3>Task 4: X3-write persists <code>experimentStatus</code></h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/stages/experiment.ts</code> · <code>experiment.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Decide pass-through vs recompute</p>
+<p>The verifier's <code>data.experimentStatus</code> lives on the X2-design step's verify result. Reading <code>packages/orchestrator/src/engine.ts:80-135</code> shows whether <code>RunState.steps[i].verifyResult</code> is exposed. If not, the simpler path is for X3-write to recompute via <code>classifyExperimentStatus</code> on the same <code>allocatedCellsFor(run)</code> it already calls. The plan uses this recompute path.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Write the failing test (extend <code>experiment.test.ts</code>)</p>
+<pre>it("X3-write includes experimentStatus in the create call (degraded)", () =&gt; {
+  const run = makeRunWith2of3Cells(); // mirror existing X3 test seeding
+  const step = x3Write.build(run);
+  if (step.kind !== "write") throw new Error("expected write");
+  const createCall = step.calls.find(
+    (c) =&gt; c.tool === "mcp__store__create" &amp;&amp; c.label === "experiment",
+  );
+  expect(createCall).toBeDefined();
+  const props = (createCall!.args as { props: Record&lt;string, unknown&gt; }).props;
+  expect(props.experimentStatus).toBe("degraded");
+});</pre>
+<pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "experimentStatus"
+# Expected: FAIL</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Update X3-write</p>
+<p>In <code>experiment.ts</code>:</p>
+<pre>import { classifyExperimentStatus } from "@engineerdad/shared";
+
+// In x3Write.build, after const cells = allocatedCellsFor(run);
+const occupied = cells.filter((c) =&gt; c.variantPageIds.length &gt; 0).length;
+const experimentStatus = classifyExperimentStatus({ occupied, total: cells.length });
+
+// Update props:
+props: {
+  runId: run.runId,
+  cells: JSON.stringify(cells),
+  experimentStatus,
+},</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Run + build + commit</p>
+<pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/stages/experiment.ts packages/orchestrator/src/stages/experiment.test.ts
+git commit -m "feat(orchestrator): X3-write persists experimentStatus (B-025)
+
+Spec §3.2.4."</pre>
+</div>
+
+<div class="task">
+<h3>Task 5: Update store CRUD validator (only if validator exists)</h3>
+<div class="files"><strong>Files:</strong> <code>packages/store/src/crud.ts</code> · <code>packages/store/src/crud.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Locate the per-entity validator</p>
+<pre>grep -rn "Experiments\|experiments" packages/store/src/crud.ts 2>/dev/null | head -20</pre>
+<p>If no per-entity prop validator exists, skip the rest of this task — text columns accept any value.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Add enum check (if validator exists)</p>
+<pre>import { EXPERIMENT_STATUS } from "@engineerdad/shared";
+
+// In the Experiments writer:
+if (!EXPERIMENT_STATUS.includes(props.experimentStatus as never)) {
+  throw new Error(`experimentStatus must be one of ${EXPERIMENT_STATUS.join("|")}`);
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Build + commit (only if changed)</p>
+<pre>pnpm vitest run packages/store/
+pnpm --filter @engineerdad/store build
+git add packages/store/src/
+git commit -m "feat(store): validate Experiments.experimentStatus against enum
+
+Spec §3.2.2."</pre>
+</div>
+
+<div class="task">
+<h3>Task 6: Verify the full verify→write round-trip (no-op if Task 4 used recompute)</h3>
+<pre>pnpm vitest run packages/orchestrator/src/</pre>
+<p>If Task 4 took the recompute path, no commit. Otherwise re-verify the data-handoff path lights up the live walk.</p>
+</div>
+
+<hr />
+
+<h2>Part C — B-027: Meta-paid D2a setup</h2>
+
+<div class="task">
+<h3>Task 7: One-shot Meta locale ID lookup</h3>
+<div class="files"><strong>Files:</strong> Create <code>scripts/lookup-meta-locale-ids.mjs</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Create the script</p>
+<pre>#!/usr/bin/env node
+import "dotenv/config";
+
+const TOKEN = process.env.META_ACCESS_TOKEN;
+if (!TOKEN) {
+  console.error("META_ACCESS_TOKEN missing from environment.");
+  process.exit(1);
+}
+
+async function lookup(q) {
+  const url = `https://graph.facebook.com/v18.0/search?type=adlocale&amp;q=${encodeURIComponent(q)}&amp;access_token=${TOKEN}`;
+  const res = await fetch(url);
+  if (!res.ok) { console.error(`Lookup failed for "${q}": ${res.status}`); process.exit(1); }
+  return (await res.json()).data ?? [];
+}
+
+const english = await lookup("English");
+const malay = await lookup("Malay");
+console.log("\n=== English ===");
+for (const r of english.slice(0, 10)) console.log(`  ${r.key}\t${r.name}`);
+console.log("\n=== Malay ===");
+for (const r of malay.slice(0, 10)) console.log(`  ${r.key}\t${r.name}`);</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Run + capture IDs</p>
+<pre>node scripts/lookup-meta-locale-ids.mjs</pre>
+<p>Pick the row whose name is <strong>"English (US)"</strong> and the row whose name is <strong>"Malay"</strong>. Write down the integer <code>key</code> values — they go into Task 9.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Commit the script</p>
+<pre>git add scripts/lookup-meta-locale-ids.mjs
+git commit -m "chore(scripts): one-shot Meta ad-locale ID lookup (Spec §3.3.3)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 8: Add <code>is_adset_budget_sharing_enabled</code> to <code>create_campaign</code> MCP</h3>
+<div class="files"><strong>Files:</strong> <code>mcp-servers/meta-ads/src/tools/create-campaign.ts</code> · <code>create-campaign.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Read current schema + forwarder</p>
+<pre>cat mcp-servers/meta-ads/src/tools/create-campaign.ts</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Write failing tests</p>
+<pre>it("forwards is_adset_budget_sharing_enabled to Graph", async () =&gt; {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ id: "c_1" }), { status: 200 })
+  );
+  await createCampaign({ name: "test", objective: "OUTCOME_LEADS", is_adset_budget_sharing_enabled: true });
+  const body = String(fetchSpy.mock.calls[0][1]?.body);
+  expect(body).toContain("is_adset_budget_sharing_enabled");
+  fetchSpy.mockRestore();
+});
+
+it("defaults to false", async () =&gt; {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ id: "c_2" }), { status: 200 })
+  );
+  await createCampaign({ name: "test", objective: "OUTCOME_LEADS" });
+  const body = String(fetchSpy.mock.calls[0][1]?.body);
+  expect(body).toMatch(/is_adset_budget_sharing_enabled.*false/);
+  fetchSpy.mockRestore();
+});</pre>
+<pre>pnpm vitest run mcp-servers/meta-ads/src/tools/create-campaign.test.ts
+# Expected: FAIL</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Add to Zod schema + Graph body</p>
+<pre>// In the input schema:
+is_adset_budget_sharing_enabled: z.boolean().optional().default(false),
+
+// In the body assembly:
+is_adset_budget_sharing_enabled: String(args.is_adset_budget_sharing_enabled),</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Run + build + commit</p>
+<pre>pnpm vitest run mcp-servers/meta-ads/src/tools/create-campaign.test.ts
+pnpm --filter '@engineerdad/mcp-meta-ads' build
+git add mcp-servers/meta-ads/src/tools/create-campaign.ts mcp-servers/meta-ads/src/tools/create-campaign.test.ts
+git commit -m "feat(mcp-meta-ads): expose is_adset_budget_sharing_enabled (B-027 #1)
+
+Spec §3.3.1. Closes Meta API subcode 4834011."</pre>
+</div>
+
+<div class="task">
+<h3>Task 9: Add <code>LOCALE_ID</code> + <code>targetingForCell</code> in plan-distribution.ts</h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/distribute/plan-distribution.ts</code> · <code>plan-distribution.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Write failing tests (use IDs from Task 7)</p>
+<pre>import { targetingForCell, LOCALE_ID } from "./plan-distribution.js";
+
+it("targetingForCell returns minimum broad block with both locales", () =&gt; {
+  const cell = { cellId: "A", factorLevels: { angle: "A" }, variantPageIds: [], allocationPct: 70 };
+  const t = targetingForCell(cell);
+  expect(t.geo_locations).toEqual({ countries: ["MY"] });
+  expect(t.age_min).toBe(25);
+  expect(t.age_max).toBe(55);
+  expect(t.locales).toEqual([LOCALE_ID.en, LOCALE_ID.ms]);
+});
+
+it("LOCALE_ID has both keys non-zero", () =&gt; {
+  expect(LOCALE_ID.en).toBeGreaterThan(0);
+  expect(LOCALE_ID.ms).toBeGreaterThan(0);
+});</pre>
+<pre>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "targeting"
+# Expected: FAIL</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Add constant + helper near line 121 of plan-distribution.ts</p>
+<pre>// Meta locale IDs. Source: scripts/lookup-meta-locale-ids.mjs, retrieved YYYY-MM-DD.
+export const LOCALE_ID = { en: &lt;EN_ID&gt;, ms: &lt;MS_ID&gt; } as const;
+
+export interface MetaTargeting {
+  geo_locations: { countries: string[] };
+  age_min: number;
+  age_max: number;
+  locales: number[];
+}
+
+export function targetingForCell(_cell: AllocatedCell): MetaTargeting {
+  return {
+    geo_locations: { countries: ["MY"] },
+    age_min: 25,
+    age_max: 55,
+    locales: [LOCALE_ID.en, LOCALE_ID.ms],
+  };
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Run + commit</p>
+<pre>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "targeting"
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/distribute/plan-distribution.ts packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "feat(orchestrator): targetingForCell + LOCALE_ID (B-027 #3)
+
+Spec §3.3.3. Helper not yet wired into adsetStep — next task."</pre>
+</div>
+
+<div class="task">
+<h3>Task 10: Fix budget math + wire targeting into <code>adsetStep</code></h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/distribute/plan-distribution.ts</code> · <code>plan-distribution.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Verify <code>allocationPct</code> convention</p>
+<p>Read <code>packages/orchestrator/src/experiment/allocation.ts</code>. If <code>allocationPct</code> is in 0–100 (percent), the existing line <code>dailyBudgetMyr * cell.allocationPct</code> already gives cents (since MYR × pct(0–100) = cents). If it's 0–1 (fraction), the missing <code>* 100</code> is real. Pick the formula that matches the convention.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Write failing tests matching the chosen convention</p>
+<pre>it("adsetStep computes daily_budget_cents correctly", () =&gt; {
+  const cell = { cellId: "A", factorLevels: { angle: "A" }, variantPageIds: ["v1"], allocationPct: 70 };
+  const step = adsetStep("r1", cell, 10);
+  // If allocationPct is in 0-100, expected = 10 * 70 = 700
+  // If allocationPct is in 0-1,    expected = 10 * 0.70 * 100 = 700
+  expect(step.args.daily_budget_cents).toBe(700);
+});
+
+it("adsetStep floors daily_budget_cents to 1 when budget is 0", () =&gt; {
+  const cell = { cellId: "A", factorLevels: { angle: "A" }, variantPageIds: ["v1"], allocationPct: 70 };
+  const step = adsetStep("r1", cell, 0);
+  expect(step.args.daily_budget_cents).toBe(1);
+});
+
+it("adsetStep includes a targeting block", () =&gt; {
+  const cell = { cellId: "A", factorLevels: { angle: "A" }, variantPageIds: ["v1"], allocationPct: 70 };
+  const step = adsetStep("r1", cell, 10);
+  expect(step.args.targeting).toBeDefined();
+  expect(step.args.targeting.geo_locations.countries).toEqual(["MY"]);
+});</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Update <code>adsetStep</code> (around line 149)</p>
+<pre>function adsetStep(runId: string, cell: AllocatedCell, dailyBudgetMyr: number): ToolStep {
+  return {
+    tool: "mcp__meta-ads__create_adset",
+    args: {
+      name: `${runId}__${cell.cellId}`,
+      daily_budget_cents: Math.max(1, Math.round(dailyBudgetMyr * cell.allocationPct)),  // adjust ×100 per convention check
+      optimization_goal: "LEAD_GENERATION",
+      billing_event: "IMPRESSIONS",
+      targeting: targetingForCell(cell),
+      client_request_id: `${runId}::${cell.cellId}`,
+    },
+    captures: `adset:${cell.cellId}`,
+    needs: ["campaign"],
+  };
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Run + build + commit</p>
+<pre>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/distribute/plan-distribution.ts packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "fix(orchestrator): adset budget floor + targeting block (B-027 #2 + #3)
+
+Spec §3.3.2 + §3.3.3."</pre>
+</div>
+
+<div class="task">
+<h3>Task 11: Thread <code>dailyBudgetMyr</code> source-of-truth through distribute stage</h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/stages/distribute.ts</code> · <code>distribute.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Locate current reads</p>
+<pre>grep -n "dailyBudgetMyr" packages/orchestrator/src/stages/distribute.ts</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Add helper</p>
+<pre>import type { DecisionMemoV2 } from "@engineerdad/shared";
+
+export function dailyBudgetMyrFor(run: RunState): number {
+  const memo = run.steps.find((s) =&gt; s.stepId === "S1-reason")?.result as DecisionMemoV2 | undefined;
+  const fromMemo = memo?.experimentParams?.dailyBudgetMyr;
+  if (typeof fromMemo === "number" &amp;&amp; fromMemo &gt; 0) return fromMemo;
+  const params = run.params as unknown as { dailyBudgetMyr?: number };
+  return params.dailyBudgetMyr ?? 0;
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Write failing tests</p>
+<pre>it("dailyBudgetMyrFor prefers Brain memo", () =&gt; {
+  const run = makeRun({ s1Result: { experimentParams: { dailyBudgetMyr: 25 } }, runParams: { dailyBudgetMyr: 10 } });
+  expect(dailyBudgetMyrFor(run)).toBe(25);
+});
+
+it("falls back to run.params when memo absent", () =&gt; {
+  const run = makeRun({ s1Result: undefined, runParams: { dailyBudgetMyr: 15 } });
+  expect(dailyBudgetMyrFor(run)).toBe(15);
+});
+
+it("returns 0 when neither provides", () =&gt; {
+  const run = makeRun({ s1Result: undefined, runParams: {} });
+  expect(dailyBudgetMyrFor(run)).toBe(0);
+});</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Replace inline reads at the two call sites with <code>dailyBudgetMyrFor(run)</code>. Run + build + commit.</p>
+<pre>pnpm vitest run packages/orchestrator/src/stages/distribute.test.ts
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/stages/distribute.ts packages/orchestrator/src/stages/distribute.test.ts
+git commit -m "feat(orchestrator): distribute reads dailyBudgetMyr Brain-memo-first (B-027 follow-up)
+
+Spec §3.3.2."</pre>
+</div>
+
+<div class="task">
+<h3>Task 12: Audit <code>run-args.ts</code> default</h3>
+<pre>grep -n "dailyBudgetMyr" packages/orchestrator/src/run-args.ts</pre>
+<p>If the default is already <code>0</code>, skip. If non-zero, change to <code>0</code> and commit:</p>
+<pre>git add packages/orchestrator/src/run-args.ts
+git commit -m "fix(orchestrator): run-args dailyBudgetMyr defaults to 0 (B-027 follow-up)
+
+Spec §3.3.2."</pre>
+</div>
+
+<div class="task">
+<h3>Task 13: Integration test — full Meta-paid plan</h3>
+<pre>it("planMetaPaid produces campaign + per-cell adsets with targeting and budgets", () =&gt; {
+  const variants = [/* 2 fixture DistVariant rows under 2 different cells */];
+  const cells = [/* AllocatedCell A (70%), AllocatedCell B (30%) */];
+  const part = planMetaPaid("r_test", variants, cells, 10);
+
+  const campaignStep = part.setup.find((s) =&gt; s.tool === "mcp__meta-ads__create_campaign");
+  expect(campaignStep).toBeDefined();
+
+  const adsetSteps = part.setup.filter((s) =&gt; s.tool === "mcp__meta-ads__create_adset");
+  expect(adsetSteps).toHaveLength(2);
+  for (const a of adsetSteps) {
+    expect(a.args.daily_budget_cents).toBeGreaterThan(0);
+    expect(a.args.targeting).toBeDefined();
+    expect(a.args.targeting.locales).toEqual([LOCALE_ID.en, LOCALE_ID.ms]);
+  }
+});</pre>
+<pre>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts
+git add packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "test(orchestrator): integration test for planMetaPaid (B-027 traceability)"</pre>
+</div>
+
+<hr />
+
+<h2>Part D — B-026: angle taxonomy enforcement</h2>
+
+<div class="task">
+<h3>Task 14: Update <code>brief-writer.md</code> agent prompt</h3>
+<div class="files"><strong>Files:</strong> <code>.claude/agents/brief-writer.md</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Read current prompt — identify where to insert the new section</p>
+<pre>sed -n '1,80p' .claude/agents/brief-writer.md</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Insert this section into <code>.claude/agents/brief-writer.md</code>:</p>
+<pre>## Canonical angle taxonomy (HARD RULE)
+
+The spawn prompt's `DECISION MEMO INPUTS.recommendedAngles` is the
+canonical list of angle keys for this run. You MUST set `brief.angle`
+to one of those strings VERBATIM on every Brief you create.
+
+- No renaming (`epf-shortfall-parent-worry` → `epf-shortfall-math` is a halt).
+- No abbreviation, paraphrasing, or "improving" the key.
+- The verifier (`verify-brief.ts`) hard-fails on any off-taxonomy angle.
+
+If you cannot reach 12 Briefs within these angles plus the other axes
+(persona, promise, proof_type, funnel_stage, budget_bucket), emit
+fewer Briefs and surface the shortfall in your return JSON. **Skip,
+don't pad.** A shortfall is a signal to upstream (more angles needed);
+inventing an off-taxonomy angle is a silent corruption.</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> <code>pnpm sync:agents:check</code> — expected PASS.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Commit</p>
+<pre>git add .claude/agents/brief-writer.md
+git commit -m "feat(agents/brief-writer): canonical angle taxonomy contract (B-026)
+
+Spec §3.1.1 + §3.1.2."</pre>
+</div>
+
+<div class="task">
+<h3>Task 15: Stage <code>recommendedAngles</code> in B1-write spawn prompt</h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/stages/brief.ts</code> · <code>brief.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Confirm <code>memoInputs</code> already extracts <code>recommendedAngles</code> at line 30. Then update the spawn prompt to highlight the canonical-taxonomy rule:</p>
+<pre>spawnPrompt: [
+  `Run ${run.runId}: you are brief-writer. Translate the Decision Memo`,
+  "inputs below into a pack of 12 message-angle Briefs — one store row",
+  "each, bilingual EN/BM, across the 70/20/10 budget buckets. Follow your",
+  "agent instructions exactly. Return { angles: [...] } as your final JSON.",
+  "",
+  "DECISION MEMO INPUTS:",
+  JSON.stringify(memoInputs(run), null, 2),
+  "",
+  "CANONICAL ANGLE TAXONOMY (HARD RULE):",
+  "Every brief.angle MUST be one of recommendedAngles above, VERBATIM.",
+  "The verifier hard-fails on any off-taxonomy angle.",
+  "If you cannot reach 12 within these angles, emit fewer — skip, don't pad.",
+].join("\n"),</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Write the test</p>
+<pre>it("B1-write spawn prompt includes recommendedAngles and the canonical rule", () =&gt; {
+  const run = makeRunWithMemo({ recommendedAngles: ["angle-a", "angle-b"] });
+  const step = b1Write.build(run);
+  if (step.kind !== "spawn") throw new Error("expected spawn");
+  expect(step.spawnPrompt).toContain("angle-a");
+  expect(step.spawnPrompt).toContain("angle-b");
+  expect(step.spawnPrompt).toMatch(/canonical angle taxonomy/i);
+  expect(step.spawnPrompt).toMatch(/verbatim/i);
+});</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Run + build + commit</p>
+<pre>pnpm vitest run packages/orchestrator/src/stages/brief.test.ts
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/stages/brief.ts packages/orchestrator/src/stages/brief.test.ts
+git commit -m "feat(orchestrator/brief): spotlight canonical-taxonomy rule (B-026)
+
+Spec §3.1.2."</pre>
+</div>
+
+<div class="task">
+<h3>Task 16: Extend <code>verify-brief</code> to assert angle ∈ recommendedAngles</h3>
+<div class="files"><strong>Files:</strong> <code>packages/orchestrator/src/verifiers/verify-brief.ts</code> · <code>stages/brief.ts</code> (call site) · <code>verify-brief.test.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Change verifier signature</p>
+<pre>export interface BriefResult {
+  angles?: unknown;
+}
+
+export function verifyBrief(
+  result: unknown,
+  recommendedAngles: string[] | undefined,
+): VerifyResult {
+  if (result === null || typeof result !== "object") {
+    return { ok: false, problems: ["brief-writer produced no result"] };
+  }
+  const angles = (result as BriefResult).angles;
+  if (!Array.isArray(angles) || angles.length === 0) {
+    return { ok: false, problems: ["brief-writer created no Brief angles"] };
+  }
+
+  // Skip-when-absent: cold-start legitimate-skip path.
+  if (!recommendedAngles || recommendedAngles.length === 0) {
+    return { ok: true, problems: [] };
+  }
+
+  const allowed = new Set(recommendedAngles);
+  const problems: string[] = [];
+  for (let i = 0; i &lt; angles.length; i++) {
+    const a = angles[i];
+    const angleStr = typeof a === "string" ? a : (a as { angle?: unknown })?.angle;
+    if (typeof angleStr !== "string") {
+      problems.push(`angle[${i}]: not a string`);
+      continue;
+    }
+    if (!allowed.has(angleStr)) {
+      problems.push(`angle[${i}] "${angleStr}" not in recommendedAngles`);
+    }
+  }
+
+  if (problems.length &gt; 0) return { ok: false, problems };
+  return { ok: true, problems: [] };
+}</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Update call site in <code>brief.ts</code></p>
+<pre>verify: (run, result): VerifyResult =&gt; {
+  const inputs = memoInputs(run) as { recommendedAngles?: string[] };
+  return verifyBrief(result, inputs.recommendedAngles);
+},</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Failing tests</p>
+<pre>describe("verifyBrief angle-taxonomy assertion", () =&gt; {
+  it("passes when every angle is in recommendedAngles", () =&gt; {
+    const r = verifyBrief({ angles: ["a", "b"] }, ["a", "b", "c"]);
+    expect(r.ok).toBe(true);
+  });
+
+  it("fails on off-taxonomy, listing all offenders", () =&gt; {
+    const r = verifyBrief({ angles: ["a", "x", "y", "b"] }, ["a", "b"]);
+    expect(r.ok).toBe(false);
+    expect(r.problems).toHaveLength(2);
+    expect(r.problems.join(" ")).toContain('"x"');
+    expect(r.problems.join(" ")).toContain('"y"');
+  });
+
+  it("skips assertion when recommendedAngles absent", () =&gt; {
+    const r = verifyBrief({ angles: ["whatever"] }, undefined);
+    expect(r.ok).toBe(true);
+  });
+
+  it("skips assertion when recommendedAngles empty", () =&gt; {
+    const r = verifyBrief({ angles: ["whatever"] }, []);
+    expect(r.ok).toBe(true);
+  });
+});</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Build + commit</p>
+<pre>pnpm vitest run packages/orchestrator/src/verifiers/verify-brief.test.ts
+pnpm --filter @engineerdad/orchestrator build
+git add packages/orchestrator/src/verifiers/verify-brief.ts packages/orchestrator/src/verifiers/verify-brief.test.ts packages/orchestrator/src/stages/brief.ts
+git commit -m "feat(orchestrator): verify-brief enforces canonical angle taxonomy (B-026)
+
+Spec §3.1.3."</pre>
+</div>
+
+<hr />
+
+<h2>Part E — <code>/reflect</code> downstream consumer</h2>
+
+<div class="task">
+<h3>Task 17: Update <code>reflect.md</code> + <code>brain.md</code> for experimentStatus branching</h3>
+<div class="files"><strong>Files:</strong> <code>.claude/commands/reflect.md</code> · <code>.claude/agents/brain.md</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Read both files for current Reflect procedure.</p>
+<pre>cat .claude/commands/reflect.md
+grep -n "Reflect\|§B-step-2\|hypothesis\|graduate" .claude/agents/brain.md | head -20</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Add this branch to <code>.claude/commands/reflect.md</code> where the prior cycle's Experiment row is read:</p>
+<pre>**Tri-state branching.** Read `experimentStatus` from the prior cycle's
+Experiments row. Branch:
+
+- `full` — grade all cells; standard Hypothesis graduation pass.
+- `degraded` — grade only the cells with variants; mark un-populated
+  cells `inconclusive — no data`.
+- `single-cell` — **skip Hypothesis graduation entirely.** A single
+  cell is not a comparison. Write the Performance Report's
+  "what we learned" section as a single-arm observation.
+- `broken` — should not be reached (verify-experiment fails closed).
+  If you see it, halt and ask the operator.</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Mirror in <code>.claude/agents/brain.md</code> §B-step-2.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> <code>pnpm sync:agents &amp;&amp; pnpm sync:agents:check</code>. Commit.</p>
+<pre>git add .claude/commands/reflect.md .claude/agents/brain.md
+git commit -m "feat(reflect): branch on experimentStatus tri-state (B-025 follow-up)
+
+Spec §3.2.6."</pre>
+</div>
+
+<hr />
+
+<h2>Part F — Webapp angle-visibility surface</h2>
+
+<div class="task">
+<h3>Task 18: New list config — <code>briefs.ts</code></h3>
+<div class="files"><strong>Files:</strong> Create <code>apps/webapp/src/app/lib/listConfigs/briefs.ts</code> · Modify <code>listConfigs/index.ts</code></div>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Inspect existing configs.</p>
+<pre>cat apps/webapp/src/app/lib/listConfigs/creative-variants.ts apps/webapp/src/app/lib/listConfigs/experiments.ts apps/webapp/src/app/lib/listConfigs/index.ts</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> Create briefs.ts</p>
+<pre>import type { ListConfig } from "../types.js";
+import { APPROVAL_STATUS } from "@engineerdad/store";
+
+export const briefsList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text", sortable: true },
+    { field: "angle", label: "Angle", type: "badge", sortable: true },
+    { field: "persona", label: "Persona", type: "badge", sortable: true },
+    { field: "funnelStage", label: "Stage", type: "badge", sortable: true },
+    { field: "budgetBucket", label: "Bucket", type: "badge", sortable: true },
+    { field: "approvalStatus", label: "Status", type: "status" },
+    { field: "runId", label: "Run", type: "runId" },
+  ],
+  defaultSort: { field: "angle", dir: "asc" as const },
+  filters: [
+    { field: "approvalStatus", label: "Approval", type: "select", options: APPROVAL_STATUS },
+    { field: "angle", label: "Angle", type: "text" },
+  ],
+};</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Register in index.ts</p>
+<pre>import { briefsList } from "./briefs.js";
+// Add to the registry/switch:
+case "Briefs": return briefsList;</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Build + commit</p>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/lib/listConfigs/briefs.ts apps/webapp/src/app/lib/listConfigs/index.ts
+git commit -m "feat(webapp): briefs list config with Angle column (Part 4.2)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 19: New list config — <code>scripts.ts</code></h3>
+<pre>import type { ListConfig } from "../types.js";
+import { APPROVAL_STATUS } from "@engineerdad/store";
+
+export const scriptsList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text", sortable: true },
+    { field: "angle", label: "Angle", type: "badge", sortable: true },
+    { field: "approvalStatus", label: "Status", type: "status" },
+    { field: "runId", label: "Run", type: "runId" },
+  ],
+  defaultSort: { field: "angle", dir: "asc" as const },
+  filters: [
+    { field: "approvalStatus", label: "Approval", type: "select", options: APPROVAL_STATUS },
+  ],
+};</pre>
+<pre>// Register:
+import { scriptsList } from "./scripts.js";
+case "Scripts": return scriptsList;</pre>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/lib/listConfigs/scripts.ts apps/webapp/src/app/lib/listConfigs/index.ts
+git commit -m "feat(webapp): scripts list config with derived Angle column (Part 4.2)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 20: Add Angle column to <code>creative-variants.ts</code></h3>
+<p>Insert into <code>columns</code> after <code>aspect</code>:</p>
+<pre>{ field: "angle", label: "Angle", type: "badge", sortable: true },</pre>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/lib/listConfigs/creative-variants.ts
+git commit -m "feat(webapp): variants list — add derived Angle column (Part 4.2)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 21: Extend <code>review/[entity]/page.tsx</code> to join Brief data</h3>
+<p>After the existing CreativeVariants script-prefix block (~lines 50–60), add Scripts and CreativeVariants angle joins:</p>
+<pre>// Scripts: enrich each row with the linked brief's angle.
+if (entity === "Scripts" &amp;&amp; rows.length) {
+  const briefIds = [...new Set(
+    rows.map((r) =&gt; (r as Record&lt;string, unknown&gt;).brief as string).filter(Boolean)
+  )];
+  const briefMap = new Map&lt;string, string&gt;();
+  await Promise.all(
+    briefIds.map(async (id) =&gt; {
+      const b = await store.get("Briefs", id);
+      if (b) briefMap.set(id, String((b as Record&lt;string, unknown&gt;).angle ?? ""));
+    })
+  );
+  rows = rows.map((r) =&gt; {
+    const briefId = (r as Record&lt;string, unknown&gt;).brief as string;
+    return { ...r, angle: briefMap.get(briefId) ?? "" };
+  });
+}
+
+// CreativeVariants: enrich with angle via Script → Brief.
+if (entity === "CreativeVariants" &amp;&amp; rows.length) {
+  const scriptToBrief = new Map&lt;string, string&gt;();
+  const scriptIds = [...new Set(
+    rows.map((r) =&gt; (r as Record&lt;string, unknown&gt;).script as string).filter(Boolean)
+  )];
+  await Promise.all(
+    scriptIds.map(async (id) =&gt; {
+      const s = await store.get("Scripts", id);
+      const briefId = s ? String((s as Record&lt;string, unknown&gt;).brief ?? "") : "";
+      if (briefId) scriptToBrief.set(id, briefId);
+    })
+  );
+  const briefIds = [...new Set(scriptToBrief.values())];
+  const briefAngle = new Map&lt;string, string&gt;();
+  await Promise.all(
+    briefIds.map(async (id) =&gt; {
+      const b = await store.get("Briefs", id);
+      if (b) briefAngle.set(id, String((b as Record&lt;string, unknown&gt;).angle ?? ""));
+    })
+  );
+  rows = rows.map((r) =&gt; {
+    const scriptId = (r as Record&lt;string, unknown&gt;).script as string;
+    const briefId = scriptToBrief.get(scriptId) ?? "";
+    return { ...r, angle: briefAngle.get(briefId) ?? "" };
+  });
+}</pre>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/review/[entity]/page.tsx
+git commit -m "feat(webapp): join Brief.angle into Scripts + CreativeVariants list rows (Part 4.2)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 22: Run header — angle chips on <code>runs/[runId]/page.tsx</code></h3>
+<p>Create <code>apps/webapp/src/app/components/RunAngleChips.tsx</code> (mirror existing webapp DB access pattern — see Read of <code>review/[entity]/page.tsx</code> for the <code>store.query</code> import):</p>
+<pre>import { db } from "@engineerdad/store";  // adjust to existing helper
+import { sql } from "drizzle-orm";
+
+export async function RunAngleChips({ runId }: { runId: string }) {
+  const memo = await fetchS1Memo(runId);
+  const angles: string[] = (memo?.recommendedAngles as string[] | undefined) ?? [];
+  const rationaleByAngle: Record&lt;string, string&gt; =
+    (memo?.angleRationales as Record&lt;string, string&gt; | undefined) ?? {};
+
+  if (angles.length === 0) {
+    return &lt;div style={{ color: "#666", fontSize: 13 }}&gt;No recommendedAngles emitted (cold-start path).&lt;/div&gt;;
+  }
+
+  const briefs = await db.execute(
+    sql`SELECT angle, COUNT(*) AS n FROM briefs WHERE run_id = ${runId} GROUP BY angle`
+  );
+  const countByAngle = new Map&lt;string, number&gt;();
+  for (const row of briefs as Array&lt;{ angle: string; n: number }&gt;) {
+    countByAngle.set(row.angle, Number(row.n));
+  }
+
+  return (
+    &lt;div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}&gt;
+      {angles.map((a) =&gt; (
+        &lt;div key={a} title={rationaleByAngle[a] ?? ""}
+             style={{ background: "#eef", color: "#335", padding: "4px 10px",
+                      borderRadius: 12, fontSize: 13, fontFamily: "monospace" }}&gt;
+          {a} &lt;span style={{ color: "#669" }}&gt;· {countByAngle.get(a) ?? 0}&lt;/span&gt;
+        &lt;/div&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}
+
+async function fetchS1Memo(runId: string): Promise&lt;Record&lt;string, unknown&gt; | null&gt; {
+  const result = await db.execute(
+    sql`SELECT payload FROM orchestrator.step_results
+        WHERE run_id = ${runId} AND step_id = 'S1-reason'
+        ORDER BY created_at DESC LIMIT 1`
+  );
+  const row = (result as Array&lt;{ payload: unknown }&gt;)[0];
+  return (row?.payload as Record&lt;string, unknown&gt;) ?? null;
+}</pre>
+<p>Mount in <code>apps/webapp/src/app/runs/[runId]/page.tsx</code>:</p>
+<pre>import { RunAngleChips } from "../../components/RunAngleChips.js";
+// In the page body:
+&lt;RunAngleChips runId={runId} /&gt;</pre>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/components/RunAngleChips.tsx apps/webapp/src/app/runs/[runId]/page.tsx
+git commit -m "feat(webapp): run-header angle chips with Brief counts (Part 4.1)"</pre>
+</div>
+
+<div class="task">
+<h3>Task 23: HG1 approval-guidance preview component</h3>
+<p>Create <code>apps/webapp/src/app/components/BriefApprovalGuidance.tsx</code>:</p>
+<pre>import { classifyExperimentStatus, type ExperimentStatus } from "@engineerdad/shared";
+import { db } from "@engineerdad/store";
+import { sql } from "drizzle-orm";
+
+export async function BriefApprovalGuidance({ runId }: { runId: string }) {
+  if (!runId) return null;
+
+  const rows = await db.execute(
+    sql`SELECT angle,
+               COUNT(*) FILTER (WHERE approval_status = 'Approved') AS approved,
+               COUNT(*) AS total
+        FROM briefs WHERE run_id = ${runId} GROUP BY angle ORDER BY angle`
+  );
+  const coverage = (rows as Array&lt;{ angle: string; approved: number; total: number }&gt;)
+    .map((r) =&gt; ({ angle: r.angle, approved: Number(r.approved), total: Number(r.total) }));
+
+  if (coverage.length === 0) return null;
+
+  const occupied = coverage.filter((c) =&gt; c.approved &gt; 0).length;
+  const status: ExperimentStatus = classifyExperimentStatus({
+    occupied,
+    total: coverage.length,
+  });
+
+  const verdict = {
+    full: "Approving as-is will produce a FULL experiment (all cells populated).",
+    degraded: "Approving as-is will produce a DEGRADED experiment (≥2 cells, ≥1 empty).",
+    "single-cell": "Approving as-is will produce a SINGLE-CELL result (routing, not experiment).",
+    broken: "WARNING: no angles have approved Briefs yet — will halt at verify-experiment.",
+  }[status];
+
+  const bg = status === "broken" ? "#ffeded" : status === "single-cell" ? "#fff8dc" : "#f0f7ed";
+
+  return (
+    &lt;div style={{ background: bg, border: "1px solid #ddd", borderRadius: 6,
+                  padding: "10px 14px", margin: "12px 0", fontSize: 13 }}&gt;
+      &lt;div style={{ fontWeight: 600, marginBottom: 6 }}&gt;{verdict}&lt;/div&gt;
+      &lt;ul style={{ margin: 0, paddingLeft: 18 }}&gt;
+        {coverage.map((c) =&gt; (
+          &lt;li key={c.angle} style={{ fontFamily: "monospace" }}&gt;
+            {c.angle} · {c.approved} of {c.total} approved
+            {c.approved === 0 &amp;&amp; &lt;span style={{ color: "#c04040" }}&gt; ← empty cell&lt;/span&gt;}
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+<p>Render conditionally on the entity page when <code>entity === "Briefs"</code> in <code>apps/webapp/src/app/review/[entity]/page.tsx</code>:</p>
+<pre>import { BriefApprovalGuidance } from "../../components/BriefApprovalGuidance.js";
+// In the rendered JSX:
+{entity === "Briefs" &amp;&amp; filter.runId ? (
+  &lt;BriefApprovalGuidance runId={String(filter.runId)} /&gt;
+) : null}</pre>
+<pre>pnpm --filter @engineerdad/webapp build
+git add apps/webapp/src/app/components/BriefApprovalGuidance.tsx apps/webapp/src/app/review/[entity]/page.tsx
+git commit -m "feat(webapp): HG1 approval-guidance preview with tri-state (Part 4.3)
+
+Spec §3.4.3."</pre>
+</div>
+
+<hr />
+
+<h2>Part G — Acceptance walk</h2>
+
+<div class="task">
+<h3>Task 24: Execute the §7 end-to-end walk</h3>
+<p><strong>Reference:</strong> <code>docs/superpowers/specs/2026-05-29-meta-paid-unblock-design.html</code> §7. Manual walk against a real test Meta ad account. Run after all Part A–F tasks committed and <code>pnpm test</code> green.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Pre-flight per spec §7.1</p>
+<pre>pnpm db:sandbox
+pnpm -r --filter='!@engineerdad/webapp' build
+pnpm test
+grep META_AD_ACCOUNT_ID .env.local
+mkdir -p data/e2e-snapshots/$(date +%Y%m%d)
+export SNAP_DIR=data/e2e-snapshots/$(date +%Y%m%d)
+export SANDBOX_DB=$(grep DATABASE_URL .env.local | sed 's|.*/||')</pre>
+<p>Restart Claude Code so MCP picks up sandbox DB URL.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> HG1 walk (spec §7.2)</p>
+<pre>/loop-once
+# Wait for HG1.
+docker exec engineerdad-postgres pg_dump -U engineerdad -d $SANDBOX_DB &gt; $SNAP_DIR/01-hg1-pre.sql</pre>
+<p>Verify angle chips + approval-guidance preview at <code>localhost:3030</code>, approve 2 Briefs from 2 angles.</p>
+<pre>docker exec engineerdad-postgres pg_dump -U engineerdad -d $SANDBOX_DB &gt; $SNAP_DIR/02-hg1-approved.sql</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> HG2 walk (spec §7.3)</p>
+<pre>/content --run=&lt;runId&gt;
+docker exec ... pg_dump &gt; $SNAP_DIR/03-hg2-pre.sql
+# Approve 1 Script per approved Brief.
+docker exec ... pg_dump &gt; $SNAP_DIR/04-hg2-approved.sql</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> HG3 walk (spec §7.4)</p>
+<pre>/produce --run=&lt;runId&gt;
+docker exec ... pg_dump &gt; $SNAP_DIR/05-hg3-pre.sql
+# Approve 1 Carousel (4:5) + 1 Feed (4:5) variant.
+docker exec ... pg_dump &gt; $SNAP_DIR/06-hg3-approved.sql</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 5:</span> HG4 walk (spec §7.5)</p>
+<pre>/distribute --run=&lt;runId&gt;
+docker exec ... pg_dump &gt; $SNAP_DIR/07-hg4-final.sql</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 6:</span> Acceptance (spec §7.6 + §7.7)</p>
+<p>Run the three DB queries from §7.6. Then verify Meta sandbox via <code>mcp__meta-ads__list_campaigns</code> / <code>list_ads</code> per §7.7. All assertions must pass. On failure, use §7.8 replay loop.</p>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 7:</span> Teardown per spec §7.9 — pause/archive test entities; do NOT flip ACTIVE.</p>
+</div>
+
+<hr />
+
+<h2>Part H — Rollout</h2>
+
+<div class="task">
+<h3>Task 25: Open PR + close bug rows</h3>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 1:</span> Push + open PR</p>
+<pre>git push -u origin feat/meta-paid-unblock
+gh pr create --title "Meta-paid unblock: B-025 + B-026 + B-027 + webapp angle surface" --body "..."</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 2:</span> After merge — live migration safety check + apply</p>
+<pre>git checkout main &amp;&amp; git pull
+docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "SELECT COUNT(*) FROM experiments;"
+docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "SELECT COUNT(*) FROM briefs WHERE angle IS NULL;"
+# Both must be 0. Then:
+pnpm db:migrate</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 3:</span> Update TASKS.md — close B-025/B-026/B-027 and file E-044:</p>
+<pre>### E-044 `v1.5` `P3` `orchestrator` `agents` — Partial-rework retry for brief-writer drift
+Carved out from the Meta-paid unblock spec (2026-05-29). Today's
+recovery contract on verify-brief failure is whole-worker re-spawn
+(loop.md:56–63) or manual unblock. A partial-rework contract — verifier
+returns per-row bad IDs; orchestrator re-spawns brief-writer with
+"fix only these N Briefs, leave the other M alone" — would cap blast
+radius further. Needs new verifier return shape, conductor retry
+logic, and brief-writer idempotency contract.
+
+**Trigger to re-open**: ≥2 cycles where post-fix brief-writer still
+drifts on retry despite the structured recommendedAngles spawn-prompt arg.</pre>
+
+<p class="step"><input type="checkbox" /><span class="step-label">Step 4:</span> Commit + push the TASKS.md update.</p>
+<pre>git add TASKS.md
+git commit -m "docs(tasks): close B-025/B-026/B-027; file E-044 partial-rework retry"
+git push</pre>
+</div>
+
+<hr />
+
+<h2>Self-review checklist (run after all tasks)</h2>
+<ul>
+  <li>Every spec §3 sub-section maps to at least one task in the plan.</li>
+  <li>No <code>TBD</code> / <code>TODO</code> / "implement later" markers in any task description.</li>
+  <li>Method signatures used across tasks match (<code>classifyExperimentStatus</code>, <code>targetingForCell</code>, <code>LOCALE_ID</code>, <code>dailyBudgetMyrFor</code>, <code>verifyBrief(result, recommendedAngles)</code>).</li>
+  <li>Each TDD task has: red-test step → minimal impl step → green-test step → commit step.</li>
+  <li>All commits cite the spec section.</li>
+  <li>§7 acceptance walk is positioned after all code commits, before rollout.</li>
+</ul>
+
+</body>
+</html>

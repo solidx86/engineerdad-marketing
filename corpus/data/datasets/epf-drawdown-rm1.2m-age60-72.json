@@ -1,0 +1,38 @@
+{
+  "id": "epf-drawdown-rm1.2m-age60-72",
+  "generated_at": "2026-06-03T02:39:25Z",
+  "source": "Derived from two vetted in-corpus files: (1) corpus/data/datasets/epf-sustainability-simulations.json item G — the simulation row with inputs {age:25, salary_rm:3000, current_epf_rm:18000, retire_age:60, lifestyle:'Adequate', lifestyle_pct:70}, outputs {projected_balance_at_retire_rm:1247032, monthly_drawdown_rm:4732.92, gap_to_tier_rm:3553.86, years_sustainable:11.89}; this is Case 1 of corpus/proof/epf-shortfall-cases.md. (2) corpus/courses/epf-sustainability-model.md Step 3 (drawdown phase) — the separate month-by-month depletion rule that reports the age at which the balance reaches zero if the member spends at their desired lifestyle level. Underlying tool: EngineerDad EPF Sustainability Calculator v1.3.2 (beta, 2026-03-26), itself built on KWSP / EPF Belanjawanku reference tiers.",
+  "verification_status": "derived",
+  "notes": "Month-by-month depletion of the RM1,247,032 projected EPF balance at age 60, spending to replace 70% of the member's current (age-25) RM3,000 working income — the calculator's income-replacement input, labelled 'Adequate' in the tool (NOT the smoothed annuity payout). IMPORTANT: this 'Adequate' = 70% income replacement of the member's own salary (RM2,100/month in today's ringgit; RM3,000 × 70% × 1.04^35 = RM8,286.78 at age 60). It is NOT the Belanjawanku household reference budget, and NOT KWSP's RIA Basic/Adequate/Enhanced savings targets — those use the same word for different, absolute measures. Monthly spend need = EPF payout RM4,732.92 + monthly gap RM3,553.86 = RM8,286.78 in the retirement year, inflated 4%/yr (calculator default inflation), stepping once per retirement year. Residual balance earns the post-retirement investment return 3%/yr (calculator default postRetireRate; NOT the 5% accumulation dividend), compounded monthly. Withdrawal taken at the start of each month. Under these conventions the balance reaches zero at age ~72.08 (≈12.0 years), consistent with the authoritative years_sustainable=11.89 from item G — i.e. 'runs dry around age 72'. Annual snapshots below are start-of-retirement-year balances rounded to the nearest RM; the final age-72 figure is rounded to 0 to reflect depletion within that year. Model assumptions: retire age 60, life expectancy 80, dividend during accumulation 5%/yr. Illustrative model output — not personalised advice, not a guaranteed or assured result. Source authority: KWSP / EPF Sustainability Calculator. Currency: RM (Malaysian ringgit), nominal ringgit of each year.",
+  "model_assumptions": {
+    "starting_balance_rm": 1247032,
+    "income_replacement_basis": "70% of current age-25 working income RM3,000/mo = RM2,100/mo in today's ringgit (calculator 'Adequate' income-replacement tier; NOT Belanjawanku and NOT KWSP-RIA)",
+    "monthly_spend_need_at_retirement_rm": 8286.78,
+    "spend_need_components": {
+      "epf_monthly_payout_rm": 4732.92,
+      "monthly_gap_rm": 3553.86
+    },
+    "inflation_pct_per_year": 4,
+    "post_retirement_return_pct_per_year": 3,
+    "retire_age": 60,
+    "life_expectancy": 80,
+    "withdrawal_timing": "start_of_month",
+    "years_sustainable_authoritative": 11.89,
+    "depletion_age_modelled": 72
+  },
+  "rows": [
+    { "age": 60, "balance_rm": 1247032 },
+    { "age": 61, "balance_rm": 1183600 },
+    { "age": 62, "balance_rm": 1114300 },
+    { "age": 63, "balance_rm": 1038700 },
+    { "age": 64, "balance_rm": 956500 },
+    { "age": 65, "balance_rm": 867300 },
+    { "age": 66, "balance_rm": 770600 },
+    { "age": 67, "balance_rm": 666200 },
+    { "age": 68, "balance_rm": 553600 },
+    { "age": 69, "balance_rm": 432200 },
+    { "age": 70, "balance_rm": 301700 },
+    { "age": 71, "balance_rm": 161500 },
+    { "age": 72, "balance_rm": 0 }
+  ]
+}

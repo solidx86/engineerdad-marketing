@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>B-023 plan — Experiment cell→variant join (angle-only)</title>
+<style>
+  body { font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 920px; margin: 32px auto; padding: 0 16px; color: #1c1c1c; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin-top: 28px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 16px; margin-top: 20px; }
+  h4 { font-size: 14px; margin-top: 14px; color: #444; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f4f4f4; padding: 12px 14px; border-radius: 6px; font-size: 12.5px; line-height: 1.5; overflow-x: auto; }
+  table { border-collapse: collapse; margin: 8px 0 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th { background: #f8f8f8; font-weight: 600; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .callout { background: #fff8dc; border-left: 4px solid #d4b800; padding: 10px 14px; margin: 14px 0; }
+  ul.checks { list-style: none; padding-left: 0; }
+  ul.checks li { padding: 2px 0; }
+  ul.checks li::before { content: "☐ "; color: #888; }
+</style>
+</head>
+<body>
+
+<h1>B-023 — Experiment cell→variant join (angle-only) Implementation Plan</h1>
+<div class="meta">2026-05-28 · feat/brain-experiment-params · companion to spec <code>docs/superpowers/specs/2026-05-28-b023-experiment-cell-variant-join-design.html</code></div>
+
+<div class="callout">
+<strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code> to implement this plan task-by-task. The <code>.md</code> twin uses checkbox (<code>- [ ]</code>) syntax for tracking.
+</div>
+
+<p><strong>Goal:</strong> Populate <code>factorTags.angle</code> and <code>budgetBucket</code> on each <code>ExpVariantRow</code> by joining variant → script → brief at X1-query time, so <code>mapCellsToVariants</code> produces non-empty <code>variantPageIds</code> per cell and distribute's <code>cellIdFor()</code> returns a real <code>cellId</code> for every Meta-paid variant.</p>
+
+<p><strong>Architecture:</strong> Expand X1-query from 3 to 5 store calls (add <code>Scripts</code> + <code>Briefs</code>). Add a pure <code>projectExpVariant()</code> helper in <code>packages/orchestrator/src/stages/experiment.ts</code> that walks variant→script→brief in-memory and degrades gracefully on broken links. <code>allocatedCellsFor()</code> builds lookup maps and projects each variant before passing to the existing pure <code>mapCellsToVariants</code> + <code>applyAllocation</code>. No schema migration, no P3-persist change, no creative-director prompt change.</p>
+
+<p><strong>Tech Stack:</strong> TypeScript, Vitest (<code>pnpm --filter @engineerdad/orchestrator test</code>), pnpm workspace builds.</p>
+
+<h2>File Structure</h2>
+
+<table>
+  <thead><tr><th>File</th><th>Status</th><th>Responsibility</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>packages/orchestrator/src/stages/experiment.ts</code></td>
+      <td>Modify</td>
+      <td>X1-query expansion. <code>projectExpVariant()</code> helper. <code>allocatedCellsFor()</code> projection rewire.</td>
+    </tr>
+    <tr>
+      <td><code>packages/orchestrator/src/stages/experiment.test.ts</code></td>
+      <td>Modify</td>
+      <td>Update existing fixtures to 5-array X1 shape. 6 new unit tests for <code>projectExpVariant</code>. 1 integration test via <code>x3.build()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>TASKS.md</code></td>
+      <td>Modify</td>
+      <td>Close B-022 + B-023; open E-042 + E-043; bump status header.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <code>.md</code> twin (<code>docs/superpowers/plans/2026-05-28-b023-experiment-cell-variant-join.md</code>) is the canonical step-by-step with full code blocks. This HTML is the index — open the <code>.md</code> in your editor to execute.</p>
+
+<h2>Tasks (summary)</h2>
+
+<h3>Task 1 — Update existing tests to 5-array X1 shape</h3>
+<p>Refactor-with-no-behavior-change. Updates the X1-call-count test (3 → 5), rewrites fixtures across X3-write tests to carry raw variant rows + scripts + briefs side-tables, expands legitimate-skip stubs from <code>[[], [], []]</code> to <code>[[], [], [], [], []]</code>. Commit at the end; tests now FAIL — the new contract is pinned ahead of the impl change.</p>
+
+<h3>Task 2 — Add <code>projectExpVariant()</code> helper + 6 unit tests</h3>
+<p>Test-first. Six unit tests cover: happy path; missing-script link; missing-brief link; brief with null bucket; variant with no script field; non-canonical bucket value. Then the helper is added with <code>RawVariantRow</code> / <code>RawScriptRow</code> / <code>RawBriefRow</code> types and a test-only <code>__projectExpVariantForTests</code> export. Commit.</p>
+
+<h3>Task 3 — Wire <code>projectExpVariant</code> into X1-query + <code>allocatedCellsFor</code></h3>
+<p>The integration. X1-query gains explicit <code>fields: ["script"]</code> on Variants, adds Scripts query with <code>["brief"]</code>, adds Briefs query with <code>["angle", "budgetBucket"]</code>. <code>allocatedCellsFor()</code> reads <code>x1[3]</code>/<code>x1[4]</code> into Maps, runs each variant through the helper, passes the projected rows to <code>mapCellsToVariants</code>. After this commit, all Task 1 failing tests pass. Full orchestrator suite stays green. Commit.</p>
+
+<h3>Task 4 — Add integration test for the join end-to-end</h3>
+<p>Exercises the real chain via <code>x3.build(run)</code>: raw X1 rows are joined through <code>projectExpVariant</code>; <code>designCellsOf</code> normalizes snake_case cells (pinning B-022 in the same test); the resulting <code>Experiments.cells</code> JSON carries the expected <code>variantPageIds</code> per cell. Commit.</p>
+
+<h3>Task 5 — Close B-022 + B-023; open E-042 + E-043 in TASKS.md</h3>
+<p>Documents the two closed bugs and carves out the two enhancement stubs (multi-factor generalization; hook_register + language). Bumps the status header's bug count. Commit.</p>
+
+<h3>Task 6 — End-to-end validation walk (HG2 → HG4)</h3>
+<p>Operator-driven. Restart Claude Code so the orchestrator MCP reloads with the new <code>experiment.ts</code>. Reset DB to <code>data/snapshots/hg2-run_1779895374/engineerdad.sql</code>, wipe <code>data/assets/run_1779895374</code>, run <code>/produce</code> to HG3 (validates B-021 + A+B render speedup), approve all 10 variants, run <code>/distribute</code> to HG4. Verify the <code>Experiments.cells</code> JSON shows <code>cell_01.variantPageIds.length === 10</code> (all approved EPF variants match the epf-shortfall angle). Snapshot HG4 state, commit, push. PR test-plan checkbox closed.</p>
+
+<h2>Acceptance criteria</h2>
+
+<ol>
+  <li>All 287 + 7 = 294 orchestrator tests pass (the 6 <code>projectExpVariant</code> unit tests + 1 integration test).</li>
+  <li><code>pnpm --filter @engineerdad/orchestrator build</code> emits clean <code>tsc</code> output (no type errors).</li>
+  <li>After the validation walk, <code>SELECT jsonb_pretty(cells::jsonb) FROM public.experiments WHERE run_id='run_1779895374';</code> shows three cells; <code>cell_01.variantPageIds.length === 10</code>; <code>cell_02</code> and <code>cell_03</code> have empty <code>variantPageIds</code> (no children-fund or PCSF scripts approved in this run).</li>
+  <li>The Distributions audit log has rows for every variant × channel attempt; at least Meta-paid attempts on cell_01's variants land with non-null <code>cellId</code> and <code>status: "routed"</code>.</li>
+  <li>HG4 reached, snapshot committed, PR test-plan box closed.</li>
+</ol>
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Alpha vs Return — why a "good return" can still mean the fund manager failed
+# Source: corpus/courses/mfr-framework.md ("Alpha — return above benchmark. The brand
+# framing: 'the true engine power of a fund manager.' If a fund returns 8% but its
+# benchmark returned 9%, that fund has negative alpha — it failed at its job, even
+# though the headline number looks fine.").
+# Used by media-production when scene argues "alpha is the metric that matters", "a
+# good headline number doesn't mean the manager did the work", "how MFR reads fund
+# performance", any monthly MFR content opener that introduces the rubric, or
+# "fund managers underperform, why pay for active" (objection myth d2-active-underperforms).
+
+id: alpha-vs-return
+title_en: "Fund return vs benchmark — what 'alpha' actually means"
+title_ms: "Pulangan dana vs penanda aras — apa sebenarnya 'alpha'"
+chart_type: bar
+x_label_en: "Fund"
+x_label_ms: "Dana"
+y_label_en: "Annual return (%)"
+y_label_ms: "Pulangan tahunan (%)"
+labels:
+  - "Fund A (8% return, -1% alpha)"
+  - "Fund B (12% return, +3% alpha)"
+series:
+  - name_en: "Fund return"
+    name_ms: "Pulangan dana"
+    semantic_role: hero
+    values: [8, 12]
+  - name_en: "Benchmark return"
+    name_ms: "Pulangan penanda aras"
+    semantic_role: comparison
+    values: [9, 9]
+caption_en: "Both funds posted positive returns. Fund A returned 8% — looks fine on a statement — but its benchmark (the market segment it's supposed to beat) returned 9%. The manager underperformed by 1pp: negative alpha, job not done. Fund B returned 12% against the same 9% benchmark: +3% alpha, engineering credit earned. The headline number alone hides which manager actually added value. Alpha is the metric that doesn't."
+caption_ms: "Kedua-dua dana mencatat pulangan positif. Dana A memulangkan 8% — kelihatan baik pada penyata — tetapi penanda arasnya (segmen pasaran yang sepatutnya diatasi) memulangkan 9%. Pengurus kurang prestasi 1pp: alpha negatif, tugas tidak selesai. Dana B memulangkan 12% berbanding penanda aras 9% yang sama: alpha +3%, kredit kejuruteraan diraih. Nombor utama sahaja menyembunyikan pengurus mana yang benar-benar menambah nilai. Alpha ialah metrik yang tidak."
+source_citation: "Illustrative example matching the canonical alpha framing in corpus/courses/mfr-framework.md ('fund returned 8%, benchmark returned 9% → negative alpha'). Returns shown are annualised percentages over a comparable period. Past alpha does not predict future alpha. EngineerDad does not publish public buy/sell recommendations on specific Public Mutual funds — fund-specific assessments are done one-on-one with a licensed Consultant (FIMM compliance)."

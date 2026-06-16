@@ -1,0 +1,34 @@
+# Glide-path allocation — how an 18-year children's-fund portfolio shifts from growth to protection
+# Source: corpus/courses/children-fund-101.md Module 2.4 + FAQ ("Equity-heavy for long horizons,
+# shift toward lower-volatility funds — bonds and money-market — in the final 3–5 years before
+# withdrawal"); corpus/courses/compounding-dca.md tactical-setup rule ("In the final 3–5 years
+# before withdrawal, glide toward lower-volatility funds").
+# Used by media-production when scene argues "the final 3–5 years matter most", "glide path",
+# "don't expose 18 years of compounding to a year-17 crash", or "what does an annual review
+# actually look at".
+
+id: glide-path-allocation
+title_en: "Glide path — equity/bond/money-market mix across an 18-year children's fund"
+title_ms: "Landasan luncur — campuran ekuiti/bon/pasaran wang sepanjang dana anak 18 tahun"
+chart_type: line
+x_label_en: "Year of plan"
+x_label_ms: "Tahun pelan"
+y_label_en: "Portfolio allocation (%)"
+y_label_ms: "Peruntukan portfolio (%)"
+labels: [0, 3, 6, 9, 12, 15, 18]
+series:
+  - name_en: "Equity (growth engine)"
+    name_ms: "Ekuiti (enjin pertumbuhan)"
+    semantic_role: hero          # the dominant asset that gradually steps down
+    values: [90, 90, 90, 85, 75, 55, 30]
+  - name_en: "Bond (shock absorber)"
+    name_ms: "Bon (penyerap kejutan)"
+    semantic_role: comparison    # the rising counterweight
+    values: [10, 10, 10, 13, 20, 30, 50]
+  - name_en: "Money-market (cash-near)"
+    name_ms: "Pasaran wang (hampir tunai)"
+    semantic_role: floor          # the protective sliver introduced late
+    values: [0, 0, 0, 2, 5, 15, 20]
+caption_en: "For 15 years the portfolio is mostly equity — that's how compounding earns its keep. Then the final 3–5 years shift deliberately toward bonds and money-market, because 18 years of gain doesn't deserve to be exposed to a year-17 crash. The glide is the engineering: maximum growth while the runway is long, maximum protection just before withdrawal."
+caption_ms: "Selama 15 tahun portfolio kebanyakannya ekuiti — itulah cara berkompaun memberi pulangannya. Kemudian 3–5 tahun terakhir beralih dengan sengaja kepada bon dan pasaran wang, kerana 18 tahun pertumbuhan tidak patut terdedah kepada kejatuhan pada tahun ke-17. Landasan luncur ialah kejuruteraannya: pertumbuhan maksimum semasa landasan masih panjang, perlindungan maksimum sebelum pengeluaran."
+source_citation: "Illustrative glide-path shape derived from the brand's stated rule in corpus/courses/children-fund-101.md and corpus/courses/compounding-dca.md (equity-tilt for 15+ years; shift to bonds and money-market in the final 3–5 years). Actual allocation depends on the client's risk profile, fund availability, and licensed Consultant guidance. Not a recommendation."

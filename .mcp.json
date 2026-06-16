@@ -1,0 +1,64 @@
+{
+  "mcpServers": {
+    "distribute": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/distribute/dist/index.js"]
+    },
+    "meta-ads": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/meta-ads/dist/index.js"]
+    },
+    "meta-organic": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/meta-organic/dist/index.js"]
+    },
+    "analytics": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/analytics/dist/index.js"]
+    },
+    "orchestrator": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/orchestrator/dist/index.js"]
+    },
+    "corpus": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/corpus/dist/index.js"]
+    },
+    "experiment": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/experiment/dist/index.js"]
+    },
+    "heygen": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/heygen-wrapper/dist/index.js"]
+    },
+    "media-providers-gemini": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/media-providers/gemini/dist/index.js"]
+    },
+    "media-providers-kie-ai": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/media-providers/kie-ai/dist/index.js"]
+    },
+    "asset-store": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/asset-store/dist/index.js"]
+    },
+    "static-renderer": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/static-renderer/dist/index.js"]
+    },
+    "store": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/store/dist/index.js"]
+    },
+    "engineerdad_site": {
+      "command": "node",
+      "args": ["/Users/solid/Code/engineerdad-site/mcp/article-writer/dist/index.js"]
+    },
+    "youtube": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/youtube/dist/index.js"]
+    }
+  }
+}

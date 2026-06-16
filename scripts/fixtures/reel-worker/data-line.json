@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_line",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "Every crash is when your fixed two hundred ringgit buys the most units — so your average cost stays far below the market price.", "onScreenText": "Crashes cut your cost", "chartRef": "dca-20y-line", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "two lines — the volatile market price vs your smoother average cost per unit; show that crashes drag the average-cost line down because the fixed ringgit buys more units cheap" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

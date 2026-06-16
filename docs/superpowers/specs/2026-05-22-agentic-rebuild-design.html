@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Rebuild — Cells, the Orchestrator State Machine, and the /loop Model</title>
+<style>
+  :root {
+    --ink: #1f2933;
+    --muted: #5b6770;
+    --accent: #4338ca;
+    --accent-soft: #ebebf9;
+    --paper: #f4f3ee;
+    --card: #ffffff;
+    --good: #1a7f4f;
+    --bad: #c0392b;
+    --warn: #b7791f;
+    --rule: #e3e1d9;
+    --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.62;
+    font-size: 16px;
+  }
+  .doc {
+    max-width: 860px;
+    margin: 40px auto;
+    background: var(--card);
+    padding: 56px 64px 72px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px;
+  }
+  h1 { font-size: 27px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 {
+    font-size: 19px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft);
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 26px 0 6px; }
+  p { margin: 10px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge {
+    display: inline-block; background: var(--warn); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 3px 9px; border-radius: 3px; vertical-align: 2px;
+  }
+  .tldr {
+    background: var(--accent-soft); border-left: 4px solid var(--accent);
+    padding: 16px 20px; border-radius: 0 4px 4px 0; margin: 24px 0; font-size: 15px;
+  }
+  .tldr strong { color: var(--accent); }
+  .callout {
+    border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 14px 18px; margin: 18px 0; border-radius: 0 4px 4px 0; font-size: 15px;
+  }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px;
+  }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  .callout.muted .lbl { color: var(--muted); }
+  pre {
+    background: var(--mono-bg); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); padding: 16px 18px; border-radius: 4px;
+    overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36;
+  }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule);
+  }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 11px; border: 1px solid var(--rule); vertical-align: top; }
+  th {
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .ok { color: var(--good); font-weight: 700; }
+  .no { color: var(--bad); font-weight: 700; }
+  .wn { color: var(--warn); font-weight: 700; }
+  ul, ol { margin: 10px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  .foot {
+    margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px;
+  }
+  .tag {
+    font-size: 11px; font-weight: 700; padding: 1px 6px;
+    border-radius: 3px; background: var(--accent-soft); color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Agentic Rebuild — Cells, the Orchestrator State Machine, and the <code>/loop</code> Model</h1>
+  <p class="meta">
+    Design spec &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — DECISIONS LOCKED</span><br>
+    Extends <code>2026-05-21-orchestrator-placement-design.html</code> &nbsp;·&nbsp;
+    Answers its Open Decisions 1 &amp; 4 &nbsp;·&nbsp;
+    Touches ADR-005 (thin-adapter), ADR-014, ADR-018 &nbsp;·&nbsp;
+    Origin: design conversation, this session
+  </p>
+
+  <div class="tldr">
+    The OS is <strong>agent-first</strong> — every component is an agent — but barely
+    <strong>agentic</strong> — most agents execute fixed scripts. Those are different things.
+    <em>Agent-first</em> is a topology; <em>agentic</em> is a behavioral property: genuine
+    latitude, grounded by deterministic tools and a deterministic verifier. The rebuild:
+    collapse the deterministic "agents" into typed code, keep <strong>~4 genuinely agentic
+    cells</strong>, and stand them on a <strong>typed run-state machine</strong> (the
+    <code>orchestrator</code> MCP) that the <code>/loop</code> command conducts. Fewer agents
+    — each one actually agentic. The deterministic code isn't the opposite of agentic; it's
+    the spine that makes agency safe.
+  </div>
+
+  <div class="callout muted">
+    <span class="lbl">Relationship to the orchestrator-placement spec</span>
+    This does not replace the 2026-05-21 spec — it builds on it. That spec fixed
+    <em>where</em> orchestration runs (the command layer, main session). This spec fixes
+    <em>what form</em> orchestration takes (a typed state machine in code, not prose) and
+    <em>what the agents become</em> (a few agentic cells, not eight scripted ones). "Commands
+    orchestrate, everything else is a terminal leaf" still holds verbatim.
+  </div>
+
+  <h2><span class="num">1.</span> Agent-first is not agentic</h2>
+  <p>
+    They answer different questions. <strong>Agent-first</strong> is a <em>topology</em> — "what
+    are the components made of?" — and the answer was "all agents." <strong>Agentic</strong> is
+    a <em>behavioral property</em> — "does this component have genuine agency?" — meaning it
+    perceives state, chooses among genuinely open options, acts, observes, and adapts. Agency
+    requires a decision space that is not pre-determined.
+  </p>
+  <p>They are orthogonal. A component can be an agent structurally and a script behaviorally:</p>
+  <table>
+    <thead><tr><th></th><th>Agentic — real latitude</th><th>Not agentic — fixed procedure</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Agent-shaped</strong></td><td><code>brain</code> (partially)</td><td class="no"><code>distribution</code>, <code>analytics</code>, <code>tracking</code>, <code>experiment-os</code> &nbsp;←&nbsp; the bad quadrant</td></tr>
+      <tr><td><strong>Code-shaped</strong></td><td>—</td><td class="ok">the MCP servers (correct)</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The agents say it themselves: <code>distribution.md</code> — <em>"a router, not a
+    reasoner"</em>; <code>analytics.md</code> — <em>"never compute composites yourself"</em>;
+    <code>experiment-os.md</code> — <em>"both modes are pure orchestration"</em>;
+    <code>tracking</code> fires two fixed events. Of 8 agents, ~3.5 do work that needs an LLM.
+    The other four sit in the <span class="no">bad quadrant</span>: the full cost of LLM
+    nondeterminism, none of the benefit of agency.
+  </p>
+  <div class="callout key">
+    <span class="lbl">Why the bad quadrant exists</span>
+    It is not an accident of agent-first — it is a <em>consequence</em> of it. With everything
+    an agent but nothing deterministic underneath, you cannot safely give an agent latitude —
+    so you script it to death with 700-line procedures (<code>media-production.md</code>) that
+    contain sha256 formulas, "evaluate this assertion verbatim" pseudocode, and inlined
+    regression post-mortems (F2, the G-series). <strong>Agent-first without a code spine forces
+    you out of agentic.</strong> A 707-line prompt has every rigidity of code and none of its
+    guarantees — no type checker, no test, no stack trace, a different result every run.
+  </div>
+
+  <h2><span class="num">2.</span> The agentic cell</h2>
+  <p>An <strong>agentic cell</strong> is the unit of the rebuilt system. It has five parts plus two properties:</p>
+  <pre>OBJECTIVE   an outcome, machine-checkable — never a procedure.
+            "every approved Script has complete, rendered, spec'd Variants"
+            not "Step 1 … Step 8".
+TOOLBOX     deterministic tools (MCP + pure functions) + agentic sub-units
+            (a generator agent; fan-out workers).
+FREE LOOP   perceive -> decide -> act -> observe -> repeat. Real latitude over
+            the sequence — not a fixed checklist executed by an LLM.
+VERIFIER    deterministic code — the acceptance test. The cell loops until it
+            passes. This is where the old "Step 7.0 assertion" goes to LIVE.
+GATE        the human judgment the verifier cannot encode (approve / reject / edit).
+
++ CLOCK       what triggers the cell (a run advancing; the calendar).
++ CARDINALITY its relation to a run (1:1 / N:1 / perpetual).</pre>
+  <p>
+    <strong>Clock and cardinality decide cell boundaries.</strong> Two units with different
+    clocks cannot be one cell — a cell has one objective and one verifier, and a verifier can
+    only assert "done" against one clock. (This is the instrument that resolved the organic
+    question — see §7.)
+  </p>
+  <h3>The two litmus tests</h3>
+  <ol>
+    <li><strong>"Could this line be wrong in a way a unit test would catch?"</strong> → then it
+      is code, not prompt. sha256 IDs, char-boundary truncation, slug regex, name→ID maps, the
+      Step-7.0 assertion — all become pure functions in <code>packages/shared</code>, tested.</li>
+    <li><strong>"Does this step make a judgment a reasonable human would argue about?"</strong>
+      → if no, it is not an agent. <code>tracking</code>, <code>analytics</code>,
+      <code>distribution</code>, <code>experiment-os</code> dissolve into deterministic stages.</li>
+  </ol>
+  <div class="callout decision">
+    <span class="lbl">The contract inversion</span>
+    In agent-first-not-agentic, the contract lives in the <em>prompt</em> as instructions the
+    agent must faithfully execute ("evaluate BOTH assertions verbatim"). In an agentic cell,
+    the contract lives in <em>code</em> as the environment's acceptance criteria — and the
+    agent has freedom to satisfy it however it likes. The agent gets <em>more</em> latitude in
+    the middle and <em>zero</em> latitude on the outcome. More agentic and more reliable at
+    once. The deterministic code is the scaffolding that makes agency safe — tools the agent
+    wields, a verifier that grounds it.
+  </div>
+
+  <h2><span class="num">3.</span> Target architecture</h2>
+  <p>Three roles, two levels — identical topology to the orchestrator-placement spec:</p>
+  <table>
+    <thead><tr><th>Role</th><th>Who</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Orchestrator</strong><br><span class="tag">level 0</span></td><td>the <code>/loop</code> slash command, in the main session</td><td>Conducts: asks the state machine for the next step, spawns it, verifies, advances, stops at gates. Holds no domain logic.</td></tr>
+      <tr><td><strong>Agentic cells</strong><br><span class="tag">level 1 · terminal</span></td><td><code>brain</code> + the generator agents</td><td>Genuine reasoning / generation. Call MCP tools, return structured JSON. Never spawn.</td></tr>
+      <tr><td><strong>Fan-out workers</strong><br><span class="tag">level 1 · terminal</span></td><td><code>general-purpose</code> subagents, spawned by the command</td><td>One disposable worker per heavy independent unit (render a PNG, author a hook bank). Return JSON. Never spawn.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>The new piece — the <code>orchestrator</code> MCP (a typed run-state machine)</h3>
+  <p>
+    This is the keystone, and the answer to the orchestrator-placement spec's Open Decision 1
+    ("eleven near-identical orchestrators is a maintenance smell"). Orchestration logic —
+    sequencing, output threading, gate conditions, acceptance tests — is <strong>deterministic
+    control flow</strong>. It does not belong in eleven prose command files any more than it
+    belonged in one prose <code>brain.md</code>. It belongs in code, exposed as an MCP:
+  </p>
+  <pre>orchestrator.plan(runId | args)        -> the next `step` (discriminated union)
+orchestrator.verify(runId, stepId, x)  -> { ok, problems[] }
+orchestrator.advance(runId, stepId, x) -> persist result, move the run's stage</pre>
+  <p>
+    <code>plan</code> is a <strong>pure function of persisted run state</strong> — "what is the
+    next step" is computed as the diff between current state and the objective. That single
+    property gives the system <strong>resumability</strong> for free (see §6). The loop is then
+    a generic engine plus one declarative <em>stage definition</em> file per stage. The
+    <code>brain.md</code> §E spawn-prompt formats relocate here as typed <code>buildSpawnPrompt</code>
+    functions — not prose templates.
+  </p>
+  <pre>┌────────────────────────────────────────────────────────────────┐
+│  MAIN SESSION (level 0)  —  /loop runs here · ORCHESTRATOR      │
+│  plan -> spawn -> verify -> advance -> repeat · stop at gates   │
+└───────────┬────────────────────────────────────────────────────┘
+            │  Task   (level 0 -> 1 — the only legal spawn)
+   ┌────────┴─────────┐                ┌──────────────────────────┐
+   ▼ AGENTIC CELLS    │                ▼ FAN-OUT WORKERS          │
+   (level 1·terminal) │                (level 1·terminal)         │
+   brain        Strategy               general-purpose × N        │
+   brief-writer Briefs                 render a PNG /             │
+   content      Scripts                author a hook bank …       │
+   creative-dir Variant creative       return JSON · NEVER spawn  │
+   call MCP · return JSON · NEVER spawn └──────────────────────────┘
+            │
+            ▼  MCP (stdio)
+   orchestrator · notion · meta-ads · analytics · corpus ·
+   experiment · youtube · asset-store · static-renderer ·
+   meta-organic · heygen · media-providers · engineerdad_site</pre>
+
+  <h2><span class="num">4.</span> The <code>/loop</code> conductor &amp; the operator model</h2>
+  <p>
+    Every command collapses to one thin, <strong>domain-agnostic</strong> conductor. Its entire
+    body is the loop below — it never mentions tracking, briefs, HG1, a runId format, or any
+    marketing concept. That absence is the proof the deterministic logic actually left the prompt.
+  </p>
+  <pre>repeat:
+  step = orchestrator.plan(runId)
+  switch step.kind:
+    spawn  -> Task(step.agent, step.spawnPrompt)          # verbatim
+    fanout -> Task × N general-purpose workers, parallel  # verbatim
+    write  -> execute step.calls against the named MCP    # verbatim
+    gate   -> print step.message · STOP (hand to human)
+    done   -> print · STOP
+  v = orchestrator.verify(runId, step.step_id, result)
+  if v.ok        -> orchestrator.advance(...) ; continue
+  if not v.ok    -> [THE ONE JUDGMENT POINT] transient? retry once.
+                    structural? print v.problems · STOP.</pre>
+  <p>
+    There is exactly one place the LLM thinks: the <code>verify</code>-fail branch — a complete
+    agentic cell in miniature (objective, toolbox, free loop, deterministic verifier). Everything
+    else is mechanical dispatch, which is correct, because dispatch has no agency.
+  </p>
+  <h3>What it is like to operate</h3>
+  <p>
+    Today the operator <em>is</em> the state machine — remembering the runId, the stage, which
+    of eleven commands comes next. The machine owns that now. The operator surface collapses to
+    <strong><code>/loop</code></strong> (advance the current run to the next gate) and
+    <strong><code>/status</code></strong> (where is everything). The operator does
+    <em>judgment at the gates and nothing else</em>:
+  </p>
+  <pre>── GATE SPRINT (an afternoon — compute is fast; YOUR review is the bottleneck) ──
+ you  /loop
+ sys  ▶ tracking ✓ analytics ✓ brain ✓ brief-writer ✓
+      "run_8a2f — 12 Briefs await in Notion → [link].  HG1."
+ you  [Notion: approve 6, reject 6, edit 2]                     ~10 min  ← judgment
+ you  /loop   → content-writer + 6 fan-out workers  → "HG2: 18 Scripts → [link]"
+ you  [approve 9]                                               ~20 min  ← judgment
+ you  /loop   → produce: creative-director + 11 render workers  → "HG3: 30 Variants → [link]"
+ you  [approve 22]                                              ~15 min  ← judgment
+ you  /loop   → schedule (deterministic) → distribute  → "HG4: 8 ads PAUSED in Meta"
+ you  [Meta Ads Manager: un-pause]                              ~5 min   ← the only non-Notion gate
+
+── QUIET (7 days) ──   /status → "run_8a2f LIVE. Readout Mon 28th."
+
+── READOUT (automatic — no gate; internal writes only) ──
+ you  /loop   → analyze ✓ reflect ✓
+      "CPA MYR 6.10 (pred 4–7 ✓) · 2 hypotheses confirmed → Learnings · next cycle ready."</pre>
+  <p>
+    You never type a runId, never track a stage, never choose a command. Your whole job is
+    taste and compliance authority at four gates — the irreducibly human part.
+  </p>
+
+  <h2><span class="num">5.</span> Anti-rabbit-hole governance</h2>
+  <p>
+    A cell may loop internally until it satisfies its outcome — but the loop and the
+    <em>judge of "done"</em> must be separate. <strong>The agent owns the effort; code owns the
+    termination.</strong> The agent never adjudicates its own completion and never grants itself
+    more budget. Five layers enforce it:
+  </p>
+  <ol>
+    <li><strong>A machine-checkable acceptance test.</strong> The biggest lever. If the outcome
+      cannot be written as a <code>verify()</code> function, the cell has no termination signal
+      and must not loop toward it.</li>
+    <li><strong>Harness-enforced budget caps.</strong> Tool-call budget and the finite context
+      window are enforced by spawn config and runtime — not a prompt instruction. An LLM told
+      "stop after 10 tries" in prose sometimes will not; a harness cap always holds.</li>
+    <li><strong>Bounded retry at the conductor, not the agent.</strong> On <code>verify</code>
+      failure the conductor retries at most once, only for transient causes. The agent does not
+      vote itself another attempt.</li>
+    <li><strong>No-progress detection.</strong> If attempt N+1 returns the same
+      <code>problems</code> as attempt N, stop — retrying is not helping.</li>
+    <li><strong>The human gate.</strong> Nothing ships unreviewed; a rabbit hole's blast radius
+      is wasted compute on one turn, never shipped output.</li>
+  </ol>
+  <p>
+    A rabbit hole needs two conditions: no machine-checkable "done" <em>and</em> no
+    externally-enforced budget. The architecture removes both.
+  </p>
+
+  <h2><span class="num">6.</span> Worked cell — Production</h2>
+  <p>
+    Today's 707-line <code>media-production.md</code> is three different things welded
+    together. Split by the litmus tests of §2:
+  </p>
+  <table>
+    <thead><tr><th>Today (one prose file)</th><th>Becomes</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Storyboard, hook-register choice, thumbnail brief</td><td><strong><code>creative-director</code></strong> agent (~80 lines)</td><td>genuine taste</td></tr>
+      <tr><td>HTML/CSS authoring per static asset</td><td><strong>render workers</strong> (fan-out)</td><td>genuine taste, context-isolated</td></tr>
+      <tr><td>Truncate Meta copy, slug, channels, targeting JSON, variant-id, reading-time, totals</td><td><strong><code>packages/shared/production/</code></strong> — pure functions</td><td>deterministic, unit-tested</td></tr>
+      <tr><td>Step 5.5 worker loop · Step 7.0 assertion · G10/G11/F2 prose</td><td><strong><code>verifyProduce()</code></strong> in the orchestrator MCP</td><td>a contract belongs in code</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Objective</h3>
+  <p>An outcome, machine-checkable — and channel-conditional (see §7 for the organic case):</p>
+  <div class="callout">
+    For run R: every Script with <code>Approval Status = Approved</code> has its full
+    format-matrix of CreativeVariants; every static <em>and</em> video Variant has resolvable
+    rendered assets; <strong>every Variant has the spec families its <code>Channels</code> value
+    requires</strong> — Meta if ∋ Meta-paid/organic, YouTube if ∋ YouTube*, organic
+    caption/hashtags if ∋ Meta-organic — each complete and compliance-passed; totals
+    self-consistent.
+  </div>
+
+  <h3>Free loop — the steps <code>plan</code> emits</h3>
+  <pre>P1  spawn   creative-director(runId)  -> creative plan: shotlists EN/BM,
+                                         chosen hook per format, thumbnail briefs.
+                                         Renders nothing. Derives no specs.
+P2  fanout  render-worker × N         -> one worker per static/video Variant.
+                                         (N capped by media-policy.yaml)
+P3  write   notion.create_page × M    -> plan() ran production.deriveSpecs() on the
+                                         persisted P1+P2 results and handed the
+                                         conductor EXACT page payloads. The compliance
+                                         scan fires at the notion MCP boundary.
+verify  verifyProduce(runId)          -> the acceptance test (below)
+P4  gate    HG3                       -> human reviews Variants in Notion</pre>
+  <p>
+    Genuine reasoning lives in exactly three fenced places: <code>creative-director</code>
+    (scene segmentation, hook-register choice — bounded by the Script body, the fixed matrix,
+    a tool-call cap), each <strong>render worker</strong> (layout within the brand contract —
+    bounded by its context window and the per-run image cap), and the <strong>conductor</strong>
+    (the one <code>verify</code>-fail judgment). The deterministic spec derivation — the old
+    Steps 5.7 / 5.8 / 8, ~200 lines of prose — now runs as <code>deriveSpecs()</code> inside
+    <code>plan()</code>; the conductor never sees it, it just gets exact write calls.
+  </p>
+
+  <h3>Verifier — the centerpiece, uncheatable</h3>
+  <pre>// orchestrator MCP · deterministic · unit-tested · the cell cannot fake passing it
+function verifyProduce(runId): { ok: boolean; problems: string[] } {
+  const problems = [];
+  const scripts  = notion.approvedScripts(runId);
+  const variants = notion.variants(runId);
+
+  // 1 — coverage: every approved Script got its full format matrix
+  for (const s of scripts)
+    if (variants.filter(v => v.scriptId === s.id).length !== FORMAT_MATRIX.length)
+      problems.push(`script ${s.id}: incomplete variant matrix`);
+
+  // 2 — assets: every static AND video Variant has a resolvable rendered asset
+  for (const v of variants.filter(needsAsset)) {
+    if (v.assetFiles.length === 0)
+      problems.push(`variant ${v.id}: Asset Files empty — render gap`);
+    for (const a of v.assetFiles)
+      if (!assetStore.resolves(a.url, a.sha256))
+        problems.push(`variant ${v.id}: asset unresolved / hash mismatch`);
+  }
+
+  // 3 — specs: channel coverage complete + compliant (Channels drives this)
+  for (const v of variants) {
+    if (intersects(v.channels, META)  &amp;&amp; !v.metaSpecComplete())
+      problems.push(`variant ${v.id}: Meta spec incomplete (EN/BM)`);
+    if (intersects(v.channels, META)  &amp;&amp; !hasRegulatorPhrase(v.metaPrimaryText))
+      problems.push(`variant ${v.id}: Meta Primary Text missing regulator phrase`);
+    if (intersects(v.channels, ["Meta-organic"]) &amp;&amp; !v.organicSpecComplete())
+      problems.push(`variant ${v.id}: organic spec incomplete (Caption/Hashtags EN+BM)`);
+    if (v.complianceCheck !== true)            // server-set by the notion MCP scan
+      problems.push(`variant ${v.id}: compliance scan did not pass`);
+  }
+
+  // 4 — self-consistency (kills B-003 permanently)
+  if (sum(variants.map(v => v.estCostMYR)) !== reportedTotal(runId))
+    problems.push(`totals.cost drifts from per-variant sum`);
+
+  // 5 — the F2 contract: static variants exist => workers actually ran.
+  //     Reads the events table — GROUND TRUTH — not an agent's self-report.
+  const staticN = variants.filter(isStatic).length;
+  if (staticN > 0 &amp;&amp; events.count(runId, "render-worker:done") === 0)
+    problems.push(`${staticN} static variants, 0 render workers ran — direct-render bypass`);
+
+  return { ok: problems.length === 0, problems };
+}</pre>
+  <p>
+    Two things prose never could. The old Step 7.0 trusted the agent's self-reported
+    <code>workersSpawned</code> count — the agent grading itself. Check #5 reads the
+    <strong>events table</strong> instead — ground truth the agent cannot author. And the whole
+    thing is a unit test: the contract is regression-<em>proof</em>, not regression-<em>documented</em>
+    (the G-series).
+  </p>
+
+  <h3>Stage definition — what <code>plan</code> walks</h3>
+  <pre>// orchestrator/stages/produce.ts — DATA + builder fns. Not a prompt. Unit-tested.
+export const produceStage: StageDefinition = {
+  id: "produce",
+  entry: (run) => run.scriptsApproved &amp;&amp; !run.hasVariants,
+
+  steps: [
+    { id: "P1-creative", kind: "spawn", agent: "creative-director",
+      buildSpawnPrompt: (run) => `runId: ${run.id}\nscriptIds: ${run.approvedScriptIds}` },
+
+    { id: "P2-render", kind: "fanout", worker: "general-purpose",
+      buildUnits: (run) => run.creativePlan.renderableVariants
+                              .map(v => ({ spawnPrompt: renderWorkerPrompt(v) })),
+      cap: (run) => imageCapForRun(run) },                 // media-policy.yaml
+
+    { id: "P3-persist", kind: "write",
+      buildCalls: (run) => deriveSpecs(run.creativePlan, run.renderResults)  // <- Channels
+                              .map(v => ({ tool: "notion.create_page", args: v })),
+      verifier: verifyProduce },                            // the acceptance test
+
+    { id: "P4-gate", kind: "gate", gate: "HG3",
+      buildMessage: (run) => `Run ${run.id} — ${run.variantCount} Variants ready → ${run.notionUrl}` },
+  ],
+
+  exit: (run) => run.variantsApproved,    // -> next stage: schedule
+};</pre>
+
+  <h3>Resumability — it survives <code>/loop</code> re-entry</h3>
+  <pre>/loop  → P1 ✓  → P2: 3 of 11 workers fail  → P3 writes 27 good + 3 failed
+       → verifyProduce → ok:false  → conductor retries fanout once, still fails
+       → SURFACE, stop
+human  fixes the Script / brand contract
+/loop  → plan(runId) reads state: P1 done, 27/30 variants complete
+       → returns a fanout of ONLY the 3 unrendered variants (not a fresh P1)
+       → P3 fills those 3 (fill-only-if-empty) → verifyProduce ✓ → HG3 gate</pre>
+  <p>
+    This works <strong>only because <code>plan</code> is a pure function of persisted run
+    state</strong>, not a step counter. If Open Decision 1 were answered with prose-includes
+    instead of code, re-entry would re-run P1 and double-create Variants. This point and the
+    orchestrator-placement spec's Open Decision 1 are the same decision.
+  </p>
+
+  <h2><span class="num">7.</span> The organic decision</h2>
+  <div class="callout decision">
+    <span class="lbl">Decided this session</span>
+    Organic content needs production too. <strong>Production's objective includes organic
+    artifacts.</strong> Organic becomes <strong>1:1 with a run</strong> (scope = this run's
+    Variants; accepted drawback: inventory starvation if runs go sparse — unlikely, a run
+    overproduces organic inventory). Organic-as-a-separate-cell <strong>dissolves</strong>.
+  </div>
+  <p>Consequences, each traced:</p>
+  <ul>
+    <li><strong>Reel video → Production-owned.</strong> A Reel needs a video asset regardless of
+      channel; rendering is a property of the artifact, not the channel. Production renders every
+      asset — static PNGs via render workers, Reel video via HeyGen / kie.ai.
+      <code>Reel HeyGen Job ID</code> is a Production-owned render-tracking field.</li>
+    <li><strong>Scheduling is extracted — as a deterministic step, not an agent.</strong> Slot
+      assignment, sort, MYT→UTC conversion, the publish-window check: zero open decision space.
+      By litmus test 2 it is not agentic. It is an <code>assignSchedule()</code> pure function
+      plus a <code>write</code> step that runs <em>after HG3</em> and stamps
+      <code>Scheduled For</code>. It is <strong>not</strong> placed inside distribution's
+      routing — that would violate ADR-018 (distribution must not derive); it also fixes the
+      existing §4d smell where the router does timezone math.</li>
+    <li><strong>Organic vs paid scheduling — shared concept, different mechanism.</strong>
+      Organic = a per-post publish datetime the FB/IG API enforces. Paid = an adset flight
+      window (largely already the experiment's <code>launchWindow</code> + <code>durationDays</code>).
+      One <code>assignSchedule()</code>, two branches keyed off <code>Channels</code>.</li>
+    <li><strong><code>Organic Status</code> is retired as a gate.</strong> With HG3 now approving
+      organic artifacts, a second organic-only approval adds nothing — channel-level opt-out
+      already exists (a human edits <code>Channels</code> at HG3 to drop <code>Meta-organic</code>).
+      <code>Organic Status</code> survives only as a <em>lifecycle field</em>
+      (<code>Scheduled | Published | Failed</code>) the system writes. HG3 is the single content
+      gate for everything.</li>
+  </ul>
+  <p>
+    Net: the cell count drops (no organic cell), one deterministic <code>schedule</code> stage
+    is added, one gate is removed. The decision <em>simplifies</em> the architecture.
+  </p>
+
+  <h2><span class="num">8.</span> The resulting loop</h2>
+  <pre>plan → brief →[HG1]→ content →[HG2]→ produce →[HG3]→ schedule
+     → experiment → distribute →[HG4 paid launch]→ analyze → reflect</pre>
+  <table>
+    <thead><tr><th>Stage</th><th>Kind</th><th>Agent / code</th></tr></thead>
+    <tbody>
+      <tr><td>tracking</td><td>deterministic stage</td><td>MCP tool calls</td></tr>
+      <tr><td>analytics</td><td>deterministic stage</td><td>MCP tool calls</td></tr>
+      <tr><td><strong>synthesize</strong></td><td class="ok">agentic cell — Strategy</td><td><code>brain</code></td></tr>
+      <tr><td><strong>brief</strong></td><td class="ok">agentic cell — Brief-writer</td><td><code>brief-writer</code> (was <code>targeting</code>)</td></tr>
+      <tr><td><strong>content</strong></td><td class="ok">agentic cell — Content-writer</td><td><code>content-writer</code> + fan-out workers</td></tr>
+      <tr><td><strong>produce</strong></td><td class="ok">agentic cell — Production</td><td><code>creative-director</code> + render workers</td></tr>
+      <tr><td>schedule</td><td>deterministic stage</td><td><code>assignSchedule()</code></td></tr>
+      <tr><td>experiment</td><td>deterministic stage</td><td>math in the experiment MCP</td></tr>
+      <tr><td>distribute</td><td>deterministic stage</td><td>mechanical router (ADR-018)</td></tr>
+      <tr><td>analyze · reflect</td><td>deterministic grading + Strategy self-critique</td><td>thresholds in code; the Self-Critique is the next Strategy run</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Four agentic cells</strong> (Strategy, Brief-writer, Content-writer, Production). Everything else is a deterministic stage or a fan-out worker.</p>
+
+  <h2><span class="num">9.</span> What changes</h2>
+  <table>
+    <thead><tr><th>Surface</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>.claude/commands/*.md</code></td><td><span class="ok">Collapse</span> to one thin domain-agnostic <code>/loop</code> conductor + a ~5-line <code>/status</code>. Granular commands survive as power-user escape hatches.</td></tr>
+      <tr><td><code>orchestrator</code> MCP</td><td><span class="no">New.</span> The typed run-state machine: <code>plan</code> / <code>verify</code> / <code>advance</code> + one stage-definition file per stage + the verifiers.</td></tr>
+      <tr><td><code>tracking</code>, <code>analytics</code>, <code>distribution</code>, <code>experiment-os</code></td><td><span class="no">Delete as agents.</span> Become deterministic stages — MCP calls sequenced by the orchestrator. (~4 of 8 agents removed.)</td></tr>
+      <tr><td><code>media-production.md</code> (707 lines)</td><td><span class="wn">Decompose</span> → <code>creative-director.md</code> (~80) + render-worker prompt + <code>packages/shared/production/</code> + <code>verifyProduce()</code>. F2 / G10 / G11 / Step-7.0 prose <strong>deleted</strong> — replaced by the verifier.</td></tr>
+      <tr><td><code>brain.md</code> (412 lines)</td><td><span class="wn">Trim</span> to a reasoning leaf (~150) — the 9-step scaffold, memo structure, move catalog. §A dispatch + §E spawn protocols move into the orchestrator MCP as code. §G organic-planner is superseded by §7.</td></tr>
+      <tr><td>deterministic transforms in prompts</td><td><span class="wn">Extract</span> to <code>packages/shared</code> as pure, unit-tested functions: slug, truncation, IDs, category maps, <code>deriveSpecs</code>, <code>deriveChannels</code>, <code>assignSchedule</code>.</td></tr>
+      <tr><td>PLAN.md (754 lines, stale)</td><td><span class="wn">Retire</span> into a short current <code>ARCHITECTURE.md</code> + the ADRs. Doctrine should not live in a working doc agents cite by section number.</td></tr>
+    </tbody>
+  </table>
+  <h3>Migration order — ships value each step, no big-bang</h3>
+  <ol>
+    <li>Extract deterministic transforms to <code>packages/shared</code> + tests. Zero behavior change; the G-series stops recurring.</li>
+    <li>Build the <code>orchestrator</code> MCP with the <code>produce</code> stage first; rewrite <code>/loop</code> as the conductor.</li>
+    <li>Collapse <code>distribution</code> + <code>experiment-os</code> into deterministic stages (they are already "pure orchestration").</li>
+    <li>Same for <code>tracking</code> + <code>analytics</code>; add the <code>schedule</code> stage.</li>
+    <li>Decompose <code>media-production</code> → <code>creative-director</code> + workers + <code>verifyProduce</code>.</li>
+    <li>Trim <code>brain.md</code>; retire PLAN.md.</li>
+  </ol>
+
+  <h2><span class="num">10.</span> Decisions &amp; non-goals</h2>
+  <p>All §10 open decisions were resolved on review (2026-05-22):</p>
+  <ol>
+    <li><strong>Run-state store → two SQLite tables, no Notion mirror.</strong>
+      <code>runs</code> (run_id, stage, status, params) + <code>run_steps</code> (run_id,
+      step_id, status, result JSON, problems, attempts) in <code>data/engineerdad.sqlite</code>;
+      the existing <code>events</code> table is the audit trail. Sync is <em>asymmetric, not a
+      mirror</em>: SQLite owns orchestration state; Notion owns artifacts + gate signals; the
+      orchestrator only <em>reads</em> Notion approval columns to detect a cleared gate, and
+      <code>verify</code> re-reads Notion for artifact truth (doubling as the divergence
+      detector). Orchestration state is never written to Notion.</li>
+    <li><strong>Orchestrator → logic package + thin MCP wrapper.</strong>
+      <code>packages/orchestrator/</code> holds the pure logic (stage definitions,
+      plan/verify/advance, verifiers) and is what unit tests target;
+      <code>mcp-servers/orchestrator/</code> is a thin stdio wrapper. Per ADR-005's
+      thin-adapter doctrine — same shape as analytics/notion. The command can only invoke
+      tools, so the MCP transport is required; the package keeps the logic testable without stdio.</li>
+    <li><strong>No-MCP-mesh rule retained, restated precisely.</strong> The rule is "no MCP
+      server opens a client connection to another MCP server" — not "deterministic code can't
+      call deterministic code." Shared <em>logic</em> goes in a <code>packages/</code> library;
+      cross-server <em>sequencing</em> goes through the hub (command + orchestrator). Worker
+      output → Notion: the orchestrator <em>computes</em> the write calls, the command
+      <em>executes</em> them against the notion MCP, the compliance scan fires at the notion
+      boundary. Kept because it preserves the auditable choke point the compliance model depends on.</li>
+    <li><strong>Granular commands retained</strong> — <code>/produce</code>,
+      <code>/targeting</code> etc. stay as power-user escape hatches alongside <code>/loop</code>.</li>
+    <li><strong>One new ADR-020</strong>, sourced from both this spec and the
+      orchestrator-placement spec; supersedes the 4-tier dispatch model; retains ADR-005's
+      thin-adapter doctrine, no-MCP-mesh rule, and compliance boundary; resolves ADR-014's
+      worker split. ADR-005 gets a one-line status note pointing to ADR-020 — not a rewrite.
+      Written <em>after</em> the implementation plan locks (an ADR records a settled decision).</li>
+  </ol>
+  <p><strong>Non-goals:</strong> changing the Notion schema wholesale (additive only); changing the
+    compliance doctrine (scan stays MCP-side); the v1.5 video-generation pipeline (E-004); changing
+    the closed-loop <em>sequence</em> beyond the §7 organic adjustment.</p>
+
+  <div class="foot">
+    Next step after review: an implementation plan via the writing-plans skill — sequencing the
+    six migration steps with checkpoints. The worked Production cell (§6) doubles as the first
+    concrete <code>orchestrator</code> stage definition and the template for the rest.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+packages:
+  - "packages/*"
+  - "mcp-servers/*"
+  - "mcp-servers/media-providers/*"
+  - "apps/*"

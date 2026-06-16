@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel & Static Asset Quality — Implementation Plan (2026-05-31)</title>
+<style>
+  :root{--navy:#1B2B6B;--navy-dark:#111c45;--orange:#F07621;--teal:#00B4A6;--teal-light:#e6f8f7;--offwhite:#F7F8FC;--text:#1a1a2e;--muted:#6b7280;--border:#e5e7f0}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--text);background:var(--offwhite);margin:0;line-height:1.62}
+  .wrap{max-width:1000px;margin:0 auto;padding:44px 30px 140px}
+  h1{color:var(--navy);font-size:30px;line-height:1.25;border-bottom:3px solid var(--orange);padding-bottom:12px;margin:0 0 8px}
+  h2{color:#fff;background:var(--navy);font-size:20px;margin:46px 0 14px;padding:10px 16px;border-radius:8px}
+  h3{color:var(--navy-dark);font-size:17px;margin:30px 0 8px;padding-left:10px;border-left:4px solid var(--orange)}
+  h4{color:var(--navy-dark);font-size:14.5px;margin:18px 0 6px}
+  p{margin:10px 0}
+  code{background:#eef0f7;padding:1px 5px;border-radius:4px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;color:var(--navy-dark)}
+  pre{background:var(--navy-dark);color:#e8eaf3;padding:16px 18px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5;margin:12px 0}
+  pre code{background:none;color:inherit;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13px}
+  th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tbody tr:nth-child(even) td{background:#fff}
+  tbody tr:nth-child(odd) td{background:#fbfcff}
+  blockquote{border-left:4px solid var(--teal);background:var(--teal-light);margin:16px 0;padding:12px 16px;border-radius:0 8px 8px 0}
+  blockquote code{background:#d3f0ed}
+  ul{margin:10px 0;padding-left:24px}
+  li{margin:5px 0}
+  li input[type=checkbox]{margin-right:8px;transform:translateY(1px)}
+  hr{border:none;border-top:1px solid var(--border);margin:38px 0}
+  a{color:var(--navy)}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Reel &amp; Static Asset Quality Implementation Plan</h1>
+<blockquote><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</blockquote>
+<p><strong>Goal:</strong> Improve rendered asset readability/UI-UX by (a) collapsing the reel scene model from three types to two (<code>face | visual</code>) across both the authoring and HeyGen-substrate layers and dropping <code>emphasize</code>, (b) adding a format-aware on-frame text-density doctrine + a worker self-critique rubric to the brand contract and both worker prompts, and (c) pinning the render workers + creative-director to Opus.</p>
+<p><strong>Architecture:</strong> Schema/code merge first (zod + worker-input + heygen-wrapper, all TDD), then prompt-layer doctrine (brand-contract §8/§9, both worker prompts), then the Opus pins (a new <code>render-worker</code> agent + creative-director frontmatter), then fixtures + ADR rewrite, then a full build/sync/verify pass. Density and the "no numbers on concept visuals" rule are enforced by worker self-critique + the HG3 human gate — they are NOT machine-scanned (on-frame text lives in the PNG, not the DB).</p>
+<p><strong>Tech Stack:</strong> TypeScript, Zod, Vitest, pnpm workspaces, Drizzle (Postgres), Markdown agent/worker prompts, Playwright static-renderer MCP, HeyGen wrapper MCP.</p>
+<p><strong>Source spec:</strong> <code>docs/superpowers/specs/2026-05-31-reel-asset-quality-design.html</code></p>
+<hr>
+<h2>Decisions locked (from the spec)</h2>
+<ul>
+<li><strong>D2/D3:</strong> <code>sceneType</code> and HeyGen <code>kind</code> both → <code>["face","visual"]</code>. <code>face-over-chart</code> deleted. A <code>visual</code> is *data* (<code>chartRef</code> set) or *concept* (<code>visualBrief</code> set) — XOR by field presence.</li>
+<li><strong>D4:</strong> <code>emphasize</code> dropped everywhere.</li>
+<li><strong>D5:</strong> brand-contract gains §8 (density) + §9 (self-critique rubric).</li>
+<li><strong>D6:</strong> on-frame text reuses existing fields; worker may condense. Reel support line = <code>explains</code> (≤12 words, newly rendered on-frame). Static body block = condensed <code>body</code> (~30–45 words).</li>
+<li><strong>D7:</strong> reel QA = mechanical §9 + 1 free pre-HeyGen retry, skip <code>ui-ux-pro-max</code>. Static keeps 1-retry + aesthetic pass.</li>
+<li><strong>D8:</strong> creative-director <code>model: sonnet → opus</code>.</li>
+<li><strong>D9:</strong> rewrite ADR-029 in place.</li>
+<li><strong>D10:</strong> new <code>render-worker</code> agent (<code>model: opus</code>); P2-render fanout points at it.</li>
+</ul>
+<h2>Pre-flight (run once before Task 1)</h2>
+<ul>
+<li><input type="checkbox" disabled> <strong>Confirm branch + clean tree.</strong> Run: <code>git -C /Users/solid/Code/engineerdad-marketing status --short | grep -v 'data/assets\|tmp/'</code> — expected: empty (only test-artifact dirs are untracked, which is fine).</li>
+<li><input type="checkbox" disabled> <strong>Confirm DB points at a sandbox, not live.</strong> Run: <code>grep DATABASE_URL .env.local</code> — expected: a URL containing <code>_test</code> or <code>engineerdad_sb_</code>. If absent, run <code>pnpm db:sandbox</code> first (CLAUDE.md: tests hard-stop on a non-sandbox DB).</li>
+<li><input type="checkbox" disabled> <strong>Confirm the agent-frontmatter tools rule (spec open question).</strong> Read <code>.claude/agents/brain.md</code> and <code>.claude/agents/creative-director.md</code> frontmatter: every existing agent enumerates <code>tools:</code> explicitly (none omit it). <strong>Therefore the new <code>render-worker</code> agent MUST enumerate its tools</strong> (Task 12) — do not rely on "omit = all". This resolves the spec's plan-time verification note.</li>
+</ul>
+<h2>File Structure</h2>
+<p><strong>Schema / code (build + Claude Code restart required):</strong></p>
+<ul>
+<li><code>packages/shared/src/zod.ts</code> — <code>ReelSceneTypeEnum</code> → two-value; refinements → XOR-by-field-presence; remove <code>emphasize</code>.</li>
+<li><code>packages/shared/src/zod.test.ts</code> — two-type + XOR cases; drop <code>emphasize</code>/<code>face-over-chart</code> cases.</li>
+<li><code>packages/shared/src/derive/specs.ts</code> — remove <code>emphasize</code> from the scene type.</li>
+<li><code>packages/orchestrator/src/produce/reel-worker-input.ts</code> — <code>sceneType: "face"|"visual"</code>; drop <code>emphasize</code>.</li>
+<li><code>packages/orchestrator/src/stages/produce.ts:447</code> — fanout <code>worker: "general-purpose"</code> → <code>"render-worker"</code>.</li>
+<li><code>packages/orchestrator/src/stages/produce.test.ts</code> — add P2-render worker-name assertion; refresh reel fixture.</li>
+<li><code>mcp-servers/heygen-wrapper/src/heygen.ts</code> — <code>kind: "face"|"visual"</code>; image branch on <code>visual</code>.</li>
+<li><code>mcp-servers/heygen-wrapper/src/index.ts</code> — <code>generate_reel</code> scene <code>kind</code> enum → two-value; description.</li>
+<li><code>mcp-servers/heygen-wrapper/src/__tests__/heygen.test.ts</code> — two-value <code>kind</code> cases; drop <code>face-over-chart</code>.</li>
+</ul>
+<p><strong>Prompt / doctrine (no restart — read at runtime):</strong></p>
+<ul>
+<li><code>corpus/templates/brand-contract.md</code> — add §8 + §9.</li>
+<li><code>corpus/templates/worker-prompts/reel-render-worker.md</code> — normal-path QA pass, wire <code>explains</code>, two-type, drop <code>emphasize</code>.</li>
+<li><code>corpus/templates/worker-prompts/render-worker.md</code> — point §5.5 at §9, add format-aware density.</li>
+</ul>
+<p><strong>Agents (restart required):</strong></p>
+<ul>
+<li><code>.claude/agents/render-worker.md</code> — NEW (model: opus + tools shell).</li>
+<li><code>.claude/agents/creative-director.md</code> — two-type, drop <code>emphasize</code>, format-aware on-frame guidance, <code>model: opus</code>.</li>
+</ul>
+<p><strong>Fixtures / harness / ADR:</strong></p>
+<ul>
+<li><code>scripts/fixtures/reel-worker/{chart-emphasis,concept-visual,mixed-reel}.json</code> — two-type; drop <code>emphasize</code>.</li>
+<li><code>scripts/smoke-reel.mjs</code> — sceneType strings (verify-first: may be stale, imports deleted media-stitch).</li>
+<li><code>docs/decisions/029-reel-visual-scenes.md</code> — rewrite in place.</li>
+<li><code>ARCHITECTURE.md</code> / <code>TASKS.md</code> Status line — sync the <code>sceneType face|chart|visual</code> mention to <code>face|visual</code>.</li>
+</ul>
+<hr>
+<h2>Phase 1 — Two-type schema merge (zod)</h2>
+<h3>Task 1: <code>ReelShotlistSceneSchema</code> → two-type + XOR, drop <code>emphasize</code></h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>packages/shared/src/zod.ts:164-210</code></li>
+<li>Test: <code>packages/shared/src/zod.test.ts:192-290</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Rewrite the reel test block to the two-type model (failing test).</strong></li>
+</ul>
+<p>In <code>packages/shared/src/zod.test.ts</code>, replace the entire <code>describe("ReelShotlistSchema", …)</code> block (starts at line 192) with the version below. It drops <code>emphasize</code>, removes the <code>chart</code> enum value + the <code>face-over-chart</code> case, and adds the XOR cases (data visual / concept visual / both-null reject / both-set reject).</p>
+<pre><code>// ── ReelShotlistSchema (per ADR-029, two-type face|visual model) ──
+describe("ReelShotlistSchema", () =&gt; {
+  type SceneOverrides = {
+    scene?: string;
+    voiceover?: string;
+    onScreenText?: string;
+    chartRef?: string | null;
+    visualBrief?: string | null;
+    explains?: string | null;
+    shotNotes?: string;
+    sceneType?: "face" | "visual";
+    estimatedSeconds?: number;
+  };
+  const validScene = (o: SceneOverrides = {}) =&gt; ({
+    scene: "1",
+    voiceover: "Start early and let time do the work.",
+    onScreenText: "Start at 30",
+    chartRef: null,
+    visualBrief: null,
+    explains: null,
+    shotNotes: "tight on face",
+    sceneType: "face" as const,
+    estimatedSeconds: 4,
+    ...o,
+  });
+  const dataVisual = () =&gt;
+    validScene({ scene: "2", sceneType: "visual", chartRef: "compounding-30y",
+      visualBrief: null, explains: "early start wins", estimatedSeconds: 8 });
+  const conceptVisual = () =&gt;
+    validScene({ scene: "2", sceneType: "visual", chartRef: null,
+      visualBrief: "Two-column split: Saver vs Investor; widening gap arrow.",
+      explains: "waiting has a cost", estimatedSeconds: 7 });
+  const validShotlist = {
+    format: "Reel" as const,
+    hook: { en: "Hook EN", ms: "Hook BM" },
+    shotlistEn: [validScene(), dataVisual(), validScene({ scene: "3" })],
+    targetSeconds: 25,
+    faceFirstHook: true,
+  };
+
+  it("accepts a valid 3-scene Reel (face → data-visual → face)", () =&gt; {
+    expect(() =&gt; ReelShotlistSchema.parse(validShotlist)).not.toThrow();
+  });
+
+  it("accepts a concept visual (visualBrief set, chartRef null)", () =&gt; {
+    expect(() =&gt; ReelShotlistSceneSchema.parse(conceptVisual())).not.toThrow();
+  });
+
+  it("accepts a data visual (chartRef set, visualBrief null)", () =&gt; {
+    expect(() =&gt; ReelShotlistSceneSchema.parse(dataVisual())).not.toThrow();
+  });
+
+  it("rejects a visual with NEITHER chartRef nor visualBrief (XOR)", () =&gt; {
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(
+        validScene({ sceneType: "visual", chartRef: null, visualBrief: null }),
+      ),
+    ).toThrow();
+  });
+
+  it("rejects a visual with BOTH chartRef and visualBrief (XOR)", () =&gt; {
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(
+        validScene({ sceneType: "visual", chartRef: "compounding-30y",
+          visualBrief: "a split screen" }),
+      ),
+    ).toThrow();
+  });
+
+  it("rejects a face scene carrying a chartRef", () =&gt; {
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(validScene({ sceneType: "face", chartRef: "compounding-30y" })),
+    ).toThrow();
+  });
+
+  it("rejects the retired 'chart' sceneType", () =&gt; {
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(
+        validScene({ sceneType: "chart" as unknown as "visual", chartRef: "compounding-30y" }),
+      ),
+    ).toThrow();
+  });
+
+  it("rejects the retired 'face-over-chart' sceneType", () =&gt; {
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(
+        validScene({ sceneType: "face-over-chart" as unknown as "visual" }),
+      ),
+    ).toThrow();
+  });
+
+  it("accepts face scene with null chartRef and null visualBrief", () =&gt; {
+    expect(() =&gt; ReelShotlistSceneSchema.parse(validScene({ sceneType: "face" }))).not.toThrow();
+  });
+
+  it("rejects face voiceover exceeding 30 words", () =&gt; {
+    const longVo = Array(31).fill("w").join(" ");
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(validScene({ sceneType: "face", voiceover: longVo })),
+    ).toThrow();
+  });
+
+  it("accepts visual voiceover up to 45 words", () =&gt; {
+    const vo = Array(45).fill("w").join(" ");
+    expect(() =&gt;
+      ReelShotlistSceneSchema.parse(dataVisual()).voiceover !== undefined &amp;&amp;
+        ReelShotlistSceneSchema.parse({ ...dataVisual(), voiceover: vo }),
+    ).not.toThrow();
+  });
+
+  it("rejects targetSeconds below 15 / above 60 / non-integer", () =&gt; {
+    expect(() =&gt; ReelShotlistSchema.parse({ ...validShotlist, targetSeconds: 10 })).toThrow();
+    expect(() =&gt; ReelShotlistSchema.parse({ ...validShotlist, targetSeconds: 75 })).toThrow();
+    expect(() =&gt; ReelShotlistSchema.parse({ ...validShotlist, targetSeconds: 22.5 })).toThrow();
+  });
+});</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Run the test to verify it fails.</strong></li>
+</ul>
+<p>Run: <code>pnpm vitest run packages/shared/src/zod.test.ts -t "ReelShotlistSchema"</code> Expected: FAIL — the current schema still has the 3-value enum + <code>emphasize</code>; cases like "rejects a visual with NEITHER" and "rejects the retired 'chart' sceneType" fail because <code>chart</code> is still valid and no XOR rule exists.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Rewrite the schema to two-type + XOR, remove <code>emphasize</code>.</strong></li>
+</ul>
+<p>In <code>packages/shared/src/zod.ts</code>, replace the block from <code>export const ReelSceneTypeEnum</code> (line 164) through the end of <code>ReelShotlistSceneSchema</code> (the closing <code>;</code> at line 210) with:</p>
+<pre><code>export const ReelSceneTypeEnum = z.enum(["face", "visual"]);
+
+const reelWordCount = (s: string) =&gt; s.trim().split(/\s+/).filter(Boolean).length;
+
+export const ReelShotlistSceneSchema = z
+  .object({
+    scene: z.union([z.number(), z.string().min(1)]),
+    voiceover: z.string(),
+    onScreenText: z.string(),
+    chartRef: z.string().nullable(),
+    // A `visual` is data-backed (chartRef) XOR concept (visualBrief).
+    visualBrief: z.string().nullable().optional(),
+    // `explains` is the one-line takeaway; rendered on-frame as the support
+    // line for visual scenes (brand-contract §8). null on face.
+    explains: z.string().nullable().optional(),
+    shotNotes: z.string(),
+    sceneType: ReelSceneTypeEnum,
+    estimatedSeconds: z.number().positive(),
+  })
+  // VO budget: face ≤30, visual ≤45 (Reel pacing).
+  .refine(
+    (s) =&gt; reelWordCount(s.voiceover) &lt;= (s.sceneType === "face" ? 30 : 45),
+    { message: "voiceover exceeds the per-scene word budget (face ≤30, visual ≤45)" },
+  )
+  // face ⇒ no chartRef, no visualBrief.
+  .refine(
+    (s) =&gt; s.sceneType !== "face" || (s.chartRef === null &amp;&amp; (s.visualBrief ?? null) === null),
+    { message: "'face' scenes must have null chartRef and null visualBrief" },
+  )
+  // visual ⇒ exactly one of chartRef / visualBrief (XOR).
+  .refine(
+    (s) =&gt; {
+      if (s.sceneType !== "visual") return true;
+      const hasChart = s.chartRef !== null;
+      const hasBrief = typeof s.visualBrief === "string" &amp;&amp; s.visualBrief.trim().length &gt; 0;
+      return hasChart !== hasBrief;
+    },
+    {
+      message:
+        "'visual' scenes need exactly one of chartRef (data visual) or visualBrief (concept visual)",
+    },
+  );</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Run the test to verify it passes.</strong></li>
+</ul>
+<p>Run: <code>pnpm vitest run packages/shared/src/zod.test.ts -t "ReelShotlistSchema"</code> Expected: PASS (all cases).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Grep for any remaining <code>emphasize</code> reference in shared.</strong></li>
+</ul>
+<p>Run: <code>grep -rn "emphasize" packages/shared/src</code> — expected: no matches. (If any remain, remove them.)</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 6: Commit.</strong></li>
+</ul>
+<pre><code>git add packages/shared/src/zod.ts packages/shared/src/zod.test.ts
+git commit -m "feat(schema): collapse reel sceneType to face|visual (XOR data/concept), drop emphasize"</code></pre>
+<hr>
+<h3>Task 2: Remove <code>emphasize</code> from the <code>CreativeUnit</code> scene type (derive/specs.ts)</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>packages/shared/src/derive/specs.ts:28-31</code></li>
+<li>Test: <code>packages/shared/src/derive/specs.test.ts</code> (existing — must still pass)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Delete the <code>emphasize</code> field from the scene interface.</strong></li>
+</ul>
+<p>In <code>packages/shared/src/derive/specs.ts</code>, find the scene shape (around lines 28–31) containing:</p>
+<pre><code>  estimatedSeconds?: number;
+  visualBrief?: string | null; // free-form concept-visual brief; visual scenes only
+  explains?: string | null;    // one-line takeaway the narration must land
+  emphasize?: string | null;   // what to spotlight/annotate; chart scenes only</code></pre>
+<p>Remove the <code>emphasize</code> line so it reads:</p>
+<pre><code>  estimatedSeconds?: number;
+  visualBrief?: string | null; // concept-visual brief; concept visual scenes only
+  explains?: string | null;    // one-line takeaway; rendered on-frame for visual scenes</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Build shared to confirm types still compile.</strong></li>
+</ul>
+<p>Run: <code>pnpm --filter @engineerdad/shared build</code> Expected: clean build (no reference to the removed field).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Run the specs unit tests.</strong></li>
+</ul>
+<p>Run: <code>pnpm vitest run packages/shared/src/derive/specs.test.ts</code> Expected: PASS (the fixture at <code>specs.test.ts:42</code> uses <code>estCostMyr</code>, not <code>emphasize</code>, so no change needed there; if any test references <code>emphasize</code>, delete that property).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Commit.</strong></li>
+</ul>
+<pre><code>git add packages/shared/src/derive/specs.ts
+git commit -m "refactor(shared): drop emphasize from CreativeUnit scene type"</code></pre>
+<hr>
+<h2>Phase 2 — Projection (orchestrator worker input)</h2>
+<h3>Task 3: <code>ReelWorkerInput</code> → two-type, drop <code>emphasize</code></h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>packages/orchestrator/src/produce/reel-worker-input.ts:29-39, 77-87</code></li>
+<li>Test: <code>packages/orchestrator/src/produce/reel-worker-input.test.ts</code> (existing — must still pass)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Update the interface scene shape.</strong></li>
+</ul>
+<p>In <code>reel-worker-input.ts</code>, change the <code>scenes</code> array element type (lines 29–39):</p>
+<pre><code>  scenes: Array&lt;{
+    scene: string;
+    voiceover: string;
+    onScreenText: string;
+    chartRef: string | null;
+    sceneType: "face" | "visual";
+    estimatedSeconds: number;
+    visualBrief: string | null;
+    explains: string | null;
+  }&gt;;</code></pre>
+<p>(Removed <code>emphasize</code>; <code>sceneType</code> is now two-value.)</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Update the projection map.</strong></li>
+</ul>
+<p>In the <code>reelWorkerInput()</code> function, change the <code>scenes</code> mapping (lines 77–87) to drop <code>emphasize</code>:</p>
+<pre><code>    scenes: unit.shotlistEn.map((s) =&gt; ({
+      scene: String(s.scene),
+      voiceover: s.voiceover,
+      onScreenText: s.onScreenText,
+      chartRef: s.chartRef,
+      sceneType: s.sceneType ?? "face",
+      estimatedSeconds: s.estimatedSeconds ?? s.durationSec ?? 5,
+      visualBrief: s.visualBrief ?? null,
+      explains: s.explains ?? null,
+    })),</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Build orchestrator + run the projection test.</strong></li>
+</ul>
+<p>Run: <code>pnpm --filter @engineerdad/orchestrator build &amp;&amp; pnpm vitest run packages/orchestrator/src/produce/reel-worker-input.test.ts</code> Expected: PASS. If the test asserts <code>emphasize</code> on a projected scene, delete that assertion; if it asserts <code>sceneType: "chart"</code>, change to <code>"visual"</code> with <code>chartRef</code> set.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Commit.</strong></li>
+</ul>
+<pre><code>git add packages/orchestrator/src/produce/reel-worker-input.ts packages/orchestrator/src/produce/reel-worker-input.test.ts
+git commit -m "refactor(orchestrator): reel-worker-input two-type sceneType, drop emphasize"</code></pre>
+<hr>
+<h2>Phase 3 — HeyGen wrapper <code>kind</code> merge (face|visual)</h2>
+<h3>Task 4: <code>generateReel</code> kind → two-value, image branch on <code>visual</code></h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>mcp-servers/heygen-wrapper/src/heygen.ts:91-123</code></li>
+<li>Modify: <code>mcp-servers/heygen-wrapper/src/index.ts:80-99</code></li>
+<li>Test: <code>mcp-servers/heygen-wrapper/src/__tests__/heygen.test.ts:206-250</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Rewrite the heygen.test.ts generateReel cases (failing test).</strong></li>
+</ul>
+<p>In <code>heygen.test.ts</code>, replace the three <code>generateReel</code> cases (the "builds a multi-scene…", "treats face-over-chart…", and "throws if a chart scene is missing chart_url" cases, ~lines 209–250) with:</p>
+<pre><code>  it("builds a multi-scene video_inputs payload with caption + per-scene shapes", async () =&gt; {
+    const fetchMock = mockFetchOk({ data: { video_id: "vid_1" } });
+    const res = await generateReel({
+      avatar_id: "av1", voice_id: "vo1", aspect_ratio: "9:16",
+      scenes: [
+        { kind: "face",   voiceover: "Hook line." },
+        { kind: "visual", voiceover: "Visual line.", chart_url: "https://x/frame.png" },
+      ],
+    });
+    expect(res.jobId).toBe("vid_1");
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.video_inputs).toHaveLength(2);
+    const face = body.video_inputs[0];
+    expect(face.character).toMatchObject({ type: "avatar", avatar_id: "av1", fit: "cover" });
+    expect(face.background).toEqual({ type: "color", value: "#0a1628" });
+    const visual = body.video_inputs[1];
+    expect(visual.character).toBeUndefined();
+    expect(visual.voice.input_text).toBe("Visual line.");
+    expect(visual.background).toEqual({ type: "image", url: "https://x/frame.png", fit: "cover" });
+  });
+
+  it("throws if a visual scene is missing chart_url", async () =&gt; {
+    mockFetchOk({ data: { video_id: "vid_2" } });
+    await expect(
+      generateReel({
+        avatar_id: "av1", voice_id: "vo1", aspect_ratio: "9:16",
+        scenes: [{ kind: "visual", voiceover: "x" }],
+      }),
+    ).rejects.toThrow(/requires chart_url/);
+  });</code></pre>
+<blockquote>Note: keep the test's existing <code>mockFetchOk</code> helper name if it differs — match whatever the file already uses for the fetch mock (the original cases reference <code>fetchMock</code>/<code>mockFetch...</code>). Do not invent a new helper.</blockquote>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Run to verify it fails.</strong></li>
+</ul>
+<p>Run: <code>pnpm vitest run mcp-servers/heygen-wrapper -t "generateReel"</code> Expected: FAIL — <code>kind: "visual"</code> is rejected by the current <code>"face"|"chart"|"face-over-chart"</code> type / runtime.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Update <code>ReelSceneInput</code> + the mapping in heygen.ts.</strong></li>
+</ul>
+<p>In <code>mcp-servers/heygen-wrapper/src/heygen.ts</code>, change the interface (lines 91–96):</p>
+<pre><code>export interface ReelSceneInput {
+  kind: "face" | "visual";
+  voiceover: string;
+  /** Required for visual scenes: the uploaded full-frame image (chart/concept) URL. */
+  chart_url?: string;
+}</code></pre>
+<p>The mapping at lines 114–122 already branches <code>if (s.kind === "face")</code> then falls through to the image case — that logic is correct for two values. No change needed to the branch body; only the <code>face-over-chart</code> value disappears from the type.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Update the <code>generate_reel</code> tool schema + description in index.ts.</strong></li>
+</ul>
+<p>In <code>mcp-servers/heygen-wrapper/src/index.ts</code>, change the <code>kind</code> enum (line 87) and description (line 81):</p>
+<pre><code>  "generate_reel",
+  "Submit a multi-scene HeyGen reel render in one call. video_inputs is built per scene: kind:'face' = avatar fit:'cover' over a colour bg; kind:'visual' = full-frame image background (chart_url required — any rendered PNG, chart or concept), no avatar. caption defaults true (SRT sidecar). Returns { jobId } for polling via get_video_status.",
+  {
+    avatar_id: z.string(),
+    voice_id: z.string(),
+    aspect_ratio: z.enum(["9:16", "16:9", "1:1"]),
+    scenes: z.array(z.object({
+      kind: z.enum(["face", "visual"]),
+      voiceover: z.string(),
+      chart_url: z.string().optional(),
+    })).min(1),
+    caption: z.boolean().optional(),
+    background_color: z.string().optional(),
+  },</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Build + run the wrapper tests.</strong></li>
+</ul>
+<p>Run: <code>pnpm --filter @engineerdad/heygen-wrapper build &amp;&amp; pnpm vitest run mcp-servers/heygen-wrapper</code> Expected: PASS. (If the package filter name differs, use the name in <code>mcp-servers/heygen-wrapper/package.json</code>.)</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 6: Commit.</strong></li>
+</ul>
+<pre><code>git add mcp-servers/heygen-wrapper/src/heygen.ts mcp-servers/heygen-wrapper/src/index.ts mcp-servers/heygen-wrapper/src/__tests__/heygen.test.ts
+git commit -m "feat(heygen): rename reel scene kind chart|face-over-chart -&gt; visual (image background)"</code></pre>
+<hr>
+<h2>Phase 4 — Brand contract doctrine (§8 density + §9 self-critique)</h2>
+<h3>Task 5: Add §8 Text density by format to the brand contract</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>corpus/templates/brand-contract.md</code> (append after §7, before EOF)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Append §8.</strong> Add this section to the end of <code>corpus/templates/brand-contract.md</code>:</li>
+</ul>
+<pre><code>## 8. Text density by format
+
+**Principle:** match on-frame words to whether a voiceover exists. Reels are narrated → the frame is a visual aid with a *concise* support line, not a paragraph. Feed/Carousel are silent → the frame must fully self-explain, so they carry a short body block. **Over budget → trim words, never shrink type below §4a.** Counts are whitespace-split tokens, per language (EN and BM frames each independently in budget).
+
+| Surface | Mandatory on frame | Discretionary text budget | Notes |
+|---|---|---|---|
+| **Reel `face`** | logo | none (avatar fills frame) | copy lives in HeyGen captions |
+| **Reel `visual` — data** (chartRef set) | the chart/table/graph, YAML `caption_en`, full `source_citation`, logo | headline ≤ 6 words + 1 support line ≤ 12 words | **numbers OK** (vetted); single-stat callout lives here; support line = the scene's `explains` |
+| **Reel `visual` — concept** (visualBrief set) | logo | headline ≤ 6 words + 1 support line ≤ 12 words + ≤ 2 labels ≤ 3 words each | **no numbers** (compliance boundary, not density); support line = `explains`; labels qualitative |
+| **Feed** | logo (+ chart caption/citation if charted) | headline + body block: 2–3 lines, ~30–45 words total | self-explains, no VO; body = condensed `body` field |
+| **Carousel card** | kicker, `N / total` indicator, logo | 2-line headline + body block: 2–3 lines, ~30–45 words | card 1 (hook hero) may be headline-only; cards 2..N carry the body |
+
+- "Headline" = the hook / `onScreenText` in `var(--font-head)` at the §4a floor.
+- Reel mandatory chart caption + `source_citation` are NEVER counted against the headline/support budget and NEVER truncated.
+- The reel support line is the lever against wordiness: one line, ≤12 words — if it grows into a paragraph, it belongs in the voiceover.
+- Feed/Carousel body is deliberately richer (no VO) but still concise + self-explanatory — ~45 words is the ceiling, and it must pass the §4a squint + §4b no-overlap checks.</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Verify the section renders (markdown sanity).</strong></li>
+</ul>
+<p>Run: <code>grep -n "## 8. Text density" corpus/templates/brand-contract.md</code> — expected: one match.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add corpus/templates/brand-contract.md
+git commit -m "docs(brand-contract): add §8 format-aware text-density doctrine"</code></pre>
+<hr>
+<h3>Task 6: Add §9 Self-critique rubric to the brand contract</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>corpus/templates/brand-contract.md</code> (append after §8)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Append §9.</strong></li>
+</ul>
+<pre><code>## 9. Self-critique rubric (every render worker runs this)
+
+After rendering a PNG, `Read` it and write a one-line, evidence-cited observation for EACH item below. A "looks good" with no evidence is not acceptable. Any fail → fix and re-render within the retry budget.
+
+1. **No overlap** — no text-on-text, text-on-chart, or headline-descender collisions. Cite the §4b vertical-clearance gaps you relied on.
+2. **No edge clip** — quote the bottom-most line in full; if it ends mid-sentence it is clipped. Reels additionally respect the safe-area: top ~14% / bottom ~20% / right ~12% clear of the Reels UI.
+3. **Density within §8 for this surface** — count the on-frame words for this format; if over budget, trim words (never shrink type below §4a).
+4. **Legibility** — meets the §4a minimum sizes at the ~37% squint test.
+5. **Hierarchy / contrast** — one clear focal point; palette-correct contrast (no grey-on-navy, etc.).
+
+**Retry budget:** HARD CAP of 1 retry per scene/frame. A second failure is the signal — record it honestly in `qa_notes`/`warnings` and move on; the conductor decides whether to re-spawn. Do not author a third render.</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Verify.</strong></li>
+</ul>
+<p>Run: <code>grep -n "## 9. Self-critique" corpus/templates/brand-contract.md</code> — expected: one match.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add corpus/templates/brand-contract.md
+git commit -m "docs(brand-contract): add §9 self-critique rubric (shared by both render workers)"</code></pre>
+<hr>
+<h2>Phase 5 — Worker prompts</h2>
+<h3>Task 7: Reel worker — normal-path QA, wire <code>explains</code>, two-type, drop <code>emphasize</code></h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>corpus/templates/worker-prompts/reel-render-worker.md</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Update the input shape + role to two-type.</strong> In the <code>## Inputs</code> JSON example and the <code>## Your role</code> text, remove the <code>emphasize</code> field and change all <code>sceneType</code> language. Replace the role bullet 1 and the scene example so a <code>visual</code> scene is described as "data (chartRef set) or concept (visualBrief set)". Specifically:</li>
+<li>In the example JSON <code>scenes[0]</code>, delete the <code>"emphasize": null</code> line.</li>
+<li>Replace every occurrence of the <code>chart</code>/<code>visual</code> two-track description with the two-type model: <code>face</code> = avatar; <code>visual</code> = full-frame image, where <code>chartRef</code> set ⇒ render that vetted chart YAML (numbers OK), <code>visualBrief</code> set ⇒ concept frame (no numbers).</li>
+</ul>
+<p>Run this to find every site to edit: <code>grep -n "emphasize\|sceneType\|chart\b\|visual\b" corpus/templates/worker-prompts/reel-render-worker.md</code></p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Rewrite Step 2 (frame building) for the two-type fork + on-frame <code>explains</code> + §8/§9.</strong> Replace the <code><strong>\</code>chart\<code> scenes:</strong></code> and <code><strong>\</code>visual\<code> scenes:</strong></code> subsections of "Step 2" with a single <code><strong>\</code>visual\<code> scenes (data or concept):</strong></code> block:</li>
+</ul>
+<pre><code>**`visual` scenes (data or concept — fork on field presence):**
+
+First read `corpus/templates/brand-contract.md` §1, §4a, §4b, §8, §9 — they bind this frame.
+
+- **Data visual** (`chartRef` is non-null):
+  1. `Read corpus/data/charts/&lt;chartRef&gt;.yaml`. Note `chart_type`, `labels`, `series` (with `semantic_role`), `caption_en`, `source_citation`.
+  2. Build the Chart.js 4.x config with `buildChartConfig(yaml, tokens, { lang: "en" })` from `corpus/templates/partials/chartjs-config.js`; embed Chart.js via CDN; emit the `window.__chartsReady` signal (same mechanics as `render-worker.md` §4/§7).
+  3. Render `caption_en` and the full `source_citation` (≥24px, not truncated) unchanged. **Never change the YAML's numbers.** Numbers are allowed on a data visual (the figures are vetted).
+- **Concept visual** (`visualBrief` is non-null, `chartRef` null):
+  1. Compose a brand-compliant self-contained HTML frame from `scene.visualBrief` + `scene.explains` + `scene.onScreenText`, bound by §6 (palette-only colors, the two allowed fonts, logo present, no animation).
+  2. **HARD RULE: no numbers/stats on the frame.** If the brief implies a statistic, that is a creative-director bug; append to `warnings[]` and render the qualitative point only.
+
+**On-frame text budget (brand-contract §8) — both kinds:** a headline ≤6 words (from `onScreenText`) + **one support line ≤12 words derived from `scene.explains`** (condense if longer — the full explanation stays in the voiceover). Concept visuals may add ≤2 short labels (≤3 words). Do not dump `explains`/`visualBrief` prose onto the frame.
+
+Respect the reel safe-area (§ Reel safe-area).</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Add the normal-path visual-QA pass.</strong> After the "Render each frame" code block in Step 2 (before Step 3 "Upload chart frames to HeyGen"), insert:</li>
+</ul>
+<pre><code>### Step 2.5. Visual QA (mandatory — runs in the NORMAL path, not just frames-only)
+
+For every frame you rendered, `Read` the PNG and score it against brand-contract **§9** (overlap, edge-clip/safe-area, §8 density, §4a legibility, hierarchy/contrast). Write a one-line evidence-cited observation per item.
+
+**Retry budget — HARD CAP of 1 retry per frame.** This QA happens BEFORE the HeyGen upload, so a retry is a free local re-render (no HeyGen spend). If a frame fails §9 on first render, fix and re-render once. If it still fails, append `{ sceneIndex, error: "&lt;which §9 item failed&gt;" }` to `warnings[]` and proceed with the best render — do NOT author a third.
+
+Do NOT invoke the `ui-ux-pro-max` skill here — reel frames are simple full-frame compositions and the mechanical §9 pass is sufficient (keeps token cost down across the fanout).</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Update Step 4 (generate_reel mapping) to two-value kind.</strong> Replace the <code>.map</code> in the <code>generate_reel</code> call so non-face scenes map to <code>kind: "visual"</code>:</li>
+</ul>
+<pre><code>      scenes: input.scenes.map((s, i) =&gt; s.sceneType === "face"
+        ? { kind: "face", voiceover: s.voiceover }
+        : { kind: "visual", voiceover: s.voiceover, chart_url: chartUrl[i] })</code></pre>
+<p>Also update the surrounding prose ("face → kind:'face'; chart/visual → kind:'chart'") to "face → kind:'face'; visual → kind:'visual'".</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Update the Frames-only harness mode + Hard rules + Reference designs prose.</strong> Remove <code>emphasize</code> from the Hard rules; change "Concept visuals carry no numbers" rule to reference the <code>visualBrief</code> fork; ensure "Never invent chartRefs" stays. In the frames-only block, change "every chart/visual frame" to "every visual frame".</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 6: Verify no stale tokens remain.</strong></li>
+</ul>
+<p>Run: <code>grep -n "emphasize\|face-over-chart\|sceneType.*chart\|kind:.chart" corpus/templates/worker-prompts/reel-render-worker.md</code> Expected: no matches (the only <code>chart</code> left should be <code>chartRef</code>, <code>chart_url</code>, <code>corpus/data/charts</code>, <code>buildChartConfig</code>, Chart.js).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 7: Commit.</strong></li>
+</ul>
+<pre><code>git add corpus/templates/worker-prompts/reel-render-worker.md
+git commit -m "feat(reel-worker): normal-path §9 QA, on-frame explains support line, two-type visual, drop emphasize"</code></pre>
+<hr>
+<h3>Task 8: Static worker — point §5.5 at §9, add format-aware density</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>corpus/templates/worker-prompts/render-worker.md</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Point §5.5 Part A at the shared rubric.</strong> In <code>render-worker.md</code> §5.5 Part A, add a leading line: "Score against brand-contract <strong>§9</strong> (the shared self-critique rubric) — every item gets a one-line evidence-cited observation." Keep the existing mechanical checklist as the concrete expansion. Keep Part B (<code>ui-ux-pro-max</code>) unchanged.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Add the format-aware density check.</strong> In §5.5 Part A, add a checklist item:</li>
+</ul>
+<pre><code>- **Density within §8 (format-aware)**: Feed/Carousel carry a body block of ~30–45 words (2–3 lines) condensed from the scene's `body` — rich enough to self-explain without a voiceover, but not a wall of text. Count the on-frame words; if a card exceeds ~45 discretionary words, condense the `body` (do not shrink type below §4a). The compliance footer is NOT rendered on the frame (it rides the published caption), so excerpting `body` for the frame is safe.</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Add a §4 composition note about the body block.</strong> In the "Compose HTML(s)" section, add to the Feed/Carousel inventory: "supporting body copy (≥36px): a 2–3 line block (~30–45 words) condensed from <code>scene.body</code> per brand-contract §8 — the silent-format self-explanation."</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Verify.</strong></li>
+</ul>
+<p>Run: <code>grep -n "§9\|§8\|body block" corpus/templates/worker-prompts/render-worker.md</code> Expected: matches in §5.5 + compose section.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Commit.</strong></li>
+</ul>
+<pre><code>git add corpus/templates/worker-prompts/render-worker.md
+git commit -m "feat(static-worker): cite §9 rubric + add §8 format-aware density (Feed/Carousel body block)"</code></pre>
+<hr>
+<h2>Phase 6 — Agents (Opus pins)</h2>
+<h3>Task 9: creative-director — two-type, drop <code>emphasize</code>, format-aware on-frame, model→opus</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>.claude/agents/creative-director.md</code></li>
+</ul>
+<blockquote><strong>sync:agents note:</strong> the sections you edit (frontmatter <code>model:</code>, Step 3.5, return-shape JSON) are NOT inside <code>&lt;!-- include:… --&gt;</code> blocks (those only wrap the shared <code>bilingual.md</code>/<code>house-style.md</code> fragments). So edit <code>creative-director.md</code> directly. Run <code>pnpm sync:agents:check</code> after (Task 14) to confirm includes are still in sync.</blockquote>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Bump the model.</strong> Change frontmatter line 4 from <code>model: sonnet</code> to <code>model: opus</code>.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Rewrite Step 3.5 to the two-type model.</strong> In <code>.claude/agents/creative-director.md</code> "Step 3.5 — Reel-specific shotlist", replace the <code>sceneType</code> bullet list and the <code>emphasize</code> bullet with:</li>
+</ul>
+<pre><code>- **`sceneType`** — one of:
+  - `face` — HeyGen avatar (Shoo) fills the frame, talking. Hooks, anecdotes, confessionals, CTAs. The first AND last scene MUST be `face`.
+  - `visual` — full-frame visual, voiceover only. Exactly one of:
+    - **data visual** — set `chartRef` to a vetted chart id (leave `visualBrief` null). Use when the data IS the argument; numbers are allowed (they come from the vetted YAML).
+    - **concept visual** — set `visualBrief` to a concrete free-form description (leave `chartRef` null). Use for non-numeric explanation (comparison, flow, metaphor, labelled diagram). **HARD RULE: no numbers/stats** — anything quantitative must be a data visual.
+- **`explains`** — REQUIRED on every `visual` scene: the one-line takeaway the voiceover lands AND the worker renders on-frame as a ≤12-word support line. `null` on `face`.
+- **`visualBrief`** — REQUIRED on concept visuals; `null` otherwise.</code></pre>
+<p>Delete the <code><strong>emphasize</strong></code> bullet entirely. Update the "Multiple visual scenes" paragraph: "A Reel MAY contain up to 3 <code>visual</code> scenes" (drop the <code>chart</code>/<code>visual</code> enumeration).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Add the on-frame text-density guidance.</strong> In Step 3a (Storyboard) or a new note under Step 3.5, add:</li>
+</ul>
+<pre><code>**On-frame text density (brand-contract §8).** Author with the render budget in mind:
+- **Reel** scenes: keep `onScreenText` a ≤6-word headline; put the explanation in `voiceover` and the one-line takeaway in `explains` (≤12 words). The frame is a visual aid — the voice carries the meaning. Do NOT pack sentences into `onScreenText`.
+- **Feed / Carousel** (no voiceover): the on-frame body is the scene's `body`/`voiceover` segment, condensed by the render worker to ~30–45 words. Write `body` so a ~30–45 word excerpt self-explains the card. `onScreenText` stays the short card headline (≤8 words).</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Update the return-shape JSON examples.</strong> In both the <code>## Return shape (strict)</code> block and the Single-Script result-shape block, delete <code>"emphasize": …</code> from every scene example and change <code>"sceneType": "chart"</code> → <code>"sceneType": "visual"</code> (keeping <code>chartRef</code> set on the data-visual example) and ensure the concept example has <code>chartRef: null</code> + a <code>visualBrief</code>.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Verify no stale tokens.</strong></li>
+</ul>
+<p>Run: <code>grep -n "emphasize\|sceneType.*chart\|model: sonnet" .claude/agents/creative-director.md</code> Expected: no matches.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 6: Commit.</strong></li>
+</ul>
+<pre><code>git add .claude/agents/creative-director.md
+git commit -m "feat(creative-director): two-type reel model, §8 on-frame density, drop emphasize, model-&gt;opus"</code></pre>
+<hr>
+<h3>Task 10: New <code>render-worker</code> agent (model: opus)</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Create: <code>.claude/agents/render-worker.md</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Create the agent shell.</strong> The body is thin — the procedure lives in the corpus worker-prompt files. The <code>tools:</code> list is the union of what both procedure files use (verified from their tool inventories: Read, Write, Bash + the static-renderer / asset-store / heygen / store / orchestrator MCPs). Frontmatter must enumerate tools (pre-flight confirmed every agent does).</li>
+</ul>
+<pre><code>---
+name: render-worker
+description: Opus-pinned render worker for the produce stage (P2-render). Renders one CreativeVariant — static (Feed/Carousel) via HTML→PNG, or Reel via HeyGen multi-scene assembly. The full procedure lives in corpus/templates/worker-prompts/{render-worker,reel-render-worker}.md; the spawn prompt names which one to follow. Pinned to Opus because the work is spatial (overlap detection + layout repair) and editorial (on-frame text density) — see ADR-029 / the 2026-05-31 asset-quality spec.
+model: opus
+tools: Read, Write, Bash, mcp__static-renderer__render_html_to_png, mcp__asset-store__upload, mcp__heygen__upload_asset, mcp__heygen__generate_reel, mcp__heygen__get_video_status, mcp__store__update, mcp__orchestrator__read_step_result, mcp__orchestrator__write_step_result
+---
+
+# Render worker
+
+You render ONE CreativeVariant end-to-end. You don't coordinate with sibling workers.
+
+**Your FIRST action** (ADR-024): the spawn prompt carries a `stepResultId` ref, not your inputs. Call:
+</code></pre>
+<p>mcp__orchestrator__read_step_result({ stepResultId: "&lt;sr_... from your prompt&gt;" })</p>
+<pre><code>
+Then read the worker-prompt file your spawn prompt names and follow it EXACTLY:
+- **Static (Feed / Carousel):** `corpus/templates/worker-prompts/render-worker.md`
+- **Reel:** `corpus/templates/worker-prompts/reel-render-worker.md`
+
+Those files are the source of truth for the brand contract, chart embedding, the §9 self-critique pass, the asset-store upload, and the claim-check return shape. Do not improvise around them.</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Verify the agent is well-formed.</strong></li>
+</ul>
+<p>Run: <code>head -6 .claude/agents/render-worker.md</code> — expected: frontmatter with <code>model: opus</code> and a <code>tools:</code> line.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add .claude/agents/render-worker.md
+git commit -m "feat(agents): add Opus-pinned render-worker agent (P2-render); procedures stay in corpus"</code></pre>
+<hr>
+<h3>Task 11: Point P2-render fanout at <code>render-worker</code> + assert it</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>packages/orchestrator/src/stages/produce.ts:447</code></li>
+<li>Test: <code>packages/orchestrator/src/stages/produce.test.ts</code> (add assertion near line 188)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Add the failing worker-name assertion.</strong> In <code>produce.test.ts</code>, inside the existing test that builds P2-render with <code>EDOS_REEL_PIPELINE=off</code> (the one asserting <code>step.units</code> length 2 around line 187), add after the <code>if (step.kind !== "fanout")</code> guard:</li>
+</ul>
+<pre><code>      expect(step.worker).toBe("render-worker");</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Run to verify it fails.</strong></li>
+</ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P2-render"</code> Expected: FAIL — <code>step.worker</code> is still <code>"general-purpose"</code>.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Swap the worker name.</strong> In <code>packages/orchestrator/src/stages/produce.ts</code>, the <code>p2Render</code> build returns (line ~445–448):</li>
+</ul>
+<pre><code>    return {
+      kind: "fanout",
+      stepId: "P2-render",
+      worker: "render-worker",
+      units: [...staticUnits, ...reelUnits],
+    };</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Run to verify it passes.</strong></li>
+</ul>
+<p>Run: <code>pnpm --filter @engineerdad/orchestrator build &amp;&amp; pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P2-render"</code> Expected: PASS.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Commit.</strong></li>
+</ul>
+<pre><code>git add packages/orchestrator/src/stages/produce.ts packages/orchestrator/src/stages/produce.test.ts
+git commit -m "feat(produce): P2-render dispatches the Opus-pinned render-worker agent"</code></pre>
+<hr>
+<h2>Phase 7 — Fixtures, harness, ADR, docs</h2>
+<h3>Task 12: Refresh the 3 reel fixtures to the two-type shape</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>scripts/fixtures/reel-worker/chart-emphasis.json</code></li>
+<li>Modify: <code>scripts/fixtures/reel-worker/concept-visual.json</code></li>
+<li>Modify: <code>scripts/fixtures/reel-worker/mixed-reel.json</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Rewrite each fixture's scenes</strong> — every <code>"sceneType": "chart"</code> → <code>"sceneType": "visual"</code> (keep its <code>chartRef</code>), every <code>"sceneType": "visual"</code> stays (keep its <code>visualBrief</code>, ensure <code>chartRef: null</code>), and <strong>delete every <code>"emphasize": …</code> property</strong>. Example for <code>mixed-reel.json</code> scene 2 (the data visual):</li>
+</ul>
+<pre><code>{ "scene": "2", "voiceover": "Start at 30 instead of 40 and by retirement the early starter has about three times as much, same monthly amount.", "onScreenText": "By year 30", "chartRef": "compounding-30y", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "early start wins on time, not amount" }</code></pre>
+<p>And scene 3 (the concept visual) keeps <code>chartRef: null</code>, <code>sceneType: "visual"</code>, its <code>visualBrief</code>, and an <code>explains</code>; delete <code>emphasize</code>.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Rename <code>chart-emphasis.json</code> → <code>data-visual.json</code></strong> (the name now misleads — <code>emphasize</code> is gone):</li>
+</ul>
+<pre><code>git mv scripts/fixtures/reel-worker/chart-emphasis.json scripts/fixtures/reel-worker/data-visual.json</code></pre>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Validate the fixtures parse against the new schema.</strong> Quick check via the harness (it builds the spawn prompt and would choke on malformed JSON):</li>
+</ul>
+<p>Run: <code>pnpm run test:reel-frames data-visual</code> and <code>pnpm run test:reel-frames mixed-reel</code> Expected: each prints the "REEL FRAMES-ONLY HARNESS" banner + a <code>Task()</code> call (no JSON parse error). Do NOT paste/run the Task yet — that's the manual verification in Task 16.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Grep for stragglers.</strong></li>
+</ul>
+<p>Run: <code>grep -rn "emphasize\|\"chart\"" scripts/fixtures/reel-worker/</code> Expected: no matches.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Commit.</strong></li>
+</ul>
+<pre><code>git add scripts/fixtures/reel-worker/
+git commit -m "test(fixtures): reel fixtures to face|visual shape, drop emphasize, rename chart-emphasis-&gt;data-visual"</code></pre>
+<hr>
+<h3>Task 13: smoke-reel.mjs — verify-first, then update or quarantine</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Inspect/Modify: <code>scripts/smoke-reel.mjs</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Check whether the script is already dead.</strong> It references local ffmpeg stitching + <code>@engineerdad/media-stitch</code>, which ADR-028/B-034 deleted.</li>
+</ul>
+<p>Run: <code>grep -n "media-stitch\|StitchSpec\|stitch" scripts/smoke-reel.mjs</code> and <code>ls packages/media-stitch 2&gt;&amp;1</code> Expected: if <code>packages/media-stitch</code> does NOT exist (likely), the script is already non-runnable.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2a: If media-stitch is gone (script dead):</strong> do the minimal cosmetic rename for grep-cleanliness only — change <code>sceneType: "chart"</code> → <code>sceneType: "visual"</code> and the cut <code>type: "chart"</code> → <code>type: "visual"</code> in the <code>SCENES</code>/cut mapping — and add a one-line header comment: <code>// NOTE (2026-05-31): stale — references the deleted @engineerdad/media-stitch (ADR-028/B-034). Kept for reference; the live frames-only harness is scripts/test-reel-frames.mjs.</code> Do not attempt to make it run.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2b: If media-stitch still exists (script live):</strong> update <code>sceneType</code>/cut <code>type</code> strings to <code>"visual"</code> and run <code>pnpm tsx scripts/smoke-reel.mjs</code> only if you have a sandbox + <code>HEYGEN_*</code> creds (it costs money) — otherwise skip the run and note it.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add scripts/smoke-reel.mjs
+git commit -m "chore(smoke-reel): two-type sceneType strings (+ stale-note if media-stitch removed)"</code></pre>
+<hr>
+<h3>Task 14: Rewrite ADR-029 in place</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>docs/decisions/029-reel-visual-scenes.md</code></li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Rewrite the decision to the two-type model.</strong> Keep the Context section's "why three types existed" narrative (preserves history), but rewrite the title, Decision, and Consequences:</li>
+<li>Title: <code># ADR-029: Reel two-type visual scene model (face | visual)</code></li>
+<li>Add a <code><strong>Superseded portion:</strong></code> note: the original three-value <code>face|chart|visual</code> enum is collapsed to <code>face|visual</code>; <code>emphasize</code> is removed; the HeyGen-wrapper <code>kind</code> is aligned to <code>face|visual</code> (the dead <code>face-over-chart</code> deleted).</li>
+<li>Decision table: two rows — <code>face</code> (avatar) and <code>visual</code> (full-frame image; data when <code>chartRef</code> set, concept when <code>visualBrief</code> set; XOR).</li>
+<li>Per-scene fields table: <code>visualBrief</code> (concept visuals), <code>explains</code> (all visuals — rendered on-frame as the ≤12-word support line). Remove the <code>emphasize</code> row.</li>
+<li>Add a short subsection referencing brand-contract §8 (density) + §9 (self-critique) and the Opus pins (render-worker agent + creative-director).</li>
+<li>Update "Consequences": the enum change now propagates to zod, <code>ReelWorkerInput</code>, the heygen-wrapper <code>kind</code>, both worker prompts, the creative-director prompt, fixtures, and <code>produce.ts</code> (worker name).</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Verify.</strong></li>
+</ul>
+<p>Run: <code>grep -n "face | visual\|emphasize\|§8\|§9" docs/decisions/029-reel-visual-scenes.md</code> Expected: title/decision mention <code>face | visual</code>; no surviving <code>emphasize</code> as a live field (only in the historical-context note if you keep it).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add docs/decisions/029-reel-visual-scenes.md
+git commit -m "docs(adr-029): rewrite to two-type face|visual model, drop emphasize, add §8/§9 + Opus pins"</code></pre>
+<hr>
+<h3>Task 15: Sync ARCHITECTURE.md + TASKS.md status mentions</h3>
+<p><strong>Files:</strong></p>
+<ul>
+<li>Modify: <code>ARCHITECTURE.md</code></li>
+<li>Modify: <code>TASKS.md</code> (Status header line referencing <code>sceneType face|chart|visual</code>)</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Find the stale mentions.</strong></li>
+</ul>
+<p>Run: <code>grep -rn "face|chart|visual\|sceneType face" ARCHITECTURE.md TASKS.md</code></p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Update each</strong> <code>sceneType face|chart|visual</code> → <code>sceneType face|visual</code> and any "chart/visual VO budget" → "visual VO budget (face ≤30, visual ≤45)".</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: Commit.</strong></li>
+</ul>
+<pre><code>git add ARCHITECTURE.md TASKS.md
+git commit -m "docs: sync sceneType face|chart|visual -&gt; face|visual mentions"</code></pre>
+<hr>
+<h2>Phase 8 — Build, sync, full verification</h2>
+<h3>Task 16: Full build + test sweep + manual render check</h3>
+<p><strong>Files:</strong> none (verification only)</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 1: Stop any running <code>next dev</code></strong> to avoid the <code>.next</code> chunk collision (CLAUDE.md). Run: <code>lsof -ti:3030 | xargs -r kill</code> (ignore if nothing is listening).</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 2: Sequential workspace build.</strong></li>
+</ul>
+<p>Run: <code>pnpm -r build</code> Expected: clean (sequential — never <code>--parallel</code>, per CLAUDE.md).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 3: sync:agents check.</strong></li>
+</ul>
+<p>Run: <code>pnpm sync:agents:check</code> Expected: PASS (the creative-director edits were outside <code>&lt;!-- include --&gt;</code> blocks; the new render-worker agent has no includes).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 4: Full test suite.</strong></li>
+</ul>
+<p>Run: <code>pnpm -r test</code> Expected: PASS. Watch specifically: <code>@engineerdad/shared</code> (zod two-type), <code>@engineerdad/orchestrator</code> (produce worker-name + reel-worker-input), <code>@engineerdad/heygen-wrapper</code> (kind).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 5: Repo-wide stale-token sweep.</strong></li>
+</ul>
+<p>Run: <code>grep -rn "emphasize\|face-over-chart" packages/ mcp-servers/ corpus/ .claude/ scripts/fixtures/ | grep -v node_modules | grep -v /dist/</code> Expected: no matches (historical mention inside ADR-029 Context is acceptable if you kept it — confirm it reads as history, not a live field).</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 6: Restart Claude Code</strong> (required for the new/changed agent model + the rebuilt heygen-wrapper + orchestrator MCPs to load). After restart, confirm MCPs are healthy: <code>claude mcp list</code> (or the project's equivalent) shows heygen + orchestrator + static-renderer registered.</li>
+</ul>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 7: Manual render check (the real quality gate).</strong> Run the fixture harness and paste each printed <code>Task()</code> into this conversation:</li>
+</ul>
+<pre><code>pnpm run test:reel-frames data-visual --copy
+pnpm run test:reel-frames concept-visual --copy
+pnpm run test:reel-frames mixed-reel --copy
+pnpm run test:worker &lt;a Feed fixture&gt; --copy</code></pre>
+<p>For each rendered PNG, confirm against §8/§9: no overlaps, within the format's word budget (reel sparse + ≤12-word support line from <code>explains</code>; Feed/Carousel a 30–45-word body block), safe-area respected, legible at squint. The worker should now emit evidence-cited §9 QA notes in its return JSON.</p>
+<ul>
+<li><input type="checkbox" disabled> <strong>Step 8: Final commit (if any doc tweaks fell out of verification).</strong></li>
+</ul>
+<pre><code>git add -A
+git commit -m "chore: asset-quality verification pass (build/sync/test green)"</code></pre>
+<hr>
+<h2>Self-Review (completed by plan author)</h2>
+<p><strong>Spec coverage:</strong> D2/D3 (Tasks 1,3,4,7,9,12,14) · D4 emphasize-drop (1,2,3,4,7,9,12,14) · D5 §8/§9 (5,6) · D6 explains/body (7,8,9) · D7 reel QA + retry (6,7) · D8 creative-director→opus (9) · D9 ADR rewrite (14) · D10 render-worker agent + fanout swap (10,11). Fixture harness as primary loop (12,16). All spec sections map to a task.</p>
+<p><strong>Placeholder scan:</strong> Task 13 has a verify-first branch (2a/2b) because smoke-reel's runnability depends on whether <code>packages/media-stitch</code> still exists — both branches are fully specified, not a TODO. Task 8 references "a Feed fixture" in the manual step because fixture names live in <code>scripts/fixtures/static-worker/</code> and the exact pick doesn't affect the procedure. No "TBD"/"handle edge cases"/"similar to Task N" placeholders.</p>
+<p><strong>Type consistency:</strong> <code>sceneType: "face" | "visual"</code> consistent across Tasks 1/3/7/9/12. HeyGen <code>kind: "face" | "visual"</code> consistent across Task 4 (heygen.ts, index.ts, test). <code>worker: "render-worker"</code> consistent across Tasks 10/11. <code>explains</code> (≤12-word on-frame support line) consistent across 7/9/§8. XOR rule wording matches between zod (Task 1) and creative-director/ADR (9/14).</p>
+
+</div></body>
+</html>

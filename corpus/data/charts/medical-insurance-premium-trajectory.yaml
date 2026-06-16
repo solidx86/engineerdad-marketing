@@ -1,0 +1,30 @@
+# Medical-INSURANCE PREMIUM inflation — what an illustrative RM250/month premium does over 10 years
+# under the BNM <=10%/yr repricing cap. This is PREMIUM inflation (what a parent PAYS),
+# DISTINCT from medical-COST inflation (the price of treatment).
+# Upstream dataset-of-record: corpus/data/_pending/datasets/medical-insurance-premium-repricing.json
+# (BNM Dec 2024 interim measures + Nov 2024 40-70% repricing context = verified; RM250 glide = derived).
+# NO year-1 spike: the +40-70% insurers SOUGHT is documented context only — BNM forbade the one-off
+# pass-through, so it is never plotted. The plotted series is the clean 10%/yr glide.
+# Used by content when a scene argues "your medical card premium isn't fixed — it reprices",
+# "even capped at 10%/yr, your premium doubles in ~7 years", or any protection-gap / health-cover
+# hook for Malaysian parents budgeting for family medical cover.
+
+id: medical-insurance-premium-trajectory
+title_en: "What a RM250/month medical-insurance premium does over 10 years — the BNM-capped 10%/yr glide (illustrative)"
+title_ms: "Apa yang berlaku kepada premium insurans perubatan RM250/bulan dalam 10 tahun — kenaikan terhad 10%/tahun BNM (ilustrasi)"
+chart_type: line
+x_label_en: "Years from today"
+x_label_ms: "Tahun dari hari ini"
+y_label_en: "Monthly premium (RM/month, illustrative)"
+y_label_ms: "Premium bulanan (RM/bulan, ilustrasi)"
+labels: [0, 1, 2, 4, 6, 8, 10]
+series:
+  - name_en: "Monthly medical-insurance premium (illustrative RM250 base, capped 10%/yr)"
+    name_ms: "Premium insurans perubatan bulanan (asas ilustrasi RM250, had 10%/tahun)"
+    legend_label_en: "Monthly premium"
+    legend_label_ms: "Premium bulanan"
+    semantic_role: hero
+    values: [250, 275, 303, 366, 443, 536, 648]
+caption_en: "Medical-insurance PREMIUMS aren't fixed — they reprice. In the 2024-25 cycle Malaysian insurers sought one-step medical/IPMI premium increases of +40% to +70% (driven by ~19.6% claims inflation). Bank Negara Malaysia's Dec 2024 interim measures forbade that one-off jump: increases must be staggered over at least 3 years (through end-2026), and at least 80% of policyholders face no more than 10% a year. But even at the capped 10%/yr, a premium roughly doubles every ~7 years — an illustrative RM250/month becomes ~RM648 by year 10. Plan for the premium to keep climbing, not stay still. Illustrative only — not personalised advice, not a guaranteed or assured figure."
+caption_ms: "PREMIUM insurans perubatan tidak tetap — ia dinilai semula. Dalam kitaran 2024-25, penanggung insurans Malaysia memohon kenaikan premium perubatan/IPMI sekali langkah sebanyak +40% hingga +70% (didorong inflasi tuntutan ~19.6%). Langkah interim Bank Negara Malaysia (Dis 2024) melarang lonjakan sekali itu: kenaikan mesti diperingkatkan sekurang-kurangnya 3 tahun (sehingga akhir 2026), dan sekurang-kurangnya 80% pemegang polisi menghadapi tidak lebih daripada 10% setahun. Namun walaupun pada had 10%/tahun, premium kira-kira berganda setiap ~7 tahun — ilustrasi RM250/bulan menjadi ~RM648 menjelang tahun ke-10. Rancang untuk premium terus menaik, bukan kekal sama. Ilustrasi sahaja — bukan nasihat peribadi, bukan angka yang dijamin atau dipastikan."
+source_citation: "Bank Negara Malaysia — interim measures on medical & health insurance/takaful (IPMI) repricing, December 2024 (one-off pass-through forbidden; premium increases staggered over a minimum of 3 years through end-2026; at least 80% of policyholders capped at no more than 10% per year); and Nov 2024 industry reports that insurers sought one-step repricing of +40% to +70% driven by ~19.6% claims inflation. The +40-70% is documented market context only and is NOT plotted — BNM capped exactly that one-off jump. Illustrative RM250/month trajectory: a 10%/yr glide (RM250 x 1.10^t), reaching ~RM648/month by year 10; doubles in ~7.3 years. The RM250 base is illustrative, not a quoted premium; actual premiums and caps vary by insurer, plan, age and claims experience. This depicts insurance PREMIUM inflation, not medical-treatment-cost inflation. Illustrative only — not personalised advice, not a guaranteed or assured result."

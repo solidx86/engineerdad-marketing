@@ -1,0 +1,2927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webapp redesign — implementation plan</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+    --step-bg: #fcfcfd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 28px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 30px;
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 15px; color: var(--muted); margin: 0 0 16px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 19px;
+    margin: 38px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent);
+  }
+  h2 .phase { color: var(--accent); font-weight: 700; }
+  h3.task {
+    font-size: 15px;
+    margin: 26px 0 6px;
+    padding: 8px 12px;
+    background: var(--accent-soft);
+    border-radius: 6px;
+    border-left: 4px solid var(--accent);
+  }
+  h3.task .id { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; color: var(--accent); }
+  h4 { font-size: 13px; margin: 14px 0 5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 8px 0; font-size: 14.2px; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.4px;
+    line-height: 1.5;
+  }
+  .files {
+    background: var(--step-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0 12px;
+    font-size: 13px;
+  }
+  .files .row { display: flex; gap: 8px; padding: 2px 0; }
+  .files .tag {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    line-height: 1.6;
+  }
+  .files .tag.create { background: var(--new-bg); color: #5a3ec9; border: 1px solid var(--new-line); }
+  .files .tag.modify { background: var(--warn-bg); color: #7c5613; border: 1px solid var(--warn-line); }
+  .files .tag.delete { background: var(--bad-bg); color: #8a2424; border: 1px solid var(--bad-line); }
+  .files .tag.test { background: var(--ok-bg); color: #2d6b3f; border: 1px solid var(--ok-line); }
+  ol.steps { list-style: none; padding: 0; margin: 10px 0; counter-reset: stepct; }
+  ol.steps > li {
+    counter-increment: stepct;
+    padding: 10px 12px 12px 38px;
+    margin: 8px 0;
+    background: var(--step-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    position: relative;
+    font-size: 13.6px;
+  }
+  ol.steps > li::before {
+    content: "☐";
+    position: absolute;
+    left: 12px;
+    top: 9px;
+    font-size: 18px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  ol.steps > li .head {
+    font-weight: 700;
+    font-size: 13.4px;
+  }
+  ol.steps > li .head .stepnum {
+    color: var(--accent);
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  ol.steps pre { margin: 8px 0 0; font-size: 12.2px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 13.4px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  ul { margin: 8px 0; padding-left: 22px; font-size: 14px; }
+  li { margin: 4px 0; }
+  .callout {
+    border-radius: 6px;
+    padding: 11px 14px;
+    margin: 12px 0;
+    font-size: 13.4px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Webapp redesign — implementation plan</h1>
+  <p class="subtitle">From <code>apps/review-ui</code> to <code>apps/webapp</code>, with run-centric IA, per-entity declarative layouts, CreativeVariants list overhaul, IG-style asset preview, and Brain memo surface. 27 tasks across 6 phases; each task is TDD-shaped with vitest for pure functions and Playwright for routes/UI.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-25</dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-25-webapp-redesign-design.html</code></dd>
+    <dt>Branch</dt><dd><code>feat/webapp-redesign</code> off <code>main</code></dd>
+    <dt>Tracker</dt><dd>E-007 updated inline (asset-store R2 swap, P3 → P2)</dd>
+  </dl>
+</header>
+
+<div class="callout new">
+<span class="tag">For agentic workers:</span> This plan is in HTML for human reading. For subagent-driven execution, also generate the markdown twin (<code>2026-05-25-webapp-redesign.md</code>) with <code>- [ ]</code> step syntax — the executing-plans / subagent-driven-development skills parse markdown checkboxes.
+</div>
+
+<h2><span class="phase">Goal.</span> Reshape the webapp around runs (the unit of marketing thinking) without breaking the existing review surface.</h2>
+
+<h2><span class="phase">Architecture.</span> Server-component composition over the existing store (Approach A from the spec). Direct typed reads from Postgres via <code>@engineerdad/orchestrator/postgres</code>'s <code>sql</code> client; no new MCP, no API layer. Per-entity layouts + list configs as declarative TS data in <code>apps/webapp/src/app/lib/</code>. Playwright + seeded fixtures for UI tests (matches existing pattern; no <code>@testing-library/react</code>).</h2>
+
+<h2><span class="phase">Tech Stack.</span> Next 15 (App Router, server components) · React 19 · Tailwind 3 · Drizzle / postgres.js · <code>react-markdown</code> + <code>remark-gfm</code> · Playwright · Vitest.</h2>
+
+<h2>File structure — what gets created / modified</h2>
+
+<table>
+<thead><tr><th>Path</th><th>Action</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>apps/review-ui/</code> → <code>apps/webapp/</code></td><td>RENAME</td><td>Directory + package name</td></tr>
+<tr><td><code>packages/orchestrator/src/review-ui.ts</code> → <code>webapp-url.ts</code></td><td>RENAME + REWRITE</td><td><code>reviewUiUrl()</code> → <code>webappUrl()</code> with <code>REVIEW_UI_URL</code> fallback</td></tr>
+<tr><td><code>packages/orchestrator/src/postgres.ts</code></td><td>MODIFY</td><td>Export <code>getOrchestratorSql()</code> (additive)</td></tr>
+<tr><td><code>packages/orchestrator/src/stages/{brief,content,produce}.ts</code></td><td>MODIFY</td><td>Switch HUMAN GATE links to <code>webappUrl()/review/&lt;slug&gt;</code></td></tr>
+<tr><td><code>apps/webapp/src/app/lib/orchestrator.ts</code></td><td>CREATE</td><td>Typed reads: <code>listRuns</code>, <code>getRun</code>, <code>listSteps</code>, <code>loadStepPayload</code>, <code>currentGate</code></td></tr>
+<tr><td><code>apps/webapp/src/app/lib/assets.ts</code></td><td>CREATE</td><td><code>resolveAssetUrl()</code> — rewrites <code>file://</code> URLs to <code>/api/asset/...</code></td></tr>
+<tr><td><code>apps/webapp/src/app/lib/types.ts</code></td><td>CREATE</td><td><code>EntityLayout</code>, <code>ListConfig</code>, <code>FieldSpec</code>, <code>ColumnSpec</code>, <code>FilterSpec</code> type defs</td></tr>
+<tr><td><code>apps/webapp/src/app/lib/layouts/{briefs,scripts,authority-articles,creative-variants,experiments,performance-reports,hypotheses,learnings}.ts</code></td><td>CREATE (8)</td><td>Per-entity detail layout configs</td></tr>
+<tr><td><code>apps/webapp/src/app/lib/listConfigs/{default,creative-variants,hypotheses,experiments,runs}.ts</code></td><td>CREATE (5)</td><td>Per-entity list configs</td></tr>
+<tr><td><code>apps/webapp/src/app/components/{LanguageToggle,SceneViewer,DecisionMemo,EntityListView,EntityDetailView,EntityEditForm,RunStageTimeline,RunStepTable,LeftNav,FormatCard}.tsx</code></td><td>CREATE</td><td>Shared components</td></tr>
+<tr><td><code>apps/webapp/src/app/layout.tsx</code></td><td>MODIFY</td><td>Replace flat nav with collapsible LeftNav</td></tr>
+<tr><td><code>apps/webapp/src/app/page.tsx</code></td><td>MODIFY</td><td>Dashboard stub (blank with CTA to /runs)</td></tr>
+<tr><td><code>apps/webapp/src/app/runs/page.tsx</code></td><td>CREATE</td><td>Run index</td></tr>
+<tr><td><code>apps/webapp/src/app/runs/[runId]/page.tsx</code></td><td>CREATE</td><td>Run detail anchor page</td></tr>
+<tr><td><code>apps/webapp/src/app/review/[entity]/page.tsx</code></td><td>CREATE (moved from root)</td><td>Entity list</td></tr>
+<tr><td><code>apps/webapp/src/app/review/[entity]/[id]/page.tsx</code></td><td>CREATE (moved from root)</td><td>Entity detail</td></tr>
+<tr><td><code>apps/webapp/src/app/api/asset/[runId]/[variantId]/[scene]/route.ts</code></td><td>CREATE</td><td>Dev-only asset stream</td></tr>
+<tr><td><code>apps/webapp/src/app/[entity]/</code> + <code>apps/webapp/src/app/[entity]/[id]/</code></td><td>DELETE</td><td>Old routes (final phase)</td></tr>
+<tr><td><code>apps/webapp/tests/e2e/fixtures.ts</code></td><td>MODIFY</td><td>Add <code>seed.orchestratorRun()</code> + <code>seed.orchestratorStep()</code></td></tr>
+<tr><td><code>apps/webapp/tests/e2e/*.spec.ts</code></td><td>CREATE (multiple)</td><td>Per-feature Playwright specs</td></tr>
+<tr><td><code>CLAUDE.md</code>, <code>ARCHITECTURE.md</code>, <code>README.md</code>, <code>RESUME.md</code>, <code>TASKS.md</code> Status, <code>.claude/agents/brief-writer.md</code>, <code>.claude/commands/brief.md</code></td><td>MODIFY</td><td>"review UI" → "webapp" prose sweep</td></tr>
+</tbody>
+</table>
+
+<h2><span class="phase">Phase A.</span> Rename foundation (5 tasks)</h2>
+
+<p>Sequenced so the build stays green at every commit. The rename happens before any feature work so all new files have their final paths from day one.</p>
+
+<h3 class="task"><span class="id">A1.</span> Add <code>webappUrl()</code> helper with <code>REVIEW_UI_URL</code> fallback (additive)</h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>packages/orchestrator/src/review-ui.ts</code></div>
+<div class="row"><span class="tag test">TEST</span> <code>packages/orchestrator/src/review-ui.test.ts</code> (new)</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">A1.1</span> — Write the failing test</div>
+<pre>// packages/orchestrator/src/review-ui.test.ts
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { reviewUiUrl, webappUrl } from "./review-ui.js";
+
+describe("webappUrl()", () =&gt; {
+  const orig = { ...process.env };
+  beforeEach(() =&gt; { delete process.env.WEBAPP_URL; delete process.env.REVIEW_UI_URL; });
+  afterEach(() =&gt; { process.env = { ...orig }; });
+
+  it("defaults to http://localhost:3030 with no env", () =&gt; {
+    expect(webappUrl()).toBe("http://localhost:3030");
+  });
+  it("uses WEBAPP_URL when set", () =&gt; {
+    process.env.WEBAPP_URL = "https://wa.example.com/";
+    expect(webappUrl()).toBe("https://wa.example.com");
+  });
+  it("falls back to REVIEW_UI_URL when WEBAPP_URL absent", () =&gt; {
+    process.env.REVIEW_UI_URL = "https://legacy.example.com/";
+    expect(webappUrl()).toBe("https://legacy.example.com");
+  });
+  it("prefers WEBAPP_URL over REVIEW_UI_URL when both set", () =&gt; {
+    process.env.WEBAPP_URL = "https://new.example.com";
+    process.env.REVIEW_UI_URL = "https://old.example.com";
+    expect(webappUrl()).toBe("https://new.example.com");
+  });
+  it("keeps reviewUiUrl() working as a deprecated alias", () =&gt; {
+    process.env.REVIEW_UI_URL = "https://legacy.example.com";
+    expect(reviewUiUrl()).toBe("https://legacy.example.com");
+  });
+});
+</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A1.2</span> — Run; expect FAIL (no <code>webappUrl</code> export yet)</div>
+<pre>pnpm --filter @engineerdad/orchestrator test review-ui</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A1.3</span> — Add the additive helper</div>
+<pre>// packages/orchestrator/src/review-ui.ts
+let warnedReviewUiUrl = false;
+
+export function webappUrl(): string {
+  const fromOld = process.env.REVIEW_UI_URL;
+  if (fromOld && !process.env.WEBAPP_URL && !warnedReviewUiUrl) {
+    console.warn("REVIEW_UI_URL is deprecated; set WEBAPP_URL instead.");
+    warnedReviewUiUrl = true;
+  }
+  return (process.env.WEBAPP_URL ?? fromOld ?? "http://localhost:3030").replace(/\/+$/, "");
+}
+
+/** @deprecated Use webappUrl(). Kept for transition; remove after 30 days. */
+export function reviewUiUrl(): string {
+  return webappUrl();
+}
+</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A1.4</span> — Run; expect PASS (5 specs)</div>
+<pre>pnpm --filter @engineerdad/orchestrator test review-ui</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A1.5</span> — Commit</div>
+<pre>git add packages/orchestrator/src/review-ui.ts packages/orchestrator/src/review-ui.test.ts
+git commit -m "chore(orchestrator): add webappUrl() with REVIEW_UI_URL fallback"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">A2.</span> Add <code>remark-gfm</code> dep and export orchestrator sql client</h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/review-ui/package.json</code> — add <code>remark-gfm</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>packages/orchestrator/src/postgres.ts</code> — export <code>getOrchestratorSql()</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>packages/orchestrator/src/postgres.test.ts</code> — assert export exists</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">A2.1</span> — Failing test for sql export</div>
+<pre>// packages/orchestrator/src/postgres.test.ts — append
+import { getOrchestratorSql } from "./postgres.js";
+
+it("exports a singleton sql client", () =&gt; {
+  expect(typeof getOrchestratorSql).toBe("function");
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A2.2</span> — Run; expect FAIL</div>
+<pre>pnpm --filter @engineerdad/orchestrator test postgres</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A2.3</span> — Add export (just renames <code>client()</code> as a public function)</div>
+<pre>// packages/orchestrator/src/postgres.ts — append at bottom
+
+/** Public accessor for the singleton sql client. Used by the webapp's
+ *  lib/orchestrator.ts to query runs / run_steps / step_results without
+ *  opening a second pool. Throws when DATABASE_URL is unset. */
+export function getOrchestratorSql(): Sql {
+  return client();
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A2.4</span> — Run; expect PASS</div>
+<pre>pnpm --filter @engineerdad/orchestrator test postgres</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A2.5</span> — Add remark-gfm dep</div>
+<pre>// apps/review-ui/package.json — under "dependencies"
+"remark-gfm": "^4.0.0"</pre>
+<pre>pnpm install</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A2.6</span> — Verify build + commit</div>
+<pre>pnpm -r build
+git add packages/orchestrator/src/postgres.ts packages/orchestrator/src/postgres.test.ts apps/review-ui/package.json pnpm-lock.yaml
+git commit -m "chore: export orchestrator sql client + add remark-gfm"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">A3.</span> Rename <code>apps/review-ui</code> → <code>apps/webapp</code></h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY (rename)</span> <code>apps/review-ui/</code> → <code>apps/webapp/</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/package.json</code> — name field</div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/playwright.config.ts</code> — env var name in comment + variable</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">A3.1</span> — git mv the directory</div>
+<pre>git mv apps/review-ui apps/webapp</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A3.2</span> — Update package name</div>
+<pre>// apps/webapp/package.json
+{
+  "name": "@engineerdad/webapp",
+  ...
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A3.3</span> — Update playwright.config.ts (env var + comments)</div>
+<pre>// apps/webapp/playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+// Base URL = WEBAPP_URL (legacy REVIEW_UI_URL still honored by webappUrl()).
+const WEBAPP_URL = process.env.WEBAPP_URL ?? process.env.REVIEW_UI_URL ?? "http://localhost:3030";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: false,
+  workers: 1,
+  reporter: "list",
+  use: { baseURL: WEBAPP_URL, trace: "retain-on-failure" },
+  webServer: {
+    command: "pnpm dev",
+    url: WEBAPP_URL,
+    reuseExistingServer: !process.env.CI,
+    env: { DATABASE_URL: "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test" },
+    timeout: 60_000,
+  },
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A3.4</span> — Reinstall + verify the workspace still builds</div>
+<pre>pnpm install
+pnpm -r build</pre>
+<p>Expected: green build. <code>pnpm-lock.yaml</code> updated.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">A3.5</span> — Run existing e2e smoke (no other change yet)</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e</pre>
+<p>Expected: pre-existing 4 specs pass (list, detail-edit, status-flip, markdown-preview).</p>
+</li>
+
+<li><div class="head"><span class="stepnum">A3.6</span> — Commit</div>
+<pre>git add -A
+git commit -m "chore(webapp): rename apps/review-ui → apps/webapp + package"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">A4.</span> Rename <code>review-ui.ts</code> → <code>webapp-url.ts</code></h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY (rename)</span> <code>packages/orchestrator/src/review-ui.ts</code> → <code>webapp-url.ts</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> three call sites: <code>stages/{brief,content,produce}.ts</code></div>
+<div class="row"><span class="tag modify">MODIFY (rename)</span> the test file alongside</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">A4.1</span> — Move both files</div>
+<pre>git mv packages/orchestrator/src/review-ui.ts packages/orchestrator/src/webapp-url.ts
+git mv packages/orchestrator/src/review-ui.test.ts packages/orchestrator/src/webapp-url.test.ts</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A4.2</span> — Update three import lines</div>
+<pre>// packages/orchestrator/src/stages/brief.ts:3
+import { reviewUiUrl } from "../webapp-url.js";
+
+// packages/orchestrator/src/stages/content.ts:3
+import { reviewUiUrl } from "../webapp-url.js";
+
+// packages/orchestrator/src/stages/produce.ts:11
+import { reviewUiUrl } from "../webapp-url.js";</pre>
+<p>Leave the imported symbol as <code>reviewUiUrl</code> for now — it's the alias from A1; we swap stage-message contents in Phase F to also change the route prefix.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">A4.3</span> — Build + test</div>
+<pre>pnpm -r build
+pnpm --filter @engineerdad/orchestrator test webapp-url</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A4.4</span> — Commit</div>
+<pre>git add -A
+git commit -m "chore(orchestrator): rename review-ui.ts → webapp-url.ts"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">A5.</span> Docs sweep — "review UI" → "webapp"</h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>CLAUDE.md</code>, <code>ARCHITECTURE.md</code>, <code>README.md</code>, <code>RESUME.md</code>, <code>TASKS.md</code> (Status header)</div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>.claude/agents/brief-writer.md</code>, <code>.claude/commands/brief.md</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">A5.1</span> — Find references</div>
+<pre>grep -rn "review UI\|review-ui\|review.ui" CLAUDE.md ARCHITECTURE.md README.md RESUME.md TASKS.md .claude/agents .claude/commands 2&gt;/dev/null</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A5.2</span> — Replace prose, one file at a time</div>
+<p>For each file: replace "review UI" → "webapp" in current prose. The phrase "Every external write is human-gated through the review UI at http://localhost:3030" becomes "…through the webapp at http://localhost:3030". Leave ADR-021 historical references untouched (you only touch ADRs if they reference a file path or package name that no longer exists — ADR-021 doesn't).</p>
+</li>
+
+<li><div class="head"><span class="stepnum">A5.3</span> — Verify the only remaining "review-ui" refs are intentional</div>
+<pre>grep -rn "review-ui\|review.ui" CLAUDE.md ARCHITECTURE.md README.md RESUME.md .claude 2&gt;/dev/null
+# Expected: 0 hits, or ADR-historical context only</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">A5.4</span> — Commit</div>
+<pre>git add CLAUDE.md ARCHITECTURE.md README.md RESUME.md TASKS.md .claude/agents/brief-writer.md .claude/commands/brief.md
+git commit -m "docs: rename review UI → webapp across current prose"</pre>
+</li>
+</ol>
+
+<h2><span class="phase">Phase B.</span> Foundation libs + types (5 tasks)</h2>
+
+<h3 class="task"><span class="id">B1.</span> Type definitions</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/types.ts</code></div>
+</div>
+
+<p>No tests — just type declarations. Types are validated by their consumers in B2–C6.</p>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">B1.1</span> — Write the types file</div>
+<pre>// apps/webapp/src/app/lib/types.ts
+import type { EntityName } from "@engineerdad/store";
+
+export type FieldRole = "primary" | "meta" | "list" | "link" | "status" | "badge" | "timestamp";
+
+export type FieldSpec =
+  | { role: FieldRole; field: string; label?: string }
+  | { role: "bilingual"; en: string; bm: string; label?: string }
+  | { role: "fk"; field: string; fk: EntityName; label?: string };
+
+export interface Section {
+  title: string;
+  fields: FieldSpec[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+}
+
+export interface EntityLayout {
+  header: {
+    title: string;
+    subtitle?: string;
+    status: string;
+    secondaryStatus?: string;
+  };
+  primary: Section[];
+  secondary: Section[];
+}
+
+export type ColumnType = "text" | "chips" | "status" | "badge" | "runId" | "timestamp";
+
+export interface ColumnSpec {
+  field: string;
+  label: string;
+  type: ColumnType;
+  width?: "narrow" | "wide";
+}
+
+export interface FilterSpec {
+  field: string;
+  label: string;
+  type: "select" | "multiSelect";
+  options: readonly string[];
+}
+
+export interface ListConfig {
+  columns: ColumnSpec[];
+  filters: FilterSpec[];
+  defaultSort?: { field: string; dir: "asc" | "desc" };
+}
+
+export type Lang = "en" | "ms";</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B1.2</span> — Typecheck</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B1.3</span> — Commit</div>
+<pre>git add apps/webapp/src/app/lib/types.ts
+git commit -m "feat(webapp): add EntityLayout + ListConfig type defs"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">B2.</span> <code>lib/orchestrator.ts</code> — typed reads + <code>currentGate()</code></h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/orchestrator.ts</code></div>
+<div class="row"><span class="tag test">TEST</span> <code>apps/webapp/src/app/lib/orchestrator.test.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">B2.1</span> — Failing test (pure <code>currentGate</code> + signature shape)</div>
+<pre>// apps/webapp/src/app/lib/orchestrator.test.ts
+import { describe, it, expect } from "vitest";
+import { currentGate, listRuns, getRun, listSteps } from "./orchestrator.js";
+import type { RunRow } from "./orchestrator.js";
+
+const baseRun: RunRow = {
+  runId: "r1", stage: "tracking", status: "running",
+  params: null, createdAt: new Date(), updatedAt: new Date(),
+};
+
+describe("currentGate()", () =&gt; {
+  it("returns null when status is running and stage doesn't await a gate", () =&gt; {
+    expect(currentGate({ ...baseRun })).toBeNull();
+  });
+  it("maps brief + waiting → HG1", () =&gt; {
+    expect(currentGate({ ...baseRun, stage: "brief", status: "waiting" })).toBe("HG1");
+  });
+  it("maps content + waiting → HG2", () =&gt; {
+    expect(currentGate({ ...baseRun, stage: "content", status: "waiting" })).toBe("HG2");
+  });
+  it("maps produce + waiting → HG3", () =&gt; {
+    expect(currentGate({ ...baseRun, stage: "produce", status: "waiting" })).toBe("HG3");
+  });
+  it("maps distribute + waiting → HG4", () =&gt; {
+    expect(currentGate({ ...baseRun, stage: "distribute", status: "waiting" })).toBe("HG4");
+  });
+  it("returns null when completed regardless of stage", () =&gt; {
+    expect(currentGate({ ...baseRun, stage: "produce", status: "completed" })).toBeNull();
+  });
+});
+
+describe("orchestrator reads (exports)", () =&gt; {
+  it("exports listRuns, getRun, listSteps", () =&gt; {
+    expect(typeof listRuns).toBe("function");
+    expect(typeof getRun).toBe("function");
+    expect(typeof listSteps).toBe("function");
+  });
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B2.2</span> — Run; expect FAIL (module not found)</div>
+<pre>pnpm --filter @engineerdad/webapp test orchestrator</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B2.3</span> — Implement</div>
+<pre>// apps/webapp/src/app/lib/orchestrator.ts
+import "server-only";
+import { getOrchestratorSql, loadPayload } from "@engineerdad/orchestrator";
+
+export type RunStatus = "running" | "waiting" | "completed" | "failed";
+export type StepStatus = "pending" | "done" | "failed";
+
+export interface RunRow {
+  runId: string;
+  stage: string;
+  status: RunStatus;
+  params: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface StepRow {
+  runId: string;
+  stepId: string;
+  stage: string;
+  status: StepStatus;
+  result: unknown;
+  problems: string[];
+  attempts: number;
+  updatedAt: Date;
+}
+
+const GATE_BY_STAGE: Record&lt;string, "HG1" | "HG2" | "HG3" | "HG4"&gt; = {
+  brief: "HG1",
+  content: "HG2",
+  produce: "HG3",
+  distribute: "HG4",
+};
+
+export function currentGate(run: RunRow): "HG1" | "HG2" | "HG3" | "HG4" | null {
+  if (run.status !== "waiting") return null;
+  return GATE_BY_STAGE[run.stage] ?? null;
+}
+
+function rowToRun(r: Record&lt;string, unknown&gt;): RunRow {
+  return {
+    runId: r.run_id as string,
+    stage: r.stage as string,
+    status: r.status as RunStatus,
+    params: typeof r.params === "string" ? JSON.parse(r.params) : r.params,
+    createdAt: r.created_at as Date,
+    updatedAt: r.updated_at as Date,
+  };
+}
+
+function rowToStep(r: Record&lt;string, unknown&gt;): StepRow {
+  return {
+    runId: r.run_id as string,
+    stepId: r.step_id as string,
+    stage: r.stage as string,
+    status: r.status as StepStatus,
+    result: typeof r.result === "string" ? JSON.parse(r.result) : r.result,
+    problems: typeof r.problems === "string" ? JSON.parse(r.problems) : (r.problems as string[] ?? []),
+    attempts: Number(r.attempts ?? 0),
+    updatedAt: r.updated_at as Date,
+  };
+}
+
+export async function listRuns(opts: { limit?: number } = {}): Promise&lt;RunRow[]&gt; {
+  const sql = getOrchestratorSql();
+  const rows = await sql`SELECT * FROM orchestrator.runs ORDER BY updated_at DESC LIMIT ${opts.limit ?? 100}`;
+  return rows.map((r) =&gt; rowToRun(r as Record&lt;string, unknown&gt;));
+}
+
+export async function getRun(runId: string): Promise&lt;RunRow | null&gt; {
+  const sql = getOrchestratorSql();
+  const rows = await sql`SELECT * FROM orchestrator.runs WHERE run_id = ${runId} LIMIT 1`;
+  return rows.length ? rowToRun(rows[0] as Record&lt;string, unknown&gt;) : null;
+}
+
+export async function listSteps(runId: string): Promise&lt;StepRow[]&gt; {
+  const sql = getOrchestratorSql();
+  const rows = await sql`
+    SELECT * FROM orchestrator.run_steps WHERE run_id = ${runId} ORDER BY updated_at ASC
+  `;
+  return rows.map((r) =&gt; rowToStep(r as Record&lt;string, unknown&gt;));
+}
+
+export async function loadStepPayload(stepResultId: string): Promise&lt;unknown&gt; {
+  return loadPayload(stepResultId);
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B2.4</span> — Run; expect PASS (pure tests). Postgres-touching tests skipped without DATABASE_URL.</div>
+<pre>pnpm --filter @engineerdad/webapp test orchestrator</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B2.5</span> — Commit</div>
+<pre>git add apps/webapp/src/app/lib/orchestrator.ts apps/webapp/src/app/lib/orchestrator.test.ts
+git commit -m "feat(webapp): orchestrator state reads + currentGate()"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">B3.</span> <code>lib/assets.ts</code> — <code>resolveAssetUrl()</code></h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/assets.ts</code></div>
+<div class="row"><span class="tag test">TEST</span> <code>apps/webapp/src/app/lib/assets.test.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">B3.1</span> — Failing test</div>
+<pre>// apps/webapp/src/app/lib/assets.test.ts
+import { describe, it, expect } from "vitest";
+import { resolveAssetUrl } from "./assets.js";
+
+describe("resolveAssetUrl()", () =&gt; {
+  it("rewrites file:// URLs to /api/asset", () =&gt; {
+    const url = "file:///repo/data/assets/run_123/var_abc/0.png";
+    expect(resolveAssetUrl(url)).toBe("/api/asset/run_123/var_abc/0.png");
+  });
+  it("passes https URLs through unchanged", () =&gt; {
+    const url = "https://cdn.example.com/assets/run_123/var_abc/0.png";
+    expect(resolveAssetUrl(url)).toBe(url);
+  });
+  it("returns the input unchanged when file:// path doesn't match the canonical shape", () =&gt; {
+    const url = "file:///tmp/random.png";
+    expect(resolveAssetUrl(url)).toBe(url);
+  });
+  it("handles missing extension safely", () =&gt; {
+    expect(resolveAssetUrl("file:///x/data/assets/r/v/s")).toBe("/api/asset/r/v/s");
+  });
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B3.2</span> — Run; expect FAIL</div>
+<pre>pnpm --filter @engineerdad/webapp test assets</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B3.3</span> — Implement</div>
+<pre>// apps/webapp/src/app/lib/assets.ts
+// Asset URLs in creative_variants.asset_files[] are file:// in local dev and
+// https:// in prod (R2 with ASSET_STORE_PUBLIC_BASE set). The browser can't
+// fetch file://; rewrite to the /api/asset/[runId]/[variantId]/[scene] route
+// served by route.ts. This entire helper is dead code once E-007 ships.
+const FILE_RE = /^file:\/\/.*\/data\/assets\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_.\-]+)$/;
+
+export function resolveAssetUrl(url: string): string {
+  if (!url.startsWith("file://")) return url;
+  const m = url.match(FILE_RE);
+  if (!m) return url;
+  return `/api/asset/${m[1]}/${m[2]}/${m[3]}`;
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B3.4</span> — Run; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test assets</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B3.5</span> — Commit</div>
+<pre>git add apps/webapp/src/app/lib/assets.ts apps/webapp/src/app/lib/assets.test.ts
+git commit -m "feat(webapp): resolveAssetUrl() rewrites file:// to /api/asset"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">B4.</span> <code>/api/asset/[runId]/[variantId]/[scene]</code> route handler</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/api/asset/[runId]/[variantId]/[scene]/route.ts</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/asset-route.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">B4.1</span> — Failing Playwright spec</div>
+<pre>// apps/webapp/tests/e2e/asset-route.spec.ts
+import { test, expect } from "./fixtures";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+
+test("GET /api/asset streams a PNG written to data/assets", async ({ request }) =&gt; {
+  const dir = resolve(__dirname, "../../../..", "data/assets/run_t1/var_t1");
+  mkdirSync(dir, { recursive: true });
+  // 1×1 transparent PNG
+  const png = Buffer.from(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489" +
+    "0000000d49444154789c63000100000005000100" +
+    "5dcc2bbe0000000049454e44ae426082",
+    "hex",
+  );
+  writeFileSync(resolve(dir, "0.png"), png);
+
+  const res = await request.get("/api/asset/run_t1/var_t1/0.png");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toContain("image/png");
+});
+
+test("GET /api/asset returns 400 for path-traversal attempts", async ({ request }) =&gt; {
+  const res = await request.get("/api/asset/..%2Fevil/x/y.png");
+  expect(res.status()).toBeGreaterThanOrEqual(400);
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B4.2</span> — Run; expect FAIL (route doesn't exist)</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e asset-route</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B4.3</span> — Implement</div>
+<pre>// apps/webapp/src/app/api/asset/[runId]/[variantId]/[scene]/route.ts
+import { readFile, stat } from "node:fs/promises";
+import { resolve, extname } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { NextResponse } from "next/server";
+
+const SAFE = /^[a-zA-Z0-9_.\-]+$/;
+
+const MIME: Record&lt;string, string&gt; = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".webp": "image/webp", ".gif": "image/gif", ".mp4": "video/mp4",
+  ".mov": "video/quicktime", ".webm": "video/webm", ".html": "text/html",
+};
+
+function repoRoot(): string {
+  let cur = dirname(fileURLToPath(import.meta.url));
+  while (!existsSync(resolve(cur, "pnpm-workspace.yaml"))) {
+    const parent = dirname(cur);
+    if (parent === cur) throw new Error("repo root not found");
+    cur = parent;
+  }
+  return cur;
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise&lt;{ runId: string; variantId: string; scene: string }&gt; },
+) {
+  const { runId, variantId, scene } = await params;
+  for (const v of [runId, variantId, scene]) {
+    if (!SAFE.test(v)) return new NextResponse("bad path", { status: 400 });
+  }
+  const root = process.env.ASSET_STORE_ROOT ?? resolve(repoRoot(), "data/assets");
+  const path = resolve(root, runId, variantId, scene);
+  if (!path.startsWith(root)) return new NextResponse("bad path", { status: 400 });
+  try {
+    await stat(path);
+  } catch {
+    return new NextResponse("not found", { status: 404 });
+  }
+  const bytes = await readFile(path);
+  const mime = MIME[extname(scene).toLowerCase()] ?? "application/octet-stream";
+  return new NextResponse(bytes, {
+    status: 200,
+    headers: { "content-type": mime, "cache-control": "private, max-age=60" },
+  });
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B4.4</span> — Run; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e asset-route</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B4.5</span> — Commit</div>
+<pre>git add apps/webapp/src/app/api apps/webapp/tests/e2e/asset-route.spec.ts
+git commit -m "feat(webapp): /api/asset route handler for dev file:// streaming"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">B5.</span> Extend Playwright fixtures with orchestrator-run helpers</h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/tests/e2e/fixtures.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">B5.1</span> — Extend the seed fixture</div>
+<pre>// apps/webapp/tests/e2e/fixtures.ts — replace existing fixture export
+
+import { test as base } from "@playwright/test";
+import { execSync } from "node:child_process";
+import { resolve } from "node:path";
+import postgres from "postgres";
+
+const REPO_ROOT = resolve(__dirname, "../../../..");
+const TEST_DB_URL = "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test";
+
+function wipeAndPush() {
+  execSync(
+    `docker exec engineerdad-postgres psql -U engineerdad -d engineerdad_test -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; DROP SCHEMA IF EXISTS orchestrator CASCADE; CREATE SCHEMA orchestrator; GRANT ALL ON SCHEMA public TO engineerdad; GRANT ALL ON SCHEMA orchestrator TO engineerdad;"`,
+    { cwd: REPO_ROOT, stdio: "ignore" },
+  );
+  execSync("pnpm --filter @engineerdad/store push", { cwd: REPO_ROOT, env: { ...process.env, DATABASE_URL: TEST_DB_URL }, stdio: "ignore" });
+  execSync("pnpm --filter @engineerdad/orchestrator push", { cwd: REPO_ROOT, env: { ...process.env, DATABASE_URL: TEST_DB_URL }, stdio: "ignore" });
+}
+
+export interface StoreSeed {
+  create: (entity: string, props: Record&lt;string, unknown&gt;) =&gt; Promise&lt;{ id: string }&gt;;
+  orchestratorRun: (runId: string, stage: string, status: string, params?: unknown) =&gt; Promise&lt;void&gt;;
+  orchestratorStep: (runId: string, stepId: string, stage: string, status: string, opts?: { problems?: string[]; result?: unknown }) =&gt; Promise&lt;void&gt;;
+}
+
+export const test = base.extend&lt;{ seed: StoreSeed }&gt;({
+  seed: async ({}, use) =&gt; {
+    wipeAndPush();
+    process.env.DATABASE_URL = TEST_DB_URL;
+    const { store } = await import("@engineerdad/store");
+    const sql = postgres(TEST_DB_URL, { max: 2 });
+    const seed: StoreSeed = {
+      async create(entity, props) {
+        const r = await store.create(entity as never, props);
+        if (!r.ok) throw new Error(r.problems?.join("; ") ?? "seed failed");
+        return { id: r.id! };
+      },
+      async orchestratorRun(runId, stage, status, params = null) {
+        const now = Date.now();
+        await sql`
+          INSERT INTO orchestrator.runs (run_id, stage, status, params, created_at, updated_at)
+          VALUES (${runId}, ${stage}, ${status}, ${JSON.stringify(params)}, ${now}, ${now})
+        `;
+      },
+      async orchestratorStep(runId, stepId, stage, status, opts = {}) {
+        const now = Date.now();
+        await sql`
+          INSERT INTO orchestrator.run_steps (run_id, step_id, stage, status, result, problems, attempts, updated_at)
+          VALUES (${runId}, ${stepId}, ${stage}, ${status},
+                  ${opts.result ? JSON.stringify(opts.result) : null},
+                  ${opts.problems ? JSON.stringify(opts.problems) : null},
+                  0, ${now})
+        `;
+      },
+    };
+    await use(seed);
+    await sql.end();
+  },
+});
+
+export { expect } from "@playwright/test";</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B5.2</span> — Verify existing 4 specs still pass</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">B5.3</span> — Commit</div>
+<pre>git add apps/webapp/tests/e2e/fixtures.ts
+git commit -m "test(webapp): extend fixtures with orchestratorRun + orchestratorStep helpers"</pre>
+</li>
+</ol>
+
+<h2><span class="phase">Phase C.</span> Shared components (6 tasks)</h2>
+
+<p>All components built under <code>apps/webapp/src/app/components/</code>. Each new component gets a Playwright spec that mounts a thin test harness route (where useful) or asserts via a real entity/run page added later.</p>
+
+<h3 class="task"><span class="id">C1.</span> <code>LanguageToggle</code> — URL-driven EN/BM toggle (client)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/LanguageToggle.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/language-toggle.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C1.1</span> — Failing Playwright spec (uses /runs/[id] page which arrives in E6; defer assertion to E6 — for now, write the component spec inline against a temp scaffold)</div>
+<p>Skip a dedicated spec at this stage; the component's behavior is asserted in E4/E6 specs. Move directly to implementation, then verify via typecheck.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">C1.2</span> — Implement</div>
+<pre>// apps/webapp/src/app/components/LanguageToggle.tsx
+"use client";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import type { Lang } from "../lib/types.js";
+
+export function LanguageToggle({ lang }: { lang: Lang }) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const router = useRouter();
+  function set(next: Lang) {
+    const sp = new URLSearchParams(params.toString());
+    if (next === "en") sp.delete("lang"); else sp.set("lang", next);
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
+  return (
+    &lt;div className="inline-flex rounded border border-slate-300 text-xs font-semibold overflow-hidden"&gt;
+      &lt;button onClick={() =&gt; set("en")} aria-pressed={lang === "en"}
+              className={`px-2 py-1 ${lang === "en" ? "bg-indigo-600 text-white" : "bg-white text-slate-600"}`}&gt;EN&lt;/button&gt;
+      &lt;button onClick={() =&gt; set("ms")} aria-pressed={lang === "ms"}
+              className={`px-2 py-1 border-l border-slate-300 ${lang === "ms" ? "bg-indigo-600 text-white" : "bg-white text-slate-600"}`}&gt;BM&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}
+
+export function langFromSearchParams(sp: { lang?: string | string[] | undefined } | URLSearchParams): Lang {
+  const v = sp instanceof URLSearchParams ? sp.get("lang") : sp.lang;
+  return Array.isArray(v) ? (v[0] === "ms" ? "ms" : "en") : (v === "ms" ? "ms" : "en");
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C1.3</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/LanguageToggle.tsx
+git commit -m "feat(webapp): LanguageToggle client component"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">C2.</span> <code>SceneViewer</code> — IG-style scene viewer (client)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/SceneViewer.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/scene-viewer.spec.ts</code> (deferred to E6 — uses real Run page seeding)</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C2.1</span> — Implement</div>
+<pre>// apps/webapp/src/app/components/SceneViewer.tsx
+"use client";
+import { useEffect, useState } from "react";
+import { resolveAssetUrl } from "../lib/assets.js";
+
+type Asset = { url: string; sha256?: string };
+type Aspect = "4:5" | "1:1" | "9:16" | "16:9";
+
+const ASPECT_W: Record&lt;Aspect, string&gt; = {
+  "4:5": "aspect-[4/5]",
+  "1:1": "aspect-square",
+  "9:16": "aspect-[9/16]",
+  "16:9": "aspect-video",
+};
+
+const VIDEO_EXTS = [".mp4", ".mov", ".webm"];
+
+function isVideo(url: string): boolean {
+  return VIDEO_EXTS.some((e) =&gt; url.toLowerCase().endsWith(e));
+}
+
+export function SceneViewer({ assets, aspect }: { assets: Asset[]; aspect: Aspect }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() =&gt; {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") setIdx((i) =&gt; Math.max(0, i - 1));
+      if (e.key === "ArrowRight") setIdx((i) =&gt; Math.min(assets.length - 1, i + 1));
+    }
+    window.addEventListener("keydown", onKey);
+    return () =&gt; window.removeEventListener("keydown", onKey);
+  }, [assets.length]);
+
+  if (!assets?.length) {
+    return &lt;div className="text-xs text-slate-400 italic px-2 py-6 text-center"&gt;no assets attached&lt;/div&gt;;
+  }
+  const current = assets[idx];
+  const src = resolveAssetUrl(current.url);
+  return (
+    &lt;div className="inline-block max-w-[480px]" tabIndex={0}&gt;
+      &lt;div className={`relative bg-slate-100 ${ASPECT_W[aspect]} max-w-[480px]`}&gt;
+        {isVideo(src)
+          ? &lt;video src={src} controls muted className="w-full h-full object-contain" /&gt;
+          : &lt;img src={src} alt={`scene ${idx + 1}`} className="w-full h-full object-contain" /&gt;}
+        {assets.length &gt; 1 && (
+          &lt;&gt;
+            &lt;button onClick={() =&gt; setIdx(Math.max(0, idx - 1))}
+                    disabled={idx === 0}
+                    className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-7 h-7 disabled:opacity-30"&gt;&amp;larr;&lt;/button&gt;
+            &lt;button onClick={() =&gt; setIdx(Math.min(assets.length - 1, idx + 1))}
+                    disabled={idx === assets.length - 1}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-7 h-7 disabled:opacity-30"&gt;&amp;rarr;&lt;/button&gt;
+          &lt;/&gt;
+        )}
+      &lt;/div&gt;
+      {assets.length &gt; 1 && (
+        &lt;div className="flex gap-1.5 justify-center mt-2"&gt;
+          {assets.map((_, i) =&gt; (
+            &lt;button key={i} onClick={() =&gt; setIdx(i)}
+                    aria-label={`scene ${i + 1}`}
+                    className={`w-2 h-2 rounded-full ${i === idx ? "bg-indigo-600" : "bg-slate-300"}`} /&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C2.2</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/SceneViewer.tsx
+git commit -m "feat(webapp): SceneViewer with IG-style hero + dots + arrow keys"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">C3.</span> <code>DecisionMemo</code> — bandit + markdown + self-critique + copy button</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/DecisionMemo.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/CopyMarkdownButton.tsx</code> (client child of DecisionMemo)</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C3.1</span> — Implement CopyMarkdownButton (client)</div>
+<pre>// apps/webapp/src/app/components/CopyMarkdownButton.tsx
+"use client";
+import { useState } from "react";
+
+export function CopyMarkdownButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    &lt;button
+      onClick={async () =&gt; {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() =&gt; setCopied(false), 1500);
+      }}
+      className="text-xs text-slate-500 hover:text-indigo-600 border border-slate-300 rounded px-2 py-0.5"
+      title="Copy memo as markdown"
+    &gt;{copied ? "✓ copied" : "copy md"}&lt;/button&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C3.2</span> — Implement DecisionMemo (server)</div>
+<pre>// apps/webapp/src/app/components/DecisionMemo.tsx
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Lang } from "../lib/types.js";
+import { CopyMarkdownButton } from "./CopyMarkdownButton.js";
+
+type PerformanceReportRow = {
+  decisionMemoEn?: string | null;
+  decisionMemoBm?: string | null;
+  selfCritique?: string | null;
+  banditAllocation?: string | null;
+} | null;
+
+export function DecisionMemo({ row, lang }: { row: PerformanceReportRow; lang: Lang }) {
+  if (!row) {
+    return &lt;div className="text-sm text-slate-500 italic"&gt;Decision Memo not yet produced for this run.&lt;/div&gt;;
+  }
+  const body = (lang === "ms" ? row.decisionMemoBm : row.decisionMemoEn) ?? "";
+  const allocation = row.banditAllocation?.trim();
+  const critique = row.selfCritique?.trim();
+  return (
+    &lt;div className="space-y-3"&gt;
+      &lt;div className="flex items-center justify-between"&gt;
+        &lt;h2 className="text-lg font-semibold m-0"&gt;Decision Memo&lt;/h2&gt;
+        {body && &lt;CopyMarkdownButton text={body} /&gt;}
+      &lt;/div&gt;
+      {allocation && (
+        &lt;div className="text-xs flex gap-2 flex-wrap"&gt;
+          {allocation.split(/[,·]/).map((a) =&gt; a.trim()).filter(Boolean).map((a) =&gt; (
+            &lt;span key={a} className="bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-2 py-0.5"&gt;{a}&lt;/span&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+      &lt;article className="prose prose-sm max-w-none"&gt;
+        &lt;ReactMarkdown remarkPlugins={[remarkGfm]}&gt;{body || "(no body)"}&lt;/ReactMarkdown&gt;
+      &lt;/article&gt;
+      {critique && (
+        &lt;details className="text-sm"&gt;
+          &lt;summary className="cursor-pointer text-slate-600 font-semibold"&gt;Self-critique&lt;/summary&gt;
+          &lt;article className="prose prose-sm max-w-none mt-2"&gt;
+            &lt;ReactMarkdown remarkPlugins={[remarkGfm]}&gt;{critique}&lt;/ReactMarkdown&gt;
+          &lt;/article&gt;
+        &lt;/details&gt;
+      )}
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C3.3</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/DecisionMemo.tsx apps/webapp/src/app/components/CopyMarkdownButton.tsx
+git commit -m "feat(webapp): DecisionMemo component (markdown + bandit + self-critique + copy)"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">C4.</span> <code>EntityListView</code> — generic list table driven by ListConfig</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/EntityListView.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/FilterChips.tsx</code> (client)</div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C4.1</span> — Implement FilterChips (client)</div>
+<pre>// apps/webapp/src/app/components/FilterChips.tsx
+"use client";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import type { FilterSpec } from "../lib/types.js";
+
+export function FilterChips({ filters }: { filters: FilterSpec[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  function setParam(field: string, value: string) {
+    const sp = new URLSearchParams(params.toString());
+    if (!value) sp.delete(field); else sp.set(field, value);
+    router.replace(`${pathname}?${sp.toString()}`);
+  }
+  function clearAll() { router.replace(pathname); }
+
+  return (
+    &lt;div className="flex flex-wrap gap-2 items-center text-xs py-2"&gt;
+      {filters.map((f) =&gt; {
+        const current = params.get(f.field) ?? "";
+        return (
+          &lt;label key={f.field} className="inline-flex items-center gap-1"&gt;
+            &lt;span className="text-slate-500"&gt;{f.label}:&lt;/span&gt;
+            &lt;select
+              value={current}
+              onChange={(e) =&gt; setParam(f.field, e.target.value)}
+              className="border border-slate-300 rounded px-1.5 py-0.5"
+            &gt;
+              &lt;option value=""&gt;any&lt;/option&gt;
+              {f.type === "multiSelect"
+                ? f.options.map((o) =&gt; &lt;option key={o} value={o}&gt;{o}&lt;/option&gt;)
+                : f.options.map((o) =&gt; &lt;option key={o} value={o}&gt;{o}&lt;/option&gt;)}
+            &lt;/select&gt;
+          &lt;/label&gt;
+        );
+      })}
+      &lt;button onClick={clearAll} className="text-slate-500 hover:text-indigo-600 underline ml-2"&gt;Clear all&lt;/button&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+<p>Note: multiSelect uses comma-separated URL values; the simple <code>&lt;select&gt;</code> single-pick UX is the v1. Multi-pick checkbox dropdown deferred to a follow-up — not in spec scope; the option count is small (≤7 channels) so a single <code>;</code> separator parsed downstream is enough.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">C4.2</span> — Implement EntityListView (server)</div>
+<pre>// apps/webapp/src/app/components/EntityListView.tsx
+import Link from "next/link";
+import type { ColumnSpec, ListConfig } from "../lib/types.js";
+import { FilterChips } from "./FilterChips.js";
+
+type Row = Record&lt;string, unknown&gt;;
+
+function cell(col: ColumnSpec, val: unknown): React.ReactNode {
+  switch (col.type) {
+    case "text":   return String(val ?? "(untitled)");
+    case "status": return &lt;span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-xs"&gt;{String(val ?? "")}&lt;/span&gt;;
+    case "badge":  return &lt;span className="inline-block px-1.5 py-0.5 rounded border border-slate-200 text-xs text-slate-600"&gt;{String(val ?? "")}&lt;/span&gt;;
+    case "runId":  return val
+      ? &lt;Link href={`/runs/${val}`} className="text-indigo-600 hover:underline font-mono text-xs"&gt;{String(val)}&lt;/Link&gt;
+      : &lt;span className="text-slate-400"&gt;—&lt;/span&gt;;
+    case "chips":
+      return Array.isArray(val)
+        ? &lt;span className="flex flex-wrap gap-1"&gt;{val.map((c) =&gt; &lt;span key={String(c)} className="bg-slate-100 text-xs px-1.5 py-0.5 rounded"&gt;{String(c)}&lt;/span&gt;)}&lt;/span&gt;
+        : null;
+    case "timestamp":
+      return val ? new Date(val as string | Date).toLocaleString("en-MY") : "—";
+  }
+}
+
+export interface EntityListViewProps {
+  title: string;
+  config: ListConfig;
+  rows: Row[];
+  rowHref: (row: Row) =&gt; string;
+}
+
+export function EntityListView({ title, config, rows, rowHref }: EntityListViewProps) {
+  return (
+    &lt;div&gt;
+      &lt;h1 className="text-2xl font-bold mb-2"&gt;{title} &lt;span className="text-slate-400 text-base font-normal"&gt;({rows.length})&lt;/span&gt;&lt;/h1&gt;
+      &lt;FilterChips filters={config.filters} /&gt;
+      &lt;table className="w-full text-sm"&gt;
+        &lt;thead className="text-left text-slate-500"&gt;
+          &lt;tr&gt;{config.columns.map((c) =&gt; &lt;th key={c.field} className="py-2 font-medium"&gt;{c.label}&lt;/th&gt;)}&lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+          {rows.map((r) =&gt; (
+            &lt;tr key={String(r.id ?? r.runId)} className="border-t border-slate-200"&gt;
+              {config.columns.map((c, i) =&gt; (
+                &lt;td key={c.field} className="py-2 pr-3 align-top"&gt;
+                  {i === 0
+                    ? &lt;Link href={rowHref(r)} className="text-indigo-600 hover:underline"&gt;{cell(c, r[c.field])}&lt;/Link&gt;
+                    : cell(c, r[c.field])}
+                &lt;/td&gt;
+              ))}
+            &lt;/tr&gt;
+          ))}
+          {rows.length === 0 && (
+            &lt;tr&gt;&lt;td colSpan={config.columns.length} className="py-8 text-center text-slate-500"&gt;no rows&lt;/td&gt;&lt;/tr&gt;
+          )}
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C4.3</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/EntityListView.tsx apps/webapp/src/app/components/FilterChips.tsx
+git commit -m "feat(webapp): EntityListView + FilterChips"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">C5.</span> <code>EntityDetailView</code> — read-mode layout renderer</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/EntityDetailView.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/RawFieldsSection.tsx</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C5.1</span> — Implement</div>
+<pre>// apps/webapp/src/app/components/EntityDetailView.tsx
+import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { EntityLayout, FieldSpec, Lang, Section } from "../lib/types.js";
+import type { EntityName } from "@engineerdad/store";
+import { RawFieldsSection } from "./RawFieldsSection.js";
+
+type Row = Record&lt;string, unknown&gt;;
+
+function FieldRow({ spec, row, lang, slugOf }: { spec: FieldSpec; row: Row; lang: Lang; slugOf: (e: EntityName) =&gt; string }) {
+  const label = "label" in spec && spec.label ? spec.label : ("field" in spec ? spec.field : `${spec.en}/${spec.bm}`);
+  if (spec.role === "bilingual") {
+    const v = (lang === "ms" ? row[spec.bm] : row[spec.en]) as string | undefined;
+    return (
+      &lt;div className="mb-3"&gt;
+        &lt;h4 className="text-xs font-semibold text-slate-500 mb-1"&gt;{label}&lt;/h4&gt;
+        &lt;article className="prose prose-sm max-w-none"&gt;
+          &lt;ReactMarkdown remarkPlugins={[remarkGfm]}&gt;{v ?? "(empty)"}&lt;/ReactMarkdown&gt;
+        &lt;/article&gt;
+      &lt;/div&gt;
+    );
+  }
+  const val = row[spec.field];
+  switch (spec.role) {
+    case "primary":
+      return &lt;div className="mb-3"&gt;
+        &lt;h4 className="text-xs font-semibold text-slate-500 mb-1"&gt;{label}&lt;/h4&gt;
+        &lt;article className="prose prose-sm max-w-none"&gt;&lt;ReactMarkdown remarkPlugins={[remarkGfm]}&gt;{String(val ?? "(empty)")}&lt;/ReactMarkdown&gt;&lt;/article&gt;
+      &lt;/div&gt;;
+    case "list":
+      return &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;
+        {Array.isArray(val) ? val.map((x) =&gt; &lt;span key={String(x)} className="inline-block bg-slate-100 px-1.5 py-0.5 rounded mr-1 text-xs"&gt;{String(x)}&lt;/span&gt;) : "—"}
+      &lt;/div&gt;;
+    case "status":
+      return &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;
+        &lt;span className="inline-block bg-slate-100 px-2 py-0.5 rounded text-xs"&gt;{String(val ?? "—")}&lt;/span&gt;&lt;/div&gt;;
+    case "badge":
+      return &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;
+        &lt;span className="inline-block border border-slate-200 px-1.5 py-0.5 rounded text-xs"&gt;{String(val ?? "—")}&lt;/span&gt;&lt;/div&gt;;
+    case "link":
+      return val ? &lt;div className="mb-2 text-sm"&gt;&lt;a href={String(val)} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline"&gt;{label} →&lt;/a&gt;&lt;/div&gt; : null;
+    case "fk":
+      return val ? &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;
+        &lt;Link href={`/review/${slugOf(spec.fk)}/${val}`} className="text-indigo-600 hover:underline"&gt;{String(val)}&lt;/Link&gt;&lt;/div&gt; : null;
+    case "timestamp":
+      return &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;
+        {val ? new Date(val as string | Date).toLocaleString("en-MY") : "—"}&lt;/div&gt;;
+    case "meta":
+    default:
+      return &lt;div className="mb-2 text-sm"&gt;&lt;span className="text-slate-500 mr-2"&gt;{label}:&lt;/span&gt;{String(val ?? "—")}&lt;/div&gt;;
+  }
+}
+
+function SectionView({ section, row, lang, slugOf }: { section: Section; row: Row; lang: Lang; slugOf: (e: EntityName) =&gt; string }) {
+  return (
+    &lt;section className="mb-6"&gt;
+      &lt;h3 className="text-sm font-semibold border-b border-slate-200 pb-1 mb-2"&gt;{section.title}&lt;/h3&gt;
+      {section.fields.map((f, i) =&gt; &lt;FieldRow key={i} spec={f} row={row} lang={lang} slugOf={slugOf} /&gt;)}
+    &lt;/section&gt;
+  );
+}
+
+export function EntityDetailView({ layout, row, lang, slugOf, headerSlot }: {
+  layout: EntityLayout; row: Row; lang: Lang;
+  slugOf: (e: EntityName) =&gt; string;
+  headerSlot?: React.ReactNode;
+}) {
+  const usedFields = new Set&lt;string&gt;();
+  for (const sec of [...layout.primary, ...layout.secondary]) {
+    for (const f of sec.fields) {
+      if (f.role === "bilingual") { usedFields.add(f.en); usedFields.add(f.bm); }
+      else { usedFields.add(f.field); }
+    }
+  }
+  usedFields.add("id"); usedFields.add("title"); usedFields.add(layout.header.status);
+  if (layout.header.subtitle) usedFields.add(layout.header.subtitle);
+  if (layout.header.secondaryStatus) usedFields.add(layout.header.secondaryStatus);
+
+  return (
+    &lt;div&gt;
+      &lt;header className="mb-6 pb-4 border-b border-slate-200"&gt;
+        &lt;h1 className="text-2xl font-bold m-0"&gt;{String(row[layout.header.title] ?? "(untitled)")}&lt;/h1&gt;
+        {layout.header.subtitle && &lt;p className="text-sm text-slate-500 m-0"&gt;{String(row[layout.header.subtitle] ?? "")}&lt;/p&gt;}
+        {headerSlot}
+      &lt;/header&gt;
+      &lt;div className="grid grid-cols-3 gap-8"&gt;
+        &lt;div className="col-span-2"&gt;
+          {layout.primary.map((sec) =&gt; &lt;SectionView key={sec.title} section={sec} row={row} lang={lang} slugOf={slugOf} /&gt;)}
+        &lt;/div&gt;
+        &lt;div&gt;
+          {layout.secondary.map((sec) =&gt; &lt;SectionView key={sec.title} section={sec} row={row} lang={lang} slugOf={slugOf} /&gt;)}
+          &lt;RawFieldsSection row={row} usedFields={usedFields} /&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+<pre>// apps/webapp/src/app/components/RawFieldsSection.tsx
+export function RawFieldsSection({ row, usedFields }: { row: Record&lt;string, unknown&gt;; usedFields: Set&lt;string&gt; }) {
+  const skip = new Set(["createdAt", "updatedAt", "complianceCheck"]);
+  const rawKeys = Object.keys(row).filter((k) =&gt; !usedFields.has(k) && !skip.has(k));
+  if (rawKeys.length === 0) return null;
+  return (
+    &lt;details className="mt-6 border-t border-slate-200 pt-3 text-xs"&gt;
+      &lt;summary className="cursor-pointer text-slate-500"&gt;Raw fields ({rawKeys.length})&lt;/summary&gt;
+      &lt;dl className="grid grid-cols-[max-content_1fr] gap-1 mt-2 font-mono"&gt;
+        {rawKeys.map((k) =&gt; (
+          &lt;&gt;&lt;dt key={`${k}-k`} className="text-slate-500"&gt;{k}&lt;/dt&gt;
+            &lt;dd key={`${k}-v`} className="break-all"&gt;{typeof row[k] === "object" ? JSON.stringify(row[k]) : String(row[k] ?? "—")}&lt;/dd&gt;&lt;/&gt;
+        ))}
+      &lt;/dl&gt;
+    &lt;/details&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C5.2</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/EntityDetailView.tsx apps/webapp/src/app/components/RawFieldsSection.tsx
+git commit -m "feat(webapp): EntityDetailView read-mode renderer with role-aware fields"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">C6.</span> <code>EntityEditForm</code> — edit-mode renderer (preserves existing Field+saveRow)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/EntityEditForm.tsx</code></div>
+<div class="row"><span class="tag modify">REUSE</span> existing <code>Field.tsx</code> + <code>actions.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">C6.1</span> — Implement</div>
+<pre>// apps/webapp/src/app/components/EntityEditForm.tsx
+import type { EntityLayout } from "../lib/types.js";
+import type { EntityName } from "@engineerdad/store";
+import { APPROVAL_STATUS } from "@engineerdad/store";
+import { Field } from "./Field.js";
+import { saveRow } from "../lib/actions.js";
+
+type Row = Record&lt;string, unknown&gt;;
+
+export function EntityEditForm({ entity, id, layout, row, backHref }: {
+  entity: EntityName; id: string; layout: EntityLayout; row: Row; backHref: string;
+}) {
+  const SKIP = new Set(["id", "createdAt", "updatedAt", "complianceCheck"]);
+  const fields = Object.keys(row).filter((k) =&gt; !SKIP.has(k));
+  return (
+    &lt;form action={saveRow.bind(null, entity, id)} className="space-y-4"&gt;
+      {fields.map((field) =&gt; (
+        &lt;div key={field}&gt;
+          &lt;label className="block text-xs font-semibold text-slate-600 mb-1"&gt;{field}&lt;/label&gt;
+          &lt;Field name={field} value={row[field]} /&gt;
+        &lt;/div&gt;
+      ))}
+      &lt;div className="border-t border-slate-200 pt-4 flex items-center gap-3"&gt;
+        &lt;select name="_status" defaultValue={(row[layout.header.status] as string) ?? "Draft"} className="border border-slate-300 rounded px-3 py-2 text-sm"&gt;
+          {APPROVAL_STATUS.map((s) =&gt; &lt;option key={s} value={s}&gt;{s}&lt;/option&gt;)}
+        &lt;/select&gt;
+        &lt;button type="submit" className="bg-indigo-600 text-white rounded px-4 py-2 text-sm font-semibold hover:bg-indigo-700"&gt;Save&lt;/button&gt;
+        &lt;a href={backHref} className="text-sm text-slate-500 hover:underline"&gt;Cancel&lt;/a&gt;
+      &lt;/div&gt;
+    &lt;/form&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">C6.2</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/components/EntityEditForm.tsx
+git commit -m "feat(webapp): EntityEditForm — flat edit-mode form preserving today's saveRow + setStatus"</pre>
+</li>
+</ol>
+
+<h2><span class="phase">Phase D.</span> Layouts + list configs (4 tasks)</h2>
+
+<h3 class="task"><span class="id">D1.</span> Simple layouts — Briefs, Scripts, AuthorityArticles, Learnings</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE (4 files)</span> <code>apps/webapp/src/app/lib/layouts/{briefs,scripts,authority-articles,learnings}.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">D1.1</span> — Briefs layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/briefs.ts
+import type { EntityLayout } from "../types.js";
+export const briefsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "persona", status: "approvalStatus" },
+  primary: [
+    { title: "Brief", fields: [
+      { role: "bilingual", en: "bodyEn", bm: "bodyBm", label: "Body" },
+      { role: "meta", field: "angle" },
+      { role: "meta", field: "promise" },
+      { role: "meta", field: "funnelStage" },
+    ]},
+    { title: "Source", fields: [
+      { role: "primary", field: "sourceInsights", label: "Insights" },
+      { role: "list", field: "proofType", label: "Proof types" },
+    ]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "createdBy" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Linked Hypotheses", fields: [{ role: "list", field: "linkedHypotheses" }]},
+    { title: "Budget", fields: [{ role: "meta", field: "budgetBucket" }]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D1.2</span> — Scripts layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/scripts.ts
+import type { EntityLayout } from "../types.js";
+export const scriptsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "format", status: "approvalStatus" },
+  primary: [
+    { title: "Hook", fields: [{ role: "bilingual", en: "hookEn", bm: "hookBm", label: "Hook" }]},
+    { title: "Script", fields: [{ role: "bilingual", en: "scriptEn", bm: "scriptBm", label: "Script" }]},
+    { title: "CTA", fields: [{ role: "bilingual", en: "ctaEn", bm: "ctaBm", label: "CTA" }]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "fk", field: "brief", fk: "Briefs", label: "Brief" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Spec", fields: [
+      { role: "meta", field: "format" },
+      { role: "meta", field: "funnelStage" },
+      { role: "meta", field: "durationSec", label: "Duration (s)" },
+      { role: "list", field: "proofRefs", label: "Proof refs" },
+    ]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D1.3</span> — AuthorityArticles layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/authority-articles.ts
+import type { EntityLayout } from "../types.js";
+export const authorityArticlesLayout: EntityLayout = {
+  header: { title: "title", subtitle: "topic", status: "approvalStatus" },
+  primary: [
+    { title: "Body", fields: [{ role: "bilingual", en: "bodyEn", bm: "bodyBm", label: "Body" }]},
+    { title: "FAQ", fields: [{ role: "bilingual", en: "faqEn", bm: "faqBm", label: "FAQ" }]},
+    { title: "SEO", fields: [
+      { role: "meta", field: "targetQuery" },
+      { role: "meta", field: "aeoSchema" },
+      { role: "meta", field: "slug" },
+      { role: "meta", field: "description" },
+      { role: "list", field: "keywords" },
+      { role: "meta", field: "readingTime" },
+      { role: "link", field: "heroImageUrl", label: "Hero image" },
+      { role: "meta", field: "heroImageAlt" },
+    ]},
+    { title: "Distribution", fields: [
+      { role: "list", field: "targetChannels" },
+      { role: "link", field: "prUrlEn", label: "PR URL (EN)" },
+      { role: "link", field: "prUrlBm", label: "PR URL (BM)" },
+      { role: "timestamp", field: "deliveredAt" },
+      { role: "meta", field: "deliveredTo" },
+    ]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "createdBy" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Source", fields: [
+      { role: "primary", field: "citations", label: "Citations" },
+      { role: "list", field: "relatedSlugs" },
+    ]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D1.4</span> — Learnings layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/learnings.ts
+import type { EntityLayout } from "../types.js";
+export const learningsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "status", status: "status" },
+  primary: [
+    { title: "Statement", fields: [{ role: "bilingual", en: "statementEn", bm: "statementBm", label: "Statement" }]},
+    { title: "Evidence", fields: [
+      { role: "badge", field: "confidence" },
+      { role: "meta", field: "halfLifeDays", label: "Half-life (days)" },
+      { role: "timestamp", field: "lastValidatedAt" },
+      { role: "list", field: "domain" },
+    ]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "createdBy" },
+      { role: "timestamp", field: "createdAt" },
+    ]},
+    { title: "Sources", fields: [{ role: "list", field: "sourceHypotheses" }]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D1.5</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/lib/layouts/
+git commit -m "feat(webapp): layouts for Briefs, Scripts, AuthorityArticles, Learnings"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">D2.</span> Specialized layouts — Hypotheses, Experiments, PerformanceReports</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE (3 files)</span> <code>apps/webapp/src/app/lib/layouts/{hypotheses,experiments,performance-reports}.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">D2.1</span> — Hypotheses layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/hypotheses.ts
+import type { EntityLayout } from "../types.js";
+export const hypothesesLayout: EntityLayout = {
+  header: { title: "title", subtitle: "status", status: "status" },
+  primary: [
+    { title: "Statement", fields: [{ role: "bilingual", en: "statementEn", bm: "statementBm", label: "Statement" }]},
+    { title: "Prediction", fields: [
+      { role: "primary", field: "predictedEffect", label: "Predicted effect" },
+      { role: "badge", field: "confidence" },
+      { role: "list", field: "domain" },
+      { role: "meta", field: "halfLifeDays", label: "Half-life (days)" },
+      { role: "timestamp", field: "lastValidatedAt" },
+    ]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "createdBy" },
+      { role: "timestamp", field: "createdAt" },
+    ]},
+    { title: "Sources", fields: [{ role: "list", field: "sourceHypotheses" }]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D2.2</span> — Experiments layout</div>
+<pre>// apps/webapp/src/app/lib/layouts/experiments.ts
+import type { EntityLayout } from "../types.js";
+export const experimentsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "testType", status: "status", secondaryStatus: "approvalStatus" },
+  primary: [
+    { title: "Hypothesis", fields: [{ role: "fk", field: "hypothesis", fk: "Hypotheses", label: "Hypothesis" }]},
+    { title: "Design", fields: [
+      { role: "primary", field: "factors", label: "Factors" },
+      { role: "primary", field: "cells", label: "Cells" },
+      { role: "badge", field: "primaryMetric" },
+      { role: "badge", field: "testType" },
+      { role: "meta", field: "launchWindow" },
+      { role: "meta", field: "dailyBudgetMyr", label: "Daily budget (MYR)" },
+      { role: "meta", field: "durationDays", label: "Duration (days)" },
+    ]},
+    { title: "Readout", fields: [{ role: "primary", field: "readout" }]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Linked Variants", fields: [{ role: "list", field: "linkedVariants" }]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D2.3</span> — PerformanceReports layout (memo is the primary surface)</div>
+<pre>// apps/webapp/src/app/lib/layouts/performance-reports.ts
+import type { EntityLayout } from "../types.js";
+// Note: the detail page uses &lt;DecisionMemo&gt; in place of the layout's "Memo"
+// section's bilingual field rendering — see /review/performance-reports/[id]
+// route in E4. This layout is the secondary-rail spec + the metric snapshot.
+export const performanceReportsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "window", status: "approvalStatus" },
+  primary: [
+    { title: "Memo", fields: [
+      { role: "bilingual", en: "decisionMemoEn", bm: "decisionMemoBm", label: "Decision Memo" },
+    ]},
+    { title: "Snapshot", fields: [
+      { role: "primary", field: "topCreatives", label: "Top creatives" },
+      { role: "primary", field: "fatiguing", label: "Fatiguing" },
+      { role: "primary", field: "costPerAngle", label: "Cost per angle" },
+      { role: "primary", field: "banditAllocation", label: "Bandit allocation" },
+    ]},
+    { title: "Self-critique", fields: [{ role: "primary", field: "selfCritique" }]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "window" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Linked", fields: [
+      { role: "list", field: "linkedBriefs" },
+      { role: "list", field: "linkedExperiments" },
+      { role: "list", field: "linkedHypotheses" },
+    ]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D2.4</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/lib/layouts/hypotheses.ts apps/webapp/src/app/lib/layouts/experiments.ts apps/webapp/src/app/lib/layouts/performance-reports.ts
+git commit -m "feat(webapp): layouts for Hypotheses, Experiments, PerformanceReports"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">D3.</span> CreativeVariants layout (the heavy one)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/layouts/creative-variants.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">D3.1</span> — Implement</div>
+<pre>// apps/webapp/src/app/lib/layouts/creative-variants.ts
+import type { EntityLayout } from "../types.js";
+// Note: the Creative section's assetFiles rendering is NOT a standard layout
+// field — the route at /review/creative-variants/[id] injects &lt;SceneViewer&gt;
+// in its place. The layout entry below marks the field as "meta" purely so
+// it doesn't appear in the Raw fields fallback.
+export const creativeVariantsLayout: EntityLayout = {
+  header: { title: "title", subtitle: "format", status: "approvalStatus", secondaryStatus: "organicStatus" },
+  primary: [
+    { title: "Creative", fields: [
+      { role: "meta", field: "format" },
+      { role: "meta", field: "aspect" },
+      { role: "bilingual", en: "shotlistEn", bm: "shotlistBm", label: "Shotlist" },
+      { role: "meta", field: "thumbnailBrief" },
+      { role: "meta", field: "assetFiles", label: "Asset files (rendered above)" },
+    ]},
+    { title: "Meta paid copy", fields: [
+      { role: "bilingual", en: "metaPrimaryTextEn", bm: "metaPrimaryTextBm", label: "Primary text" },
+      { role: "bilingual", en: "metaHeadlineEn", bm: "metaHeadlineBm", label: "Headline" },
+      { role: "bilingual", en: "metaDescriptionEn", bm: "metaDescriptionBm", label: "Description" },
+      { role: "meta", field: "metaCtaType", label: "CTA" },
+    ]},
+    { title: "Organic copy", fields: [
+      { role: "bilingual", en: "organicCaptionEn", bm: "organicCaptionBm", label: "Caption" },
+      { role: "list", field: "organicHashtagsIg", label: "IG hashtags" },
+      { role: "list", field: "organicHashtagsFb", label: "FB hashtags" },
+      { role: "meta", field: "organicLanguage" },
+    ]},
+    { title: "YouTube", collapsible: true, defaultCollapsed: true, fields: [
+      { role: "meta", field: "ytTitle" },
+      { role: "primary", field: "ytDescription", label: "Description" },
+      { role: "list", field: "ytTags" },
+      { role: "meta", field: "ytCategory" },
+      { role: "meta", field: "ytVideoId" },
+    ]},
+    { title: "Pipeline", collapsible: true, defaultCollapsed: true, fields: [
+      { role: "primary", field: "pipelineNotes" },
+      { role: "primary", field: "imageGenerationNotes" },
+      { role: "meta", field: "reelHeygenJobId" },
+      { role: "link", field: "reelMp4Url", label: "Reel MP4" },
+      { role: "meta", field: "adId" },
+    ]},
+    { title: "Publishing", fields: [
+      { role: "status", field: "organicStatus", label: "Organic status" },
+      { role: "timestamp", field: "organicScheduledFor", label: "Scheduled for" },
+      { role: "timestamp", field: "organicPublishedAt", label: "Published at" },
+      { role: "meta", field: "igPostId" },
+      { role: "meta", field: "fbPostId" },
+    ]},
+  ],
+  secondary: [
+    { title: "Provenance", fields: [
+      { role: "meta", field: "runId" },
+      { role: "meta", field: "createdBy" },
+      { role: "timestamp", field: "createdAt" },
+      { role: "meta", field: "approver" },
+    ]},
+    { title: "Linked Script", fields: [{ role: "fk", field: "script", fk: "Scripts", label: "Script" }]},
+    { title: "Cost", fields: [{ role: "meta", field: "estimatedCostMyr", label: "Estimated (MYR)" }]},
+    { title: "Compliance", fields: [{ role: "meta", field: "complianceCheck" }]},
+    { title: "Channels", fields: [{ role: "list", field: "channels" }]},
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D3.2</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/lib/layouts/creative-variants.ts
+git commit -m "feat(webapp): CreativeVariants layout (6 primary sections + secondary rail)"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">D4.</span> All list configs (default + 4 custom + runs)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE (5 files)</span> <code>apps/webapp/src/app/lib/listConfigs/{default,creative-variants,hypotheses,experiments,runs}.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">D4.1</span> — default + creative-variants</div>
+<pre>// apps/webapp/src/app/lib/listConfigs/default.ts
+import type { ListConfig } from "../types.js";
+import { APPROVAL_STATUS } from "@engineerdad/store";
+export const defaultList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text" },
+    { field: "runId", label: "Run", type: "runId" },
+    { field: "approvalStatus", label: "Status", type: "status" },
+  ],
+  filters: [
+    { field: "approvalStatus", label: "Status", type: "select", options: APPROVAL_STATUS },
+  ],
+};</pre>
+<pre>// apps/webapp/src/app/lib/listConfigs/creative-variants.ts
+import type { ListConfig } from "../types.js";
+import { APPROVAL_STATUS, CHANNELS, ORGANIC_STATUS } from "@engineerdad/store";
+export const creativeVariantsList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text" },
+    { field: "channels", label: "Channels", type: "chips" },
+    { field: "runId", label: "Run", type: "runId" },
+    { field: "approvalStatus", label: "Status", type: "status" },
+    { field: "organicStatus", label: "Organic", type: "status" },
+  ],
+  filters: [
+    // Channels filter is applied in JS by the list route (see /review/[entity]/page.tsx)
+    // because the store DSL doesn't support jsonb array containment. Single-consumer +
+    // small N (≤ ~800 rows) — see spec §5.
+    { field: "channels", label: "Channels", type: "multiSelect", options: CHANNELS },
+    { field: "approvalStatus", label: "Approval", type: "select", options: APPROVAL_STATUS },
+    { field: "organicStatus", label: "Organic", type: "select", options: ORGANIC_STATUS },
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D4.2</span> — hypotheses + experiments</div>
+<pre>// apps/webapp/src/app/lib/listConfigs/hypotheses.ts
+import type { ListConfig } from "../types.js";
+import { DOMAIN, HYPOTHESIS_STATUS, LEARNING_CONFIDENCE } from "@engineerdad/store";
+export const hypothesesList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text" },
+    { field: "status", label: "Status", type: "status" },
+    { field: "confidence", label: "Confidence", type: "badge" },
+    { field: "domain", label: "Domain", type: "chips" },
+    { field: "runId", label: "Run", type: "runId" },
+  ],
+  filters: [
+    { field: "status", label: "Status", type: "select", options: HYPOTHESIS_STATUS },
+    { field: "confidence", label: "Confidence", type: "select", options: LEARNING_CONFIDENCE },
+    { field: "domain", label: "Domain", type: "multiSelect", options: DOMAIN },
+  ],
+};</pre>
+<pre>// apps/webapp/src/app/lib/listConfigs/experiments.ts
+import type { ListConfig } from "../types.js";
+import { APPROVAL_STATUS, EXPERIMENT_STATUS, PRIMARY_METRIC, TEST_TYPE } from "@engineerdad/store";
+export const experimentsList: ListConfig = {
+  columns: [
+    { field: "title", label: "Title", type: "text" },
+    { field: "status", label: "Phase", type: "status" },
+    { field: "primaryMetric", label: "Metric", type: "badge" },
+    { field: "testType", label: "Type", type: "badge" },
+    { field: "runId", label: "Run", type: "runId" },
+    { field: "approvalStatus", label: "Approval", type: "status" },
+  ],
+  filters: [
+    { field: "status", label: "Phase", type: "select", options: EXPERIMENT_STATUS },
+    { field: "primaryMetric", label: "Metric", type: "select", options: PRIMARY_METRIC },
+    { field: "testType", label: "Type", type: "select", options: TEST_TYPE },
+    { field: "approvalStatus", label: "Approval", type: "select", options: APPROVAL_STATUS },
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D4.3</span> — runs list config (no entity backing — bespoke)</div>
+<pre>// apps/webapp/src/app/lib/listConfigs/runs.ts
+import type { ListConfig } from "../types.js";
+export const RUN_STAGES = ["tracking", "analytics", "synthesize", "brief", "content", "produce", "schedule", "experiment", "distribute"] as const;
+export const RUN_STATUS = ["running", "waiting", "completed", "failed"] as const;
+export const runsList: ListConfig = {
+  columns: [
+    { field: "runId", label: "runId", type: "text" },
+    { field: "createdAt", label: "Started", type: "timestamp" },
+    { field: "stage", label: "Stage", type: "badge" },
+    { field: "status", label: "State", type: "status" },
+  ],
+  filters: [
+    { field: "stage", label: "Stage", type: "select", options: RUN_STAGES },
+    { field: "status", label: "State", type: "select", options: RUN_STATUS },
+  ],
+};</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">D4.4</span> — Typecheck + commit</div>
+<pre>pnpm --filter @engineerdad/webapp typecheck
+git add apps/webapp/src/app/lib/listConfigs/
+git commit -m "feat(webapp): list configs (default + creative-variants + hypotheses + experiments + runs)"</pre>
+</li>
+</ol>
+
+<h2><span class="phase">Phase E.</span> Routes (7 tasks)</h2>
+
+<h3 class="task"><span class="id">E1.</span> Left-nav sidebar layout</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/LeftNav.tsx</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/src/app/layout.tsx</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E1.1</span> — Implement LeftNav (client; persists collapse state in localStorage)</div>
+<pre>// apps/webapp/src/app/components/LeftNav.tsx
+"use client";
+import Link from "next/link";
+import { useState, useEffect } from "react";
+
+const REVIEW_ENTITIES: { slug: string; label: string }[] = [
+  { slug: "briefs", label: "Briefs" },
+  { slug: "scripts", label: "Scripts" },
+  { slug: "authority-articles", label: "Authority Articles" },
+  { slug: "creative-variants", label: "Creative Variants" },
+  { slug: "experiments", label: "Experiments" },
+  { slug: "performance-reports", label: "Memos &amp; Performance" },
+  { slug: "hypotheses", label: "Hypotheses" },
+  { slug: "learnings", label: "Learnings" },
+];
+
+function useCollapse(key: string, initial: boolean) {
+  const [collapsed, setCollapsed] = useState(initial);
+  useEffect(() =&gt; {
+    const v = localStorage.getItem(`nav.${key}`);
+    if (v != null) setCollapsed(v === "1");
+  }, [key]);
+  function toggle() {
+    setCollapsed((c) =&gt; {
+      const next = !c;
+      localStorage.setItem(`nav.${key}`, next ? "1" : "0");
+      return next;
+    });
+  }
+  return [collapsed, toggle] as const;
+}
+
+export function LeftNav() {
+  const [runsCollapsed, toggleRuns] = useCollapse("runs", false);
+  const [reviewCollapsed, toggleReview] = useCollapse("review", false);
+  return (
+    &lt;nav className="w-60 border-r border-slate-200 p-4 bg-white min-h-screen text-sm"&gt;
+      &lt;Link href="/" className="block font-bold mb-4"&gt;EngineerDad&lt;/Link&gt;
+      &lt;Link href="/" className="block py-1 px-2 rounded hover:bg-slate-100 mb-1"&gt;Dashboard&lt;/Link&gt;
+      &lt;button onClick={toggleRuns} className="w-full text-left py-1 px-2 font-semibold flex items-center gap-1"&gt;
+        &lt;span&gt;{runsCollapsed ? "▸" : "▾"}&lt;/span&gt; Runs
+      &lt;/button&gt;
+      {!runsCollapsed && (
+        &lt;ul className="ml-4 mb-2"&gt;
+          &lt;li&gt;&lt;Link href="/runs" className="block py-1 px-2 rounded hover:bg-slate-100"&gt;All runs&lt;/Link&gt;&lt;/li&gt;
+        &lt;/ul&gt;
+      )}
+      &lt;button onClick={toggleReview} className="w-full text-left py-1 px-2 font-semibold flex items-center gap-1"&gt;
+        &lt;span&gt;{reviewCollapsed ? "▸" : "▾"}&lt;/span&gt; Marketing Review
+      &lt;/button&gt;
+      {!reviewCollapsed && (
+        &lt;ul className="ml-4"&gt;
+          {REVIEW_ENTITIES.map((e) =&gt; (
+            &lt;li key={e.slug}&gt;&lt;Link href={`/review/${e.slug}`} className="block py-1 px-2 rounded hover:bg-slate-100"&gt;{e.label}&lt;/Link&gt;&lt;/li&gt;
+          ))}
+        &lt;/ul&gt;
+      )}
+    &lt;/nav&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E1.2</span> — Replace layout.tsx nav</div>
+<pre>// apps/webapp/src/app/layout.tsx
+import "./globals.css";
+import { LeftNav } from "./components/LeftNav.js";
+
+export const metadata = { title: "EngineerDad — Webapp" };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    &lt;html lang="en"&gt;
+      &lt;body className="bg-slate-50 text-slate-900 min-h-screen"&gt;
+        &lt;div className="flex"&gt;
+          &lt;LeftNav /&gt;
+          &lt;main className="flex-1 p-8 max-w-6xl"&gt;{children}&lt;/main&gt;
+        &lt;/div&gt;
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E1.3</span> — Run dev server + visit each nav entry to verify (no e2e for nav itself)</div>
+<pre>pnpm --filter @engineerdad/webapp dev
+# Visit http://localhost:3030 — verify Dashboard + collapsible Runs + collapsible Marketing Review render.
+# Click "Memos &amp; Performance" — link should point at /review/performance-reports (404 until E3).</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E1.4</span> — Commit</div>
+<pre>git add apps/webapp/src/app/components/LeftNav.tsx apps/webapp/src/app/layout.tsx
+git commit -m "feat(webapp): collapsible LeftNav with Runs + Marketing Review sections"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E2.</span> Dashboard stub at <code>/</code></h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/src/app/page.tsx</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E2.1</span> — Replace contents</div>
+<pre>// apps/webapp/src/app/page.tsx
+import Link from "next/link";
+
+export default function Dashboard() {
+  return (
+    &lt;div className="max-w-xl"&gt;
+      &lt;h1 className="text-2xl font-bold mb-4"&gt;Dashboard&lt;/h1&gt;
+      &lt;p className="text-slate-600 mb-6"&gt;Pick a run to inspect, or browse the entity lists under Marketing Review.&lt;/p&gt;
+      &lt;Link href="/runs" className="inline-block bg-indigo-600 text-white rounded px-4 py-2 text-sm font-semibold hover:bg-indigo-700"&gt;
+        Browse runs →
+      &lt;/Link&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E2.2</span> — Commit</div>
+<pre>git add apps/webapp/src/app/page.tsx
+git commit -m "feat(webapp): blank Dashboard stub with link to /runs"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E3.</span> <code>/review/[entity]/page.tsx</code> — entity list</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/review/[entity]/page.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/listConfigs/index.ts</code> (dispatch helper)</div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/review-list.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E3.1</span> — listConfigs/index.ts dispatcher</div>
+<pre>// apps/webapp/src/app/lib/listConfigs/index.ts
+import type { ListConfig } from "../types.js";
+import type { EntityName } from "@engineerdad/store";
+import { defaultList } from "./default.js";
+import { creativeVariantsList } from "./creative-variants.js";
+import { hypothesesList } from "./hypotheses.js";
+import { experimentsList } from "./experiments.js";
+
+const MAP: Partial&lt;Record&lt;EntityName, ListConfig&gt;&gt; = {
+  CreativeVariants: creativeVariantsList,
+  Hypotheses: hypothesesList,
+  Experiments: experimentsList,
+};
+
+export function listConfigFor(entity: EntityName): ListConfig {
+  return MAP[entity] ?? defaultList;
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E3.2</span> — Failing e2e spec for CreativeVariants list (channels column + filter)</div>
+<pre>// apps/webapp/tests/e2e/review-list.spec.ts
+import { test, expect } from "./fixtures";
+
+test("CreativeVariants list shows channels column + filters by channel", async ({ seed, page }) =&gt; {
+  await seed.create("CreativeVariants", {
+    title: "Carousel A",
+    runId: "r-list-cv",
+    createdBy: "MediaProd",
+    channels: ["Meta-paid", "IG-organic"],
+    approvalStatus: "Awaiting Approval",
+    organicStatus: "Draft",
+  });
+  await seed.create("CreativeVariants", {
+    title: "Reel B",
+    runId: "r-list-cv",
+    createdBy: "MediaProd",
+    channels: ["YT"],
+    approvalStatus: "Approved",
+    organicStatus: "Approved",
+  });
+  await page.goto("/review/creative-variants");
+  await expect(page.getByText("Carousel A")).toBeVisible();
+  await expect(page.getByText("Reel B")).toBeVisible();
+  await expect(page.getByText("Meta-paid")).toBeVisible();
+  await page.goto("/review/creative-variants?channels=YT");
+  await expect(page.getByText("Reel B")).toBeVisible();
+  await expect(page.getByText("Carousel A")).toHaveCount(0);
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E3.3</span> — Implement the route</div>
+<pre>// apps/webapp/src/app/review/[entity]/page.tsx
+import { store, ENTITY_NAMES } from "@engineerdad/store";
+import { notFound } from "next/navigation";
+import { EntityListView } from "../../components/EntityListView.js";
+import { listConfigFor } from "../../lib/listConfigs/index.js";
+import { entityFromSlug, slugOf } from "../../lib/entities.js";
+
+type SP = { [key: string]: string | string[] | undefined };
+
+export default async function ReviewList({
+  params, searchParams,
+}: { params: Promise&lt;{ entity: string }&gt;; searchParams: Promise&lt;SP&gt; }) {
+  const { entity: slug } = await params;
+  const sp = await searchParams;
+  const entity = entityFromSlug(slug);
+  if (!entity) notFound();
+
+  const config = listConfigFor(entity);
+  // Build store filter from scalar fields only.
+  const filter: Record&lt;string, unknown&gt; = {};
+  const filterFields = new Set(config.filters.map((f) =&gt; f.field));
+  for (const k of filterFields) {
+    if (k === "channels") continue; // applied in JS below
+    const v = sp[k];
+    if (typeof v === "string" && v.length) filter[k] = v;
+  }
+  let rows = await store.query(entity, filter as never);
+
+  // Channels filter — applied in JS because the store DSL doesn't support
+  // jsonb array containment. Small N; intentional. See spec §5.
+  const channelParam = typeof sp.channels === "string" ? sp.channels : undefined;
+  if (channelParam) {
+    const wanted = channelParam.split(",").map((c) =&gt; c.trim()).filter(Boolean);
+    rows = rows.filter((r) =&gt; {
+      const arr = (r as Record&lt;string, unknown&gt;).channels;
+      return Array.isArray(arr) && (arr as string[]).some((c) =&gt; wanted.includes(c));
+    });
+  }
+
+  return (
+    &lt;EntityListView
+      title={entity}
+      config={config}
+      rows={rows as never}
+      rowHref={(r) =&gt; `/review/${slugOf(entity)}/${(r as { id: string }).id}`}
+    /&gt;
+  );
+}
+
+export function generateStaticParams() {
+  return ENTITY_NAMES.map((e) =&gt; ({ entity: slugOf(e) }));
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E3.4</span> — Run e2e; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e review-list</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E3.5</span> — Commit</div>
+<pre>git add apps/webapp/src/app/review apps/webapp/src/app/lib/listConfigs/index.ts apps/webapp/tests/e2e/review-list.spec.ts
+git commit -m "feat(webapp): /review/[entity] list page with per-entity config + JS channels filter"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E4.</span> <code>/review/[entity]/[id]/page.tsx</code> — entity detail (read + edit toggle)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/review/[entity]/[id]/page.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/lib/layouts/index.ts</code> (dispatcher)</div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/review-detail.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E4.1</span> — layouts/index.ts dispatcher</div>
+<pre>// apps/webapp/src/app/lib/layouts/index.ts
+import type { EntityLayout } from "../types.js";
+import type { EntityName } from "@engineerdad/store";
+import { briefsLayout } from "./briefs.js";
+import { scriptsLayout } from "./scripts.js";
+import { authorityArticlesLayout } from "./authority-articles.js";
+import { creativeVariantsLayout } from "./creative-variants.js";
+import { experimentsLayout } from "./experiments.js";
+import { performanceReportsLayout } from "./performance-reports.js";
+import { hypothesesLayout } from "./hypotheses.js";
+import { learningsLayout } from "./learnings.js";
+
+const MAP: Record&lt;EntityName, EntityLayout&gt; = {
+  Briefs: briefsLayout,
+  Scripts: scriptsLayout,
+  AuthorityArticles: authorityArticlesLayout,
+  CreativeVariants: creativeVariantsLayout,
+  Experiments: experimentsLayout,
+  PerformanceReports: performanceReportsLayout,
+  Hypotheses: hypothesesLayout,
+  Learnings: learningsLayout,
+};
+
+export function layoutFor(entity: EntityName): EntityLayout {
+  return MAP[entity];
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E4.2</span> — Failing e2e (read mode shows persona subtitle; Edit toggle flips to form)</div>
+<pre>// apps/webapp/tests/e2e/review-detail.spec.ts
+import { test, expect } from "./fixtures";
+
+test("Brief detail renders persona subtitle + body markdown in read mode", async ({ seed, page }) =&gt; {
+  const { id } = await seed.create("Briefs", {
+    title: "PRS as Self-Care",
+    persona: "engineer_dad_archetype",
+    runId: "r-d1",
+    createdBy: "Targeting",
+    bodyEn: "# Heading\n\nBody paragraph",
+    approvalStatus: "Awaiting Approval",
+  });
+  await page.goto(`/review/briefs/${id}`);
+  await expect(page.getByRole("heading", { name: "PRS as Self-Care" })).toBeVisible();
+  await expect(page.getByText("engineer_dad_archetype")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Heading" })).toBeVisible();
+  await page.getByRole("link", { name: "Edit" }).click();
+  await expect(page.locator("form")).toBeVisible();
+  await expect(page.locator("textarea[name=\"bodyEn\"]")).toBeVisible();
+});
+
+test("Brief detail Approve button transitions status", async ({ seed, page }) =&gt; {
+  const { id } = await seed.create("Briefs", {
+    title: "Approve me",
+    runId: "r-d2",
+    createdBy: "Targeting",
+    approvalStatus: "Awaiting Approval",
+  });
+  await page.goto(`/review/briefs/${id}`);
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("Approved", { exact: false })).toBeVisible();
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E4.3</span> — Implement</div>
+<pre>// apps/webapp/src/app/review/[entity]/[id]/page.tsx
+import { store } from "@engineerdad/store";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { entityFromSlug, slugOf } from "../../../lib/entities.js";
+import { layoutFor } from "../../../lib/layouts/index.js";
+import { EntityDetailView } from "../../../components/EntityDetailView.js";
+import { EntityEditForm } from "../../../components/EntityEditForm.js";
+import { LanguageToggle, langFromSearchParams } from "../../../components/LanguageToggle.js";
+import { SceneViewer } from "../../../components/SceneViewer.js";
+import { DecisionMemo } from "../../../components/DecisionMemo.js";
+import { setStatus } from "../../../lib/actions.js";
+
+type SP = { lang?: string; mode?: string };
+
+export default async function ReviewDetail({
+  params, searchParams,
+}: { params: Promise&lt;{ entity: string; id: string }&gt;; searchParams: Promise&lt;SP&gt; }) {
+  const { entity: slug, id } = await params;
+  const sp = await searchParams;
+  const entity = entityFromSlug(slug);
+  if (!entity) notFound();
+  const row = await store.get(entity, id);
+  if (!row) notFound();
+  const layout = layoutFor(entity);
+  const lang = langFromSearchParams(sp);
+  const editing = sp.mode === "edit";
+
+  const statusValue = String((row as Record&lt;string, unknown&gt;)[layout.header.status] ?? "");
+  const isAwaiting = statusValue === "Awaiting Approval";
+
+  // Specialized header on read mode: status pill, secondary status pill, language toggle, action buttons.
+  const headerSlot = (
+    &lt;div className="flex items-center gap-3 mt-3 flex-wrap"&gt;
+      &lt;span className="bg-slate-100 px-2 py-0.5 rounded text-xs"&gt;{statusValue}&lt;/span&gt;
+      {layout.header.secondaryStatus && (
+        &lt;span className="bg-slate-100 px-2 py-0.5 rounded text-xs"&gt;
+          {String((row as Record&lt;string, unknown&gt;)[layout.header.secondaryStatus] ?? "")}
+        &lt;/span&gt;
+      )}
+      &lt;LanguageToggle lang={lang} /&gt;
+      &lt;div className="ml-auto flex gap-2 text-sm"&gt;
+        {isAwaiting && !editing && (
+          &lt;form action={setStatus.bind(null, entity, id, "Approved")}&gt;
+            &lt;button type="submit" className="bg-emerald-600 text-white rounded px-3 py-1 hover:bg-emerald-700"&gt;Approve&lt;/button&gt;
+          &lt;/form&gt;
+        )}
+        {!editing
+          ? &lt;Link href={`?mode=edit${lang === "ms" ? "&amp;lang=ms" : ""}`} className="border border-slate-300 rounded px-3 py-1 hover:bg-slate-100"&gt;Edit&lt;/Link&gt;
+          : &lt;Link href={`?${lang === "ms" ? "lang=ms" : ""}`} className="border border-slate-300 rounded px-3 py-1 hover:bg-slate-100"&gt;Cancel&lt;/Link&gt;}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+
+  if (editing) {
+    return (
+      &lt;div&gt;
+        &lt;header className="mb-6 pb-4 border-b border-slate-200"&gt;
+          &lt;h1 className="text-2xl font-bold m-0"&gt;{String((row as Record&lt;string, unknown&gt;).title ?? "(untitled)")}&lt;/h1&gt;
+          {headerSlot}
+        &lt;/header&gt;
+        &lt;EntityEditForm entity={entity} id={id} layout={layout} row={row as never} backHref={`/review/${slug}/${id}`} /&gt;
+      &lt;/div&gt;
+    );
+  }
+
+  // Special-case overlays on read mode:
+  //  - CreativeVariants: inject SceneViewer for asset_files at top of Creative section
+  //  - PerformanceReports: render DecisionMemo in place of layout's Memo bilingual
+  const overlay = (() =&gt; {
+    if (entity === "CreativeVariants") {
+      const files = (row as Record&lt;string, unknown&gt;).assetFiles as { url: string }[] | null;
+      const aspect = (row as Record&lt;string, unknown&gt;).aspect as "4:5" | "1:1" | "9:16" | "16:9" | undefined;
+      if (files?.length && aspect) {
+        return &lt;div className="mb-6"&gt;&lt;SceneViewer assets={files} aspect={aspect} /&gt;&lt;/div&gt;;
+      }
+    }
+    if (entity === "PerformanceReports") {
+      return &lt;div className="mb-6"&gt;&lt;DecisionMemo row={row as never} lang={lang} /&gt;&lt;/div&gt;;
+    }
+    return null;
+  })();
+
+  return (
+    &lt;div&gt;
+      &lt;div className="mb-4"&gt;&lt;Link href={`/review/${slug}`} className="text-sm text-slate-500 hover:underline"&gt;← {entity}&lt;/Link&gt;&lt;/div&gt;
+      &lt;EntityDetailView layout={layout} row={row as never} lang={lang} slugOf={slugOf} headerSlot={headerSlot} /&gt;
+      {overlay}
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E4.4</span> — Add <code>setStatus</code> server action helper (parallel to <code>saveRow</code>)</div>
+<pre>// apps/webapp/src/app/lib/actions.ts — append
+
+"use server";
+// existing saveRow ...
+
+export async function setStatus(entity: EntityName, id: string, status: string) {
+  const r = await store.setStatus(entity, id, status);
+  if (!r.ok) throw new Error(r.problems?.join("; ") ?? "setStatus failed");
+  revalidatePath(`/review/${slugOf(entity)}`);
+  revalidatePath(`/review/${slugOf(entity)}/${id}`);
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E4.5</span> — Run e2e; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e review-detail</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E4.6</span> — Commit</div>
+<pre>git add apps/webapp/src/app/review/[entity]/[id] apps/webapp/src/app/lib/layouts/index.ts apps/webapp/src/app/lib/actions.ts apps/webapp/tests/e2e/review-detail.spec.ts
+git commit -m "feat(webapp): /review/[entity]/[id] detail with read/edit toggle + Approve action + overlays"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E5.</span> <code>/runs/page.tsx</code> — run index</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/runs/page.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/runs-list.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E5.1</span> — Failing e2e</div>
+<pre>// apps/webapp/tests/e2e/runs-list.spec.ts
+import { test, expect } from "./fixtures";
+
+test("runs list shows seeded runs with stage + status", async ({ seed, page }) =&gt; {
+  await seed.orchestratorRun("run_a", "produce", "waiting");
+  await seed.orchestratorRun("run_b", "distribute", "completed");
+  await page.goto("/runs");
+  await expect(page.getByText("run_a")).toBeVisible();
+  await expect(page.getByText("run_b")).toBeVisible();
+  await expect(page.getByText("produce", { exact: false })).toBeVisible();
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E5.2</span> — Implement</div>
+<pre>// apps/webapp/src/app/runs/page.tsx
+import Link from "next/link";
+import { listRuns } from "../lib/orchestrator.js";
+import { runsList } from "../lib/listConfigs/runs.js";
+import { EntityListView } from "../components/EntityListView.js";
+
+type SP = { stage?: string; status?: string };
+
+export default async function RunsPage({ searchParams }: { searchParams: Promise&lt;SP&gt; }) {
+  const sp = await searchParams;
+  let rows = await listRuns({ limit: 200 });
+  if (sp.stage)  rows = rows.filter((r) =&gt; r.stage === sp.stage);
+  if (sp.status) rows = rows.filter((r) =&gt; r.status === sp.status);
+  return (
+    &lt;EntityListView
+      title="Runs"
+      config={runsList}
+      rows={rows as never}
+      rowHref={(r) =&gt; `/runs/${(r as { runId: string }).runId}`}
+    /&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E5.3</span> — Run e2e; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e runs-list</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E5.4</span> — Commit</div>
+<pre>git add apps/webapp/src/app/runs/page.tsx apps/webapp/tests/e2e/runs-list.spec.ts
+git commit -m "feat(webapp): /runs index page"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E6.</span> <code>/runs/[runId]/page.tsx</code> — run detail (timeline + memo + artifacts)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/runs/[runId]/page.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/RunStageTimeline.tsx</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/FormatCard.tsx</code> (Script-grouped variants with aspect tabs)</div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/tests/e2e/run-detail.spec.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E6.1</span> — RunStageTimeline component</div>
+<pre>// apps/webapp/src/app/components/RunStageTimeline.tsx
+import type { RunRow, StepRow } from "../lib/orchestrator.js";
+import { currentGate } from "../lib/orchestrator.js";
+
+const STAGES = ["tracking", "analytics", "synthesize", "brief", "content", "produce", "schedule", "experiment", "distribute"] as const;
+const GATE_AT: Record&lt;string, string&gt; = { brief: "HG1", content: "HG2", produce: "HG3", distribute: "HG4" };
+
+function stateOf(stage: string, run: RunRow): "done" | "current" | "pending" | "failed" {
+  const order = STAGES.indexOf(stage as typeof STAGES[number]);
+  const cur = STAGES.indexOf(run.stage as typeof STAGES[number]);
+  if (order &lt; cur) return "done";
+  if (order &gt; cur) return "pending";
+  if (run.status === "failed") return "failed";
+  return "current";
+}
+
+const ICON = { done: "●", current: "◐", pending: "○", failed: "✕" } as const;
+const COLOR = { done: "text-emerald-600", current: "text-indigo-600", pending: "text-slate-300", failed: "text-rose-600" } as const;
+
+export function RunStageTimeline({ run, steps: _steps }: { run: RunRow; steps: StepRow[] }) {
+  const gate = currentGate(run);
+  return (
+    &lt;div className="border border-slate-200 rounded-lg p-4 bg-white"&gt;
+      &lt;div className="flex flex-wrap gap-3 items-center text-sm"&gt;
+        {STAGES.map((s) =&gt; {
+          const st = stateOf(s, run);
+          const gateLabel = st === "done" && GATE_AT[s] ? ` ${GATE_AT[s]}✓` : st === "current" && GATE_AT[s] ? ` ${GATE_AT[s]}` : "";
+          return (
+            &lt;span key={s} className={`flex items-center gap-1 ${COLOR[st]} ${st === "current" ? "font-semibold" : ""}`}&gt;
+              &lt;span className="text-lg leading-none"&gt;{ICON[st]}&lt;/span&gt;{s}{gateLabel}
+            &lt;/span&gt;
+          );
+        })}
+      &lt;/div&gt;
+      {gate && (
+        &lt;div className="mt-3 bg-amber-50 border border-amber-300 rounded p-2 text-sm"&gt;
+          ⚠ {gate} awaiting — approve in the relevant artifact section below.
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E6.2</span> — FormatCard component (Script-grouped variants with aspect tabs)</div>
+<pre>// apps/webapp/src/app/components/FormatCard.tsx
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { SceneViewer } from "./SceneViewer.js";
+
+type Variant = {
+  id: string;
+  format: string;
+  aspect: "4:5" | "1:1" | "9:16" | "16:9";
+  assetFiles?: { url: string }[] | null;
+  approvalStatus?: string;
+  organicStatus?: string;
+};
+
+export function FormatCard({ format, variants }: { format: string; variants: Variant[] }) {
+  const aspects = [...new Set(variants.map((v) =&gt; v.aspect))];
+  const [active, setActive] = useState&lt;string&gt;(aspects[0]);
+  const variant = variants.find((v) =&gt; v.aspect === active);
+  return (
+    &lt;div className="border border-slate-200 rounded-lg p-4 mb-4 bg-white"&gt;
+      &lt;div className="flex items-center justify-between mb-3"&gt;
+        &lt;h4 className="font-semibold text-sm m-0"&gt;{format}&lt;/h4&gt;
+        {aspects.length &gt; 1 && (
+          &lt;div className="inline-flex border border-slate-300 rounded overflow-hidden text-xs font-semibold"&gt;
+            {aspects.map((a) =&gt; (
+              &lt;button key={a} onClick={() =&gt; setActive(a)}
+                      className={`px-2 py-0.5 ${a === active ? "bg-indigo-600 text-white" : "bg-white text-slate-600"}`}&gt;
+                {a}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+      &lt;/div&gt;
+      {variant && (
+        &lt;&gt;
+          &lt;SceneViewer assets={variant.assetFiles ?? []} aspect={variant.aspect} /&gt;
+          &lt;div className="mt-3 text-xs flex gap-3 flex-wrap"&gt;
+            &lt;span&gt;Approval: &lt;b&gt;{variant.approvalStatus ?? "—"}&lt;/b&gt;&lt;/span&gt;
+            &lt;span&gt;Organic: &lt;b&gt;{variant.organicStatus ?? "—"}&lt;/b&gt;&lt;/span&gt;
+            &lt;Link href={`/review/creative-variants/${variant.id}`} className="text-indigo-600 hover:underline ml-auto"&gt;Edit →&lt;/Link&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E6.3</span> — Failing e2e</div>
+<pre>// apps/webapp/tests/e2e/run-detail.spec.ts
+import { test, expect } from "./fixtures";
+
+test("run detail shows stage timeline + memo + artifacts grouped by Script", async ({ seed, page }) =&gt; {
+  await seed.orchestratorRun("run_z", "produce", "waiting");
+
+  const script = await seed.create("Scripts", {
+    title: "PRS Self-Care Script",
+    runId: "run_z", createdBy: "ContentGen",
+    brief: "00000000-0000-0000-0000-000000000000",
+  });
+  await seed.create("CreativeVariants", {
+    title: "Carousel 4:5",
+    runId: "run_z", createdBy: "MediaProd",
+    script: script.id, format: "Carousel", aspect: "4:5",
+    channels: ["Meta-paid"], approvalStatus: "Awaiting Approval", organicStatus: "Draft",
+  });
+  await seed.create("CreativeVariants", {
+    title: "Carousel 1:1",
+    runId: "run_z", createdBy: "MediaProd",
+    script: script.id, format: "Carousel", aspect: "1:1",
+    channels: ["IG-organic"], approvalStatus: "Awaiting Approval", organicStatus: "Draft",
+  });
+  await seed.create("PerformanceReports", {
+    title: "Memo for run_z",
+    runId: "run_z", createdBy: "Brain",
+    decisionMemoEn: "## Decision\n\nGo with angle A.",
+  });
+
+  await page.goto("/runs/run_z");
+  await expect(page.getByText("run_z")).toBeVisible();
+  await expect(page.getByText("produce", { exact: false })).toBeVisible();
+  await expect(page.getByText("HG3", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Decision" })).toBeVisible();
+  await expect(page.getByText("PRS Self-Care Script")).toBeVisible();
+  // Aspect tabs
+  await expect(page.getByRole("button", { name: "4:5" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "1:1" })).toBeVisible();
+});</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E6.4</span> — Implement</div>
+<pre>// apps/webapp/src/app/runs/[runId]/page.tsx
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { store } from "@engineerdad/store";
+import { getRun, listSteps } from "../../lib/orchestrator.js";
+import { RunStageTimeline } from "../../components/RunStageTimeline.js";
+import { DecisionMemo } from "../../components/DecisionMemo.js";
+import { FormatCard } from "../../components/FormatCard.js";
+import { LanguageToggle, langFromSearchParams } from "../../components/LanguageToggle.js";
+
+type SP = { lang?: string; view?: string };
+
+export default async function RunDetail({
+  params, searchParams,
+}: { params: Promise&lt;{ runId: string }&gt;; searchParams: Promise&lt;SP&gt; }) {
+  const { runId } = await params;
+  const sp = await searchParams;
+  const lang = langFromSearchParams(sp);
+  const [run, steps, scripts, variants, perfRows, articles, hypotheses, experiments] = await Promise.all([
+    getRun(runId),
+    listSteps(runId),
+    store.query("Scripts", { runId }),
+    store.query("CreativeVariants", { runId }),
+    store.query("PerformanceReports", { runId }),
+    store.query("AuthorityArticles", { runId }),
+    store.query("Hypotheses", { runId }),
+    store.query("Experiments", { runId }),
+  ]);
+  if (!run) notFound();
+
+  // Group variants by Script + format.
+  const byScript = new Map&lt;string, { script: typeof scripts[number]; byFormat: Map&lt;string, typeof variants&gt; }&gt;();
+  for (const s of scripts) {
+    byScript.set(s.id as string, { script: s, byFormat: new Map() });
+  }
+  for (const v of variants) {
+    const scriptId = (v as Record&lt;string, unknown&gt;).script as string;
+    const fmt = (v as Record&lt;string, unknown&gt;).format as string;
+    const slot = byScript.get(scriptId);
+    if (!slot) continue;
+    const arr = slot.byFormat.get(fmt) ?? [];
+    arr.push(v);
+    slot.byFormat.set(fmt, arr);
+  }
+
+  const memoRow = perfRows[0] ?? null;
+  const startedAt = run.createdAt.toLocaleString("en-MY");
+
+  return (
+    &lt;div className="space-y-6"&gt;
+      &lt;header className="pb-4 border-b border-slate-200"&gt;
+        &lt;div className="flex items-center justify-between flex-wrap gap-2"&gt;
+          &lt;div&gt;
+            &lt;Link href="/runs" className="text-sm text-slate-500 hover:underline"&gt;← Runs&lt;/Link&gt;
+            &lt;h1 className="text-2xl font-mono font-bold m-0"&gt;{run.runId}&lt;/h1&gt;
+            &lt;p className="text-sm text-slate-500 m-0"&gt;Started {startedAt} · stage: {run.stage}&lt;/p&gt;
+          &lt;/div&gt;
+          &lt;div className="flex items-center gap-3"&gt;
+            &lt;Link href={`?view=${sp.view === "debug" ? "" : "debug"}${lang === "ms" ? "&amp;lang=ms" : ""}`}
+                  className="text-xs border border-slate-300 rounded px-2 py-1 hover:bg-slate-100"&gt;
+              {sp.view === "debug" ? "Timeline" : "Debug"}
+            &lt;/Link&gt;
+            &lt;LanguageToggle lang={lang} /&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/header&gt;
+
+      {sp.view === "debug"
+        ? null /* E7 — step table */
+        : &lt;RunStageTimeline run={run} steps={steps} /&gt;}
+
+      &lt;section className="border border-slate-200 rounded-lg p-5 bg-white"&gt;
+        &lt;DecisionMemo row={memoRow as never} lang={lang} /&gt;
+      &lt;/section&gt;
+
+      &lt;section&gt;
+        &lt;h2 className="text-lg font-semibold mb-3"&gt;Artifacts&lt;/h2&gt;
+        {[...byScript.values()].map(({ script, byFormat }) =&gt; (
+          &lt;details key={script.id as string} open className="mb-4 border border-slate-200 rounded-lg p-4 bg-white"&gt;
+            &lt;summary className="cursor-pointer flex items-center gap-3"&gt;
+              &lt;span className="font-semibold"&gt;Script · {String(script.title ?? "(untitled)")}&lt;/span&gt;
+              &lt;span className="bg-slate-100 px-2 py-0.5 rounded text-xs"&gt;{String((script as Record&lt;string, unknown&gt;).approvalStatus ?? "")}&lt;/span&gt;
+              &lt;Link href={`/review/scripts/${script.id}`} className="ml-auto text-xs text-indigo-600 hover:underline"&gt;Open →&lt;/Link&gt;
+            &lt;/summary&gt;
+            &lt;div className="mt-3 space-y-3"&gt;
+              {[...byFormat.entries()].map(([fmt, vs]) =&gt; (
+                &lt;FormatCard key={fmt} format={fmt} variants={vs as never} /&gt;
+              ))}
+            &lt;/div&gt;
+          &lt;/details&gt;
+        ))}
+        {byScript.size === 0 && &lt;p className="text-slate-500 text-sm"&gt;No scripts produced yet for this run.&lt;/p&gt;}
+      &lt;/section&gt;
+
+      &lt;section className="text-sm border-t border-slate-200 pt-4"&gt;
+        &lt;h3 className="text-sm font-semibold mb-2"&gt;Other artifacts in this run&lt;/h3&gt;
+        &lt;ul className="space-y-1"&gt;
+          &lt;li&gt;Authority Articles ({articles.length}): {articles.map((a) =&gt;
+            &lt;Link key={a.id as string} href={`/review/authority-articles/${a.id}`} className="text-indigo-600 hover:underline mr-2"&gt;{String(a.title)}&lt;/Link&gt;)}&lt;/li&gt;
+          &lt;li&gt;Hypotheses ({hypotheses.length}): {hypotheses.map((h) =&gt;
+            &lt;Link key={h.id as string} href={`/review/hypotheses/${h.id}`} className="text-indigo-600 hover:underline mr-2"&gt;{String(h.title)}&lt;/Link&gt;)}&lt;/li&gt;
+          &lt;li&gt;Experiments ({experiments.length}): {experiments.map((e) =&gt;
+            &lt;Link key={e.id as string} href={`/review/experiments/${e.id}`} className="text-indigo-600 hover:underline mr-2"&gt;{String(e.title)}&lt;/Link&gt;)}&lt;/li&gt;
+        &lt;/ul&gt;
+      &lt;/section&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E6.5</span> — Run e2e; expect PASS</div>
+<pre>pnpm --filter @engineerdad/webapp test:e2e run-detail</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E6.6</span> — Commit</div>
+<pre>git add apps/webapp/src/app/runs apps/webapp/src/app/components/RunStageTimeline.tsx apps/webapp/src/app/components/FormatCard.tsx apps/webapp/tests/e2e/run-detail.spec.ts
+git commit -m "feat(webapp): /runs/[runId] with stage timeline, memo, Script-grouped artifacts"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">E7.</span> Run detail — debug view (step table + payload modal)</h3>
+
+<div class="files">
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/components/RunStepTable.tsx</code></div>
+<div class="row"><span class="tag modify">MODIFY</span> <code>apps/webapp/src/app/runs/[runId]/page.tsx</code> — render step table when <code>?view=debug</code></div>
+<div class="row"><span class="tag create">CREATE</span> <code>apps/webapp/src/app/runs/[runId]/payload/[stepResultId]/page.tsx</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">E7.1</span> — RunStepTable</div>
+<pre>// apps/webapp/src/app/components/RunStepTable.tsx
+import Link from "next/link";
+import type { RunRow, StepRow } from "../lib/orchestrator.js";
+
+export function RunStepTable({ run, steps }: { run: RunRow; steps: StepRow[] }) {
+  const failed = steps.filter((s) =&gt; s.status === "failed" || s.problems?.length);
+  return (
+    &lt;div&gt;
+      {failed.length &gt; 0 && (
+        &lt;div className="mb-3 bg-rose-50 border border-rose-300 rounded p-3 text-sm"&gt;
+          {failed.length} step{failed.length === 1 ? "" : "s"} failed or carry problems. Inspect below.
+        &lt;/div&gt;
+      )}
+      &lt;table className="w-full text-xs font-mono"&gt;
+        &lt;thead&gt;&lt;tr className="text-left text-slate-500"&gt;
+          &lt;th className="py-1"&gt;step_id&lt;/th&gt;&lt;th&gt;stage&lt;/th&gt;&lt;th&gt;status&lt;/th&gt;&lt;th&gt;attempts&lt;/th&gt;&lt;th&gt;problems&lt;/th&gt;&lt;th&gt;updated&lt;/th&gt;&lt;th&gt;payload&lt;/th&gt;
+        &lt;/tr&gt;&lt;/thead&gt;
+        &lt;tbody&gt;
+        {steps.map((s) =&gt; {
+          const resultObj = s.result as Record&lt;string, unknown&gt; | null;
+          const ref = resultObj && typeof resultObj.stepResultId === "string" ? resultObj.stepResultId : null;
+          return (
+            &lt;tr key={s.stepId} className={`border-t border-slate-200 ${s.status === "failed" ? "bg-rose-50" : ""}`}&gt;
+              &lt;td className="py-1"&gt;{s.stepId}&lt;/td&gt;
+              &lt;td&gt;{s.stage}&lt;/td&gt;
+              &lt;td&gt;{s.status}&lt;/td&gt;
+              &lt;td&gt;{s.attempts}&lt;/td&gt;
+              &lt;td className="text-rose-700"&gt;{s.problems?.join("; ")}&lt;/td&gt;
+              &lt;td&gt;{s.updatedAt.toLocaleTimeString("en-MY")}&lt;/td&gt;
+              &lt;td&gt;{ref ? &lt;Link href={`/runs/${run.runId}/payload/${ref}`} className="text-indigo-600 hover:underline"&gt;view&lt;/Link&gt; : "—"}&lt;/td&gt;
+            &lt;/tr&gt;
+          );
+        })}
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E7.2</span> — Plug into the run-detail page (debug branch)</div>
+<pre>// apps/webapp/src/app/runs/[runId]/page.tsx — change the conditional:
+
+import { RunStepTable } from "../../components/RunStepTable.js";
+
+// ...
+{sp.view === "debug"
+  ? &lt;RunStepTable run={run} steps={steps} /&gt;
+  : &lt;RunStageTimeline run={run} steps={steps} /&gt;}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E7.3</span> — Payload page</div>
+<pre>// apps/webapp/src/app/runs/[runId]/payload/[stepResultId]/page.tsx
+import { loadStepPayload } from "../../../../lib/orchestrator.js";
+import Link from "next/link";
+
+export default async function Payload({
+  params,
+}: { params: Promise&lt;{ runId: string; stepResultId: string }&gt; }) {
+  const { runId, stepResultId } = await params;
+  let payload: unknown;
+  try { payload = await loadStepPayload(stepResultId); }
+  catch (e) { payload = { error: e instanceof Error ? e.message : String(e) }; }
+  return (
+    &lt;div&gt;
+      &lt;Link href={`/runs/${runId}?view=debug`} className="text-sm text-slate-500 hover:underline"&gt;← Run {runId}&lt;/Link&gt;
+      &lt;h1 className="text-xl font-bold mt-2 mb-3"&gt;Payload &lt;code className="text-base"&gt;{stepResultId}&lt;/code&gt;&lt;/h1&gt;
+      &lt;pre className="bg-slate-50 border border-slate-200 rounded p-4 text-xs overflow-auto"&gt;{JSON.stringify(payload, null, 2)}&lt;/pre&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E7.4</span> — Manual smoke (debug view + payload page render with seeded steps)</div>
+<pre># Add a small spec or smoke-test by hand:
+pnpm --filter @engineerdad/webapp test:e2e run-detail
+# Optionally extend run-detail.spec.ts to click the Debug button and assert table appears.</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">E7.5</span> — Commit</div>
+<pre>git add apps/webapp/src/app/components/RunStepTable.tsx apps/webapp/src/app/runs/[runId]/page.tsx apps/webapp/src/app/runs/[runId]/payload
+git commit -m "feat(webapp): run detail debug view — step table + payload page"</pre>
+</li>
+</ol>
+
+<h2><span class="phase">Phase F.</span> Cutover (3 tasks)</h2>
+
+<h3 class="task"><span class="id">F1.</span> Update stage HUMAN GATE links to <code>/review/</code> prefix</h3>
+
+<div class="files">
+<div class="row"><span class="tag modify">MODIFY</span> <code>packages/orchestrator/src/stages/{brief,content,produce}.ts</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">F1.1</span> — Edit each message</div>
+<pre>// brief.ts:62 — `…${reviewUiUrl()}/briefs…` → `…${reviewUiUrl()}/review/briefs…`
+// content.ts:136 — `…${reviewUiUrl()}/scripts…` → `…${reviewUiUrl()}/review/scripts and AuthorityArticles at ${reviewUiUrl()}/review/authority-articles…`
+// produce.ts:540 — `…${reviewUiUrl()}/creative-variants…` → `…${reviewUiUrl()}/review/creative-variants…`</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">F1.2</span> — Update unit tests if any reference the URL path</div>
+<pre>grep -rn "reviewUiUrl\|/briefs\|/scripts\|/creative-variants" packages/orchestrator/src/stages/*.test.ts | head -10</pre>
+<p>Update any string-match assertions to the new path.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">F1.3</span> — Build + test</div>
+<pre>pnpm -r build
+pnpm --filter @engineerdad/orchestrator test</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">F1.4</span> — Commit</div>
+<pre>git add packages/orchestrator/src/stages
+git commit -m "refactor(stages): point HUMAN GATE links at /review/<slug>"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">F2.</span> Delete old root-level <code>/[entity]</code> and <code>/[entity]/[id]</code> routes</h3>
+
+<div class="files">
+<div class="row"><span class="tag delete">DELETE</span> <code>apps/webapp/src/app/[entity]/page.tsx</code></div>
+<div class="row"><span class="tag delete">DELETE</span> <code>apps/webapp/src/app/[entity]/[id]/page.tsx</code></div>
+</div>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">F2.1</span> — Remove the directories</div>
+<pre>git rm -r apps/webapp/src/app/\[entity\]</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">F2.2</span> — Verify build</div>
+<pre>pnpm -r build</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">F2.3</span> — Verify no lingering references</div>
+<pre>grep -rn 'href=\"/briefs\|href=\"/scripts\|href=\"/creative-variants\|href=\"/experiments\|href=\"/hypotheses\|href=\"/learnings\|href=\"/authority-articles\|href=\"/performance-reports' apps/webapp/src/ 2&gt;/dev/null
+# Expected: empty</pre>
+</li>
+
+<li><div class="head"><span class="stepnum">F2.4</span> — Commit</div>
+<pre>git commit -m "chore(webapp): delete old root-level /[entity] routes; /review/[entity] is canonical"</pre>
+</li>
+</ol>
+
+<h3 class="task"><span class="id">F3.</span> Final smoke pass + PR-ready</h3>
+
+<ol class="steps">
+<li><div class="head"><span class="stepnum">F3.1</span> — Full test sweep</div>
+<pre>pnpm -r build
+pnpm -r test
+pnpm --filter @engineerdad/webapp test:e2e</pre>
+<p>Expected: all green. Pre-existing 4 e2e specs (list, detail-edit, status-flip, markdown-preview) need URL updates from <code>/briefs</code> → <code>/review/briefs</code> etc. — fix as part of F3.</p>
+</li>
+
+<li><div class="head"><span class="stepnum">F3.2</span> — Manual sanity checklist</div>
+<ul>
+<li>Visit <code>/</code> — Dashboard renders with "Browse runs" CTA</li>
+<li>Click into Runs → All runs — list renders</li>
+<li>Click a run → run detail with stage timeline, memo, artifact sections</li>
+<li>Toggle to <code>?view=debug</code> — step table renders; failed steps highlighted</li>
+<li>Click Marketing Review → Creative Variants — list renders with channels column + org status</li>
+<li>Filter by channel — list narrows</li>
+<li>Open a CreativeVariant detail — IG-style scene viewer renders, aspect tabs work if siblings exist, edit toggle flips form</li>
+<li>Approve a brief from /review/briefs/[id] — status pill flips to Approved</li>
+<li>Switch language toggle EN ↔ BM — bilingual fields swap</li>
+</ul>
+</li>
+
+<li><div class="head"><span class="stepnum">F3.3</span> — Open PR</div>
+<pre>gh pr create --title "Webapp redesign — run-centric IA + entity-detail overhaul + asset preview" --body "$(cat &lt;&lt;'EOF'
+## Summary
+- Rename `apps/review-ui` → `apps/webapp`; package `@engineerdad/webapp`; helper `reviewUiUrl()` → `webappUrl()` with `REVIEW_UI_URL` fallback.
+- Run-centric IA: `/runs` and `/runs/[runId]` as the anchor; entity lists move under `/review/[entity]`.
+- Per-entity declarative layouts (8 files) for detail pages; read-by-default with Edit toggle; EN/BM language toggle.
+- CreativeVariants list: new Channels + Organic columns + filters. Hypotheses + Experiments custom list configs added.
+- IG-style SceneViewer (single hero + dots + arrow keys) embedded on CreativeVariant detail and on the Run page's Script-grouped artifact section.
+- Decision Memo viewer (markdown + bandit allocation + self-critique + copy-as-md) used on Run page and PerformanceReports detail.
+- Dev `/api/asset/[runId]/[variantId]/[scene]` route for `file://` rewrites (dead code once E-007 R2 swap lands).
+
+## Spec + plan
+- docs/superpowers/specs/2026-05-25-webapp-redesign-design.html
+- docs/superpowers/plans/2026-05-25-webapp-redesign.html
+
+## Test plan
+- [ ] `pnpm -r test` — all packages green
+- [ ] `pnpm --filter @engineerdad/webapp test:e2e` — entity list, entity detail, runs list, run detail, asset route, language toggle
+- [ ] Manual: walk a real run; HG3 awaiting banner shows; Approve flow flips status
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"</pre>
+</li>
+</ol>
+
+<h2>Self-review (spec coverage)</h2>
+
+<table>
+<thead><tr><th>Spec section</th><th>Implementing task(s)</th></tr></thead>
+<tbody>
+<tr><td>§1 Context (why)</td><td>n/a (narrative)</td></tr>
+<tr><td>§2 Goals — rename</td><td>A3, A4, A5</td></tr>
+<tr><td>§2 Goals — Run-centric IA</td><td>E5, E6, E7</td></tr>
+<tr><td>§2 Goals — Decision Memo surface</td><td>C3, E6 (Run page), D2/E4 (PR entity page)</td></tr>
+<tr><td>§2 Goals — Entity detail layout system</td><td>B1, C5, C6, D1–D3, E4</td></tr>
+<tr><td>§2 Goals — Per-entity list config</td><td>D4, E3, E5</td></tr>
+<tr><td>§2 Goals — Asset preview</td><td>B3, B4, C2, E4 (overlay), E6 (FormatCard)</td></tr>
+<tr><td>§2 Goals — Orchestrator run state</td><td>A2, B2, B5, E5, E6, E7</td></tr>
+<tr><td>§3 Routes + left nav</td><td>E1 (nav), E2 (/), E3, E4, E5, E6, E7, B4</td></tr>
+<tr><td>§4 Entity detail layout system (mockup + roles + Raw fields)</td><td>B1 (types), C5, C6 (renderers), D1–D3 (layouts)</td></tr>
+<tr><td>§5 Entity list system + channels-in-JS</td><td>D4 + E3 (channels filter in JS)</td></tr>
+<tr><td>§6 Decision Memo viewer (markdown + GFM + copy)</td><td>A2 (gfm dep), C3</td></tr>
+<tr><td>§7 Run detail layout + /runs index + data composition</td><td>E5, E6, E7</td></tr>
+<tr><td>§8 SceneViewer + dev asset route + resolveAssetUrl</td><td>B3, B4, C2</td></tr>
+<tr><td>§9 Orchestrator state binding (lib/orchestrator.ts surface)</td><td>A2 (sql export), B2</td></tr>
+<tr><td>§10 Rename plan (6-layer, 5-commit sequence)</td><td>A1, A2, A3, A4, A5, F1, F2, F3</td></tr>
+<tr><td>§11 Risk register</td><td>Mitigated via task sequencing (A→F)</td></tr>
+<tr><td>§12 Deps + prereqs (remark-gfm)</td><td>A2</td></tr>
+<tr><td>§13 Open questions for plan</td><td>Deferred — non-blockers, surface during implementation</td></tr>
+</tbody>
+</table>
+
+<div class="callout ok">
+<span class="tag">Coverage:</span> Every spec section maps to one or more tasks. No gaps.
+</div>
+
+<footer class="doc">
+Plan produced 2026-05-25 via the writing-plans skill (<code>superpowers:writing-plans</code>). 27 tasks across 6 phases. Each task is TDD-shaped (failing test → run-to-fail → implement → run-to-pass → commit). Pure-function tests via vitest; component/route tests via Playwright + seeded fixtures. Total estimate: ~13–16 hours focused work. Execution: pick subagent-driven (fresh subagent per task) or inline executing-plans (batch + checkpoint).
+</footer>
+
+</div>
+</body>
+</html>

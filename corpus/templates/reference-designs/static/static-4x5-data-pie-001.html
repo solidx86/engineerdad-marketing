@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --navy:        #1B2B6B;
+    --navy-dark:   #111c45;
+    --orange:      #F07621;
+    --teal:        #00B4A6;
+    --teal-light:  #e6f8f7;
+    --offwhite:    #F7F8FC;
+    --warm-white:  #FEFEFE;
+    --text:        #1a1a2e;
+    --muted:       #6b7280;
+    --border:      #e5e7f0;
+    --font-head: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { font-variant-numeric: lining-nums tabular-nums; box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1350px;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--offwhite);
+  }
+  .frame {
+    position: absolute;
+    inset: 0;
+    padding: 64px 72px 0 72px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kicker {
+    font-family: var(--font-body);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin: 0;
+  }
+  .headline {
+    font-family: var(--font-head);
+    font-size: 84px;
+    font-weight: 900;
+    line-height: 1.04;
+    color: var(--navy-dark);
+    margin: 14px 0 0 0;
+  }
+  /* legend row above the canvas */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 28px;
+    margin: 34px 0 8px 0;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    font-family: var(--font-body);
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .legend-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    flex: 0 0 auto;
+  }
+  .legend-pct {
+    font-weight: 600;
+    color: var(--navy-dark);
+  }
+  .chart-wrapper {
+    margin: 6px 0 0 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 480px;
+  }
+  .chart-wrapper canvas { display: block; }
+  /* callout row OUTSIDE the plot */
+  .callout {
+    margin: 22px 0 0 0;
+    background: var(--navy-dark);
+    border-left: 8px solid var(--orange);
+    border-radius: 10px;
+    padding: 22px 28px;
+    font-family: var(--font-body);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--warm-white);
+    line-height: 1.2;
+  }
+  .caption {
+    margin: 26px 0 0 0;
+    font-family: var(--font-body);
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.32;
+    color: var(--text);
+  }
+  .source {
+    margin: 22px 0 0 0;
+    font-family: var(--font-body);
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--muted);
+    max-width: 800px;
+  }
+  .logo-mark {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .logo-text {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .logo-text .engineer { color: var(--navy); }
+  .logo-text .dad      { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <p class="kicker">The Load Balancer</p>
+    <h1 class="headline">One pot, three regions</h1>
+
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:#1B2B6B"></span>
+        <span>Malaysia (MYR) <span class="legend-pct">30%</span></span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:#00B4A6"></span>
+        <span>Asia ex-MYR <span class="legend-pct">35%</span></span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch" style="background:#F07621"></span>
+        <span>Global developed <span class="legend-pct">35%</span></span>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <canvas id="pie" width="480" height="480"></canvas>
+    </div>
+
+    <div class="callout">100% home = one point of failure</div>
+
+    <p class="caption">One pot, split across three regions that don't rise and fall together &mdash; so the plan never rides on a single market's luck.</p>
+
+    <p class="source">Illustrative target allocations. Actual allocation depends on risk profile, fund availability, and licensed Consultant guidance. Not a recommendation.</p>
+  </div>
+
+  <div class="logo-mark">
+    <div class="logo-text">
+      <span class="engineer">Engineer</span><span class="dad">Dad</span>
+    </div>
+  </div>
+
+  <script>
+    window.__chartsReady = false;
+    const arcLabelPlugin = {
+      id: 'arcLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const meta = chart.getDatasetMeta(0);
+        const data = chart.data.datasets[0].data;
+        meta.data.forEach((arc, i) => {
+          const { startAngle, endAngle, innerRadius, outerRadius } = arc.getProps(
+            ['startAngle', 'endAngle', 'innerRadius', 'outerRadius'], true
+          );
+          const mid = (startAngle + endAngle) / 2;
+          const r = innerRadius + (outerRadius - innerRadius) / 2;
+          const x = arc.x + Math.cos(mid) * r;
+          const y = arc.y + Math.sin(mid) * r;
+          ctx.save();
+          ctx.font = "600 34px 'Inter', sans-serif";
+          ctx.fillStyle = '#FEFEFE';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(data[i] + '%', x, y);
+          ctx.restore();
+        });
+      }
+    };
+    document.addEventListener('DOMContentLoaded', () => {
+      const ctx = document.getElementById('pie').getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Malaysia (MYR)', 'Asia ex-MYR', 'Global developed'],
+          datasets: [{
+            data: [30, 35, 35],
+            backgroundColor: ['#1B2B6B', '#00B4A6', '#F07621'],
+            borderColor: '#F7F8FC',
+            borderWidth: 4,
+            hoverOffset: 0
+          }]
+        },
+        options: {
+          responsive: false,
+          animation: false,
+          cutout: '52%',
+          plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        },
+        plugins: [arcLabelPlugin]
+      });
+      setTimeout(() => { window.__chartsReady = true; }, 500);
+    });
+  </script>
+</body>
+</html>

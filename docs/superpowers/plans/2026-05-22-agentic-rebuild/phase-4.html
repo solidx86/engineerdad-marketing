@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 4 — Collapse tracking + analytics; add the schedule stage</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .badge.review { background: var(--warn); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 4 — Collapse <code>tracking</code> + <code>analytics</code>; add <code>schedule</code></h1>
+  <p class="meta">
+    Implementation plan · phase 4 of 6 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phase 3 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">Four decisions baked in</span>
+    <strong>1 — tracking + analytics = pure <code>write</code>-step chains.</strong> Both agents
+    are fixed pipelines of MCP calls. As stages they are <code>write</code> steps with
+    verifiers; tracking's halt-the-loop becomes a verify-fail STOP — no new machinery.<br>
+    <strong>2 — <code>detectFatigue</code> ships as a pure function; the fatigue artifact is
+    computed at consumption time.</strong> The analytics stage <em>gathers</em> (pull, rank,
+    decay, angle); <code>detectFatigue</code> is a tested pure function applied by the
+    <code>build</code> of the step that consumes analytics output — Brain's reasoning step,
+    Phase 6 — exactly as <code>planDistribution</code> is computed in distribute's D2 build.<br>
+    <strong>3 — <code>assignSchedule</code> is a pure function in
+    <code>shared/derive</code>; <code>schedule</code> is a 2-step stage after HG3.</strong>
+    Slot assignment, MYT→UTC, the publish window — zero open decision space (design §7).<br>
+    <strong>4 — registry timing (C1).</strong> The three stages ship as tested definitions;
+    the live registry stays fixture-only. Phase 5 wires the ordered live registry and
+    deletes the replaced agents.
+  </div>
+
+  <p><strong>Goal:</strong> Three new orchestrator stages — <code>tracking</code>,
+    <code>analytics</code>, <code>schedule</code> — plus <code>assignSchedule</code> and
+    <code>detectFatigue</code> as pure tested functions, and the organic-FB routing folded
+    into <code>planDistribution</code> (deferred from Phase 3).</p>
+  <p><strong>Architecture:</strong> <code>tracking</code> and <code>analytics</code> are
+    deterministic <code>write</code>-step chains. <code>schedule</code> runs after HG3 and
+    stamps <code>Scheduled For</code> via <code>assignSchedule</code>. All build against
+    Phase 2's frozen engine; no engine change.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM), <code>node:sqlite</code>, vitest. New deps:
+    none. Execution: <strong>TBD</strong> — this doc is for review first.</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/orchestrator/src/types.ts</code> <em>(modify)</em></td><td>Extend <code>RunStage</code> with <code>tracking</code>, <code>analytics</code>, <code>schedule</code></td></tr>
+      <tr><td><code>packages/shared/src/derive/schedule.ts</code></td><td><code>assignSchedule</code> — organic per-post datetimes + paid flight; pure</td></tr>
+      <tr><td><code>packages/shared/src/derive/index.ts</code> <em>(modify)</em></td><td>Re-export <code>./schedule</code></td></tr>
+      <tr><td><code>packages/orchestrator/src/analytics/fatigue.ts</code></td><td><code>detectFatigue</code> — the §12.5 sunset heuristic; pure</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/tracking.ts</code></td><td><code>trackingStage</code> — T1-canary · T2-send</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/analytics.ts</code></td><td><code>analyticsStage</code> — A1-ingest · A2-rank · A3-decay</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/schedule.ts</code></td><td><code>scheduleStage</code> — S1-query · S2-stamp</td></tr>
+      <tr><td><code>packages/orchestrator/src/verifiers/verify-schedule.ts</code></td><td><code>verifySchedule</code> — pure acceptance test</td></tr>
+      <tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code> <em>(modify)</em></td><td>Add the organic-FB branch (<code>planOrganic</code>)</td></tr>
+      <tr><td><code>packages/orchestrator/src/registry.ts</code> · <code>index.ts</code> <em>(modify)</em></td><td>Re-export the new stages + helpers; live registry unchanged</td></tr>
+      <tr><td><code>*.test.ts</code></td><td>Colocated vitest suites</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Not in Phase 4:</strong> the <code>analyze</code> / <code>reflect</code> tail of the
+    loop (involves Brain — Phase 6). Agent-file deletion (<code>tracking.md</code>,
+    <code>analytics.md</code>) + live-registry wiring — Phase 5.</p>
+
+  <h2><span class="num">1.</span> Locked interfaces</h2>
+
+  <h3>1.1 — <code>RunStage</code> (additive)</h3>
+<pre>export type RunStage =
+  "fixture" | "tracking" | "analytics" | "produce"
+  | "experiment" | "distribute" | "schedule" | "done";</pre>
+
+  <h3>1.2 — <code>assignSchedule</code> (<code>shared/derive/schedule.ts</code>)</h3>
+<pre>export interface ScheduleInput {
+  variantId: string;
+  format: string;          // Reel | Feed | Carousel | YT-Long | YT-Short
+  channels: string[];      // Meta-organic ⇒ organic branch; Meta-paid ⇒ paid branch
+}
+export interface OrganicSlot  { variantId: string; scheduledForUtc: string; } // ISO
+export interface PaidFlight   { variantId: string; flightStartUtc: string; flightEndUtc: string; }
+export interface ScheduleResult {
+  organic: OrganicSlot[];
+  paid: PaidFlight[];
+  problems: string[];      // a slot outside the publish window, etc.
+}
+
+/** Organic: assign each Meta-organic variant the next free cadence slot from
+ *  `now`, convert MYT→UTC, reject anything outside [now+10min, now+75d].
+ *  Paid: a flight of `durationDays` from `now`. Pure — `now` is injected. */
+export function assignSchedule(
+  variants: ScheduleInput[],
+  opts: { now: Date; durationDays?: number },
+): ScheduleResult</pre>
+  <p>Cadence table (MYT, from the retired distribution §4d): Image/Feed → Mon 20:00,
+    Wed 20:00, Fri 18:00; Carousel → Tue 19:00; Reel → Thu 19:00. Slots fill in variant
+    order; a week rolls over when its slots are spent. MYT = UTC+8.</p>
+
+  <h3>1.3 — <code>detectFatigue</code> (<code>analytics/fatigue.ts</code>)</h3>
+<pre>export interface DecayCurve { adId: string; points: { date: string; cpa: number }[]; }
+export interface FatigueRow {
+  adId: string; baselineCpaMyr: number; recentCpaMyr: number; deltaPct: number;
+}
+/** §12.5 sunset: an ad is fatiguing when its mean CPA over the last 3 days is
+ *  &gt;25% above baseline (median of the first 7 points, or the first half if
+ *  the curve is shorter). Pure. */
+export function detectFatigue(curves: DecayCurve[]): FatigueRow[]</pre>
+
+  <h3>1.4 — Stage shapes</h3>
+<pre>trackingStage   "tracking"   T1-canary (write capi_test_event; verify ok:true)
+                             T2-send   (write capi_send + log_event;
+                                        verify events_received &gt; 0)
+                             — a verify-fail STOPs the loop = the halt.
+
+analyticsStage  "analytics"  A1-ingest (write get_insights + ingest_meta_insights)
+                             A2-rank   (write top_creatives + cost_per_angle)
+                             A3-decay  (write decay_curve x3 from A2's top-3
+                                        + log_event)
+                             — verifiers check each MCP call returned non-error;
+                               cold start (empty results) passes.
+
+scheduleStage   "schedule"   S1-query  (write — approved CreativeVariants)
+                             S2-stamp  (write — build runs assignSchedule, emits
+                                        notion update_page calls stamping
+                                        Scheduled For; verify = verifySchedule)</pre>
+
+  <h3>1.5 — <code>verifySchedule</code> (pure)</h3>
+<pre>export function verifySchedule(
+  variants: { variantId: string; channels: string[] }[],
+  result: ScheduleResult,
+): VerifyResult</pre>
+  <p>Problems: a Meta-organic variant with no <code>OrganicSlot</code>; a Meta-paid variant
+    with no <code>PaidFlight</code>; any entry in <code>result.problems</code>.</p>
+
+  <h3>1.6 — <code>planOrganic</code> — the organic-FB branch of <code>planDistribution</code></h3>
+  <p>Folds in the deferred Phase 3 item. Per Meta-organic variant with <code>Organic
+    Scheduled For</code> set and <code>FB Post ID</code> empty: a
+    <code>mcp__meta-organic__publish_*</code> call (image / video / carousel by format,
+    always <code>platform: "fb"</code> — B-005: IG stays manual) + an <code>FB Post ID</code>
+    back-fill. <code>Carousel 4:5</code> is excluded (E-025 — IG layout). Idempotency on
+    <code>FB Post ID</code>. No new types — another <code>PlanPart</code> merged into the
+    <code>DistributionPlan</code>.</p>
+
+  <h2><span class="num">2.</span> Tasks</h2>
+  <p>TDD: write the test(s), run red, implement, run green, commit. Commit prefix
+    <code>feat(orchestrator):</code> (or <code>feat(shared):</code> for T2).</p>
+
+  <div class="task">
+    <h3>T1 — <code>RunStage</code> extension</h3>
+    <p><span class="lbl">Files</span> <code>types.ts</code>.</p>
+    <p><span class="lbl">Build</span> Extend <code>RunStage</code> per §1.1. Type-only;
+      additive. <span class="lbl">Verify</span> <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — <code>assignSchedule</code></h3>
+    <p><span class="lbl">Files</span> <code>packages/shared/src/derive/schedule.ts</code> +
+      <code>schedule.test.ts</code>; <code>derive/index.ts</code> (re-export).</p>
+    <p><span class="lbl">Build</span> <code>assignSchedule</code> per §1.2 — the cadence table,
+      next-free-slot assignment in variant order, MYT→UTC (−8h), the
+      <code>[now+10min, now+75d]</code> window check, the paid-flight branch.</p>
+    <p><span class="lbl">Test</span> An organic Reel → Thu 19:00 MYT → the right UTC ISO; two
+      Feed variants → Mon then Wed 20:00; a slot before <code>now+10min</code> rolls to the
+      next week; a slot past <code>now+75d</code> → a <code>problems</code> entry; a Meta-paid
+      variant → a <code>PaidFlight</code> of <code>durationDays</code>; <code>now</code> is
+      injected so the test is deterministic.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm vitest run packages/shared</code> green;
+      <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — <code>stages/tracking.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/tracking.ts</code>, <code>tracking.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>trackingStage</code> — <code>T1-canary</code>
+      (<code>write</code> <code>mcp__meta-ads__capi_test_event</code>; <code>verify</code> →
+      <code>ok</code> when the result's <code>ok</code> is true) and <code>T2-send</code>
+      (<code>write</code> <code>capi_send</code> + <code>log_event</code>; <code>verify</code> →
+      <code>ok</code> when <code>events_received &gt; 0</code>). A verify-fail STOPs the
+      conductor — that is the loop halt.</p>
+    <p><span class="lbl">Test</span> 2 steps, ids/kinds; T1 verify passes <code>{ok:true}</code>,
+      fails <code>{ok:false}</code>; T2 verify passes <code>events_received:1</code>, fails
+      <code>0</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — <code>analytics/fatigue.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>analytics/fatigue.ts</code>, <code>fatigue.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>detectFatigue</code> per §1.3.</p>
+    <p><span class="lbl">Test</span> A curve whose last-3-day mean CPA is &gt;25% over baseline →
+      flagged with the right <code>deltaPct</code>; a flat curve → not flagged; a curve shorter
+      than 7 points → baseline = first-half median, still evaluated; an empty curve list →
+      empty result.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — <code>stages/analytics.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/analytics.ts</code>, <code>analytics.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>analyticsStage</code> — <code>A1-ingest</code>
+      (<code>get_insights</code> + <code>ingest_meta_insights</code>), <code>A2-rank</code>
+      (<code>top_creatives</code> + <code>cost_per_angle</code>), <code>A3-decay</code>
+      (<code>build</code> reads A2's top-3 ad_ids → <code>decay_curve</code> ×3 +
+      <code>log_event</code>). All <code>write</code>. Verifiers check the MCP call did not
+      error; empty results (cold start) pass.</p>
+    <p><span class="lbl">Test</span> 3 steps, ids/kinds/order; A3's <code>build</code> emits one
+      <code>decay_curve</code> call per top-3 ad_id carried from A2; a cold-start empty A1
+      result still verifies <code>ok</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — <code>stages/schedule.ts</code> + <code>verify-schedule.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/schedule.ts</code>,
+      <code>verifiers/verify-schedule.ts</code>, both <code>*.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>verifySchedule</code> per §1.5.
+      <code>scheduleStage</code> — <code>S1-query</code> (<code>write</code> — approved
+      <code>CreativeVariants</code> for the run) and <code>S2-stamp</code> (<code>write</code> —
+      <code>build</code> reads S1, runs <code>assignSchedule</code>, emits
+      <code>mcp__notion__update_page</code> calls stamping <code>Scheduled For</code> /
+      <code>Organic Scheduled For</code>; <code>verify</code> delegates to
+      <code>verifySchedule</code>).</p>
+    <p><span class="lbl">Test</span> verifySchedule — complete result ok, an unscheduled
+      organic variant fails. scheduleStage — 2 steps; S2 emits one update_page per variant;
+      S2's verify delegates to verifySchedule.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — <code>planDistribution</code>: organic-FB branch</h3>
+    <p><span class="lbl">Files</span> <code>distribute/plan-distribution.ts</code> (modify),
+      <code>plan-distribution.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> A <code>planOrganic</code> <code>PlanPart</code> per §1.6 —
+      <code>publish_image_post</code> / <code>publish_video_post</code> /
+      <code>publish_carousel_post</code> by format, <code>platform: "fb"</code>; exclude
+      <code>Carousel 4:5</code>; idempotency on <code>FB Post ID</code>; <code>FB Post ID</code>
+      back-fill. Merge it when <code>channelAllowed("Meta-organic")</code>. Extend
+      <code>DistVariant</code> with the organic fields it needs (<code>fbPostId</code>,
+      <code>organicScheduledFor</code>, <code>organicCaption</code>).</p>
+    <p><span class="lbl">Test</span> A Meta-organic Feed variant → a <code>publish_image_post</code>
+      with <code>platform:"fb"</code>; a Reel → <code>publish_video_post</code>; a
+      <code>Carousel 4:5</code> → skipped (E-025); a variant with <code>FB Post ID</code> set →
+      skipped (idempotent).</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — <code>registry.ts</code> + <code>index.ts</code> barrel</h3>
+    <p><span class="lbl">Files</span> <code>registry.ts</code>, <code>index.ts</code> (modify).</p>
+    <p><span class="lbl">Build</span> Re-export <code>trackingStage</code>,
+      <code>analyticsStage</code>, <code>scheduleStage</code>, <code>detectFatigue</code>,
+      <code>verifySchedule</code>. <code>FIXTURE_REGISTRY</code> unchanged — definitions only.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — Full build, suite, sync check; roadmap</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; <code>pnpm vitest run</code>
+      green; <code>pnpm sync:agents:check</code> clean; live <code>/loop</code> smoke unchanged
+      (fixture registry untouched). Update the roadmap <code>index.html</code> — mark Phase 4
+      shipped. Commit.</p>
+  </div>
+
+  <h2><span class="num">3.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>tracking</code>, <code>analytics</code>, <code>schedule</code> exist as unit-tested
+    <code>StageDefinition</code>s; <code>assignSchedule</code> + <code>detectFatigue</code> +
+    <code>verifySchedule</code> are pure and unit-tested; <code>planDistribution</code> routes
+    organic-FB; <code>tracking</code> halts the loop on a CAPI failure (verify-fail STOP);
+    <code>pnpm -r build</code> + <code>pnpm vitest run</code> + <code>pnpm sync:agents:check</code>
+    all green. The new stages are <em>not</em> in the live registry — Phase 5 wires them.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Review resolved — 2026-05-22</span>
+    <strong>(a) The fatigue artifact — deferral confirmed.</strong> Phase 4 ships
+    <code>detectFatigue</code> as a pure function only; the analytics stage <em>gathers</em>.
+    Brain's reasoning-step <code>build</code> assembles the <code>fatiguing</code> list at
+    consumption time in Phase 6 — same pattern as <code>planDistribution</code> in distribute's
+    D2.<br>
+    <strong>(b) <code>assignSchedule</code> location — <code>shared/derive</code> confirmed.</strong>
+    It is a pure domain transform (MYT→UTC + cadence policy) whose output
+    (<code>ScheduleResult</code>) is a plain domain value, not orchestrator-internal machinery —
+    unlike <code>planDistribution</code>/<code>applyAllocation</code>, which return engine-only
+    shapes and correctly live in <code>packages/orchestrator</code>. Same shape as the existing
+    <code>youtubeCategoryId</code> derive helper. It does not co-evolve with stage wiring, so
+    co-location with its single consumer earns nothing.
+  </div>
+
+  <div class="callout key">
+    <span class="lbl">Carried to Phase 5+</span>
+    A later phase builds the ordered live registry (design §8:
+    <code>tracking → analytics → synthesize → brief → content → produce → schedule →
+    experiment → distribute</code>) — note <code>schedule</code> runs <em>before</em>
+    <code>experiment</code> + <code>distribute</code>, since <code>distribute</code>'s
+    organic-FB branch and paid adset flights both consume <code>schedule</code>'s output —
+    decomposes <code>media-production</code>, activates every stage, and deletes the replaced
+    agents (<code>tracking</code>, <code>analytics</code>, <code>distribution</code>,
+    <code>experiment-os</code>, <code>media-production</code>). HG4 is upgraded from a terminal
+    STOP to a passable Meta check. Phase 6 trims <code>brain.md</code> and writes ADR-020.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>
+    · Predecessor: <code>phase-3.html</code> (shipped). On approval, Phase 4 executes; Phase 5 is expanded next.
+  </div>
+
+</div>
+</body>
+</html>

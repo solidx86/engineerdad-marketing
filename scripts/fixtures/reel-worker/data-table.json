@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_table",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "Basic survival, a realistic adequate target, and comfortable — three retirement tiers, and the gap to adequate is what your top-up is designed to close.", "onScreenText": "Three retirement tiers", "chartRef": "epf-baseline-tiers", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "lay out the three retirement tiers against their target savings as a clean comparison table" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

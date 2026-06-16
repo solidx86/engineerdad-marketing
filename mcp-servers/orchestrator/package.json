@@ -1,0 +1,23 @@
+{
+  "name": "@engineerdad/mcp-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "mcp-orchestrator": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@engineerdad/orchestrator": "workspace:*",
+    "@engineerdad/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.8"
+  }
+}

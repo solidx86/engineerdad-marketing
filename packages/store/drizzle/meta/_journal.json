@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1779793627768,
+      "tag": "0000_violet_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779878440943,
+      "tag": "0001_naive_jocasta",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780021827530,
+      "tag": "0002_sharp_juggernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780072232245,
+      "tag": "0003_reel_render_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780369340663,
+      "tag": "0004_real_legion",
+      "breakpoints": true
+    }
+  ]
+}

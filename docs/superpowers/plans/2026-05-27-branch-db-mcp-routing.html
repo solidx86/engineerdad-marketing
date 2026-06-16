@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Branch-DB MCP Routing — Implementation Plan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 880px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .meta { font-size: 0.85rem; color: #666; margin-bottom: 2.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #333; }
+  h4 { font-size: 0.88rem; font-weight: 700; margin: 1rem 0 0.4rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin-bottom: 0.9rem; }
+  ul, ol { margin: 0.5rem 0 0.9rem 1.4rem; }
+  li { margin-bottom: 0.35rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.75rem 0 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.83em; line-height: 1.55; }
+  .step { border: 1px solid #e0e0e0; border-radius: 6px; padding: 1.2rem 1.4rem; margin: 1rem 0; background: #fcfcfc; }
+  .step-num { display: inline-block; background: #07a; color: #fff; font-weight: 700; padding: 0.15em 0.65em; border-radius: 3px; font-size: 0.82rem; margin-right: 0.5rem; }
+  .step h3 { margin-top: 0; }
+  .accept { background: #f0f8f0; border-left: 4px solid #2a8; padding: 0.75rem 1rem; margin: 0.6rem 0 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .accept strong { color: #2a8; }
+  .callout { border-left: 4px solid #e05; background: #fff5f5; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .callout.info { border-color: #07a; background: #f0f8ff; }
+  .callout.warn { border-color: #f90; background: #fffaf0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1rem; font-size: 0.9rem; }
+  th { text-align: left; background: #f4f4f4; padding: 0.5rem 0.75rem; border: 1px solid #ddd; font-weight: 600; }
+  td { padding: 0.45rem 0.75rem; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .tag { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1em 0.5em; border-radius: 3px; margin-right: 0.3rem; }
+  .tag.tdd { background: #e7d9ff; color: #4a2a8a; }
+  .tag.config { background: #ffe8c4; color: #7a4a00; }
+  .tag.docs { background: #d4edda; color: #155724; }
+  hr { border: none; border-top: 1px solid #e8e8e8; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Branch-DB MCP Routing — Implementation Plan</h1>
+<div class="meta">
+  <span><strong>Date:</strong> 2026-05-27</span>
+  <span><strong>Branch:</strong> feat/brain-experiment-params (or a new branch off main)</span>
+  <span><strong>Spec:</strong> <code>2026-05-27-branch-db-mcp-routing-design.html</code></span>
+</div>
+
+<h2>0. Preconditions</h2>
+<ul>
+  <li><code>engineerdad-postgres</code> container running (<code>docker ps</code> shows it).</li>
+  <li>Branch sandbox exists for the working branch — if not, the developer runs <code>pnpm db:sandbox</code> first (existing behavior, no plan change).</li>
+  <li>Node ≥ 22.7 (repo runs Node 24, so <code>--env-file-if-exists</code> is available).</li>
+</ul>
+
+<h2>1. Implementation sequence</h2>
+
+<div class="step">
+  <h3><span class="step-num">1</span> Write <code>db-guard</code> tests <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/shared/src/db-guard.test.ts</code> <em>(new)</em></li>
+  </ul>
+
+  <h4>What</h4>
+  <p>Write the failing test file first. <code>assertDbSafeForBranch(databaseUrl, opts?)</code> takes a URL and optional <code>{ branch?, allowLive? }</code> for testability (real production callers pass nothing — the helper auto-detects). Tests:</p>
+  <ol>
+    <li>Throws when <code>{ url=postgresql://&hellip;/engineerdad, branch=feat/x }</code>. Error names the branch and suggests <code>pnpm db:sandbox</code>.</li>
+    <li>Allows <code>{ url=&hellip;/engineerdad, branch=main }</code> — silent return.</li>
+    <li>Allows <code>{ url=&hellip;/engineerdad_sb_feat_x, branch=feat/x }</code>.</li>
+    <li>Allows <code>{ url=&hellip;/engineerdad_test, branch=feat/x }</code>.</li>
+    <li>Allows when <code>allowLive: true</code> regardless of branch.</li>
+    <li>No-op when branch is undetectable (no <code>.git/HEAD</code> argument supplied and helper can't find one).</li>
+    <li>Parses <code>postgresql://user:pass@host:port/dbname?param=v</code> correctly — pulls <code>dbname</code> from the path, ignores query string.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>pnpm --filter @engineerdad/shared test db-guard</code> shows 7 failing tests (no implementation yet).</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">2</span> Implement <code>db-guard</code> helper</h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/shared/src/db-guard.ts</code> <em>(new)</em></li>
+    <li><code>packages/shared/src/index.ts</code> — re-export</li>
+  </ul>
+
+  <h4>What</h4>
+  <pre><code>export interface GuardOpts {
+  branch?: string | null;     // explicit override (tests)
+  allowLive?: boolean;        // explicit override (tests)
+  cwd?: string;               // for .git/HEAD walk
+}
+
+export function assertDbSafeForBranch(
+  databaseUrl: string,
+  opts: GuardOpts = {},
+): void {
+  const allowLive = opts.allowLive ?? process.env.ALLOW_LIVE_DB === "1";
+  if (allowLive) return;
+
+  const dbName = parseDbName(databaseUrl);
+  if (dbName !== "engineerdad") return; // any suffixed DB is safe
+
+  const branch = opts.branch ?? detectBranch(opts.cwd ?? process.cwd());
+  if (branch === null) return;          // CI / production / no .git
+  if (branch === "main") return;
+
+  throw new Error(
+    `Refusing to connect to live engineerdad DB from branch ${branch}. ` +
+    `Run: pnpm db:sandbox && pnpm db:snapshot, or set ALLOW_LIVE_DB=1.`,
+  );
+}</code></pre>
+
+  <p><code>parseDbName</code> uses <code>new URL(databaseUrl)</code> and trims the leading <code>/</code> from <code>pathname</code>. <code>detectBranch</code> walks up from <code>cwd</code> looking for <code>.git/HEAD</code>; parses <code>ref: refs/heads/&lt;name&gt;</code>; returns <code>null</code> if missing or detached.</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> all 7 tests pass. No other test breaks. <code>pnpm --filter @engineerdad/shared build</code> clean.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">3</span> Wire guard into the three DB packages</h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/store/src/db.ts</code></li>
+    <li><code>packages/orchestrator/src/db.ts</code></li>
+    <li><code>packages/analytics/src/db.ts</code></li>
+  </ul>
+
+  <h4>What</h4>
+  <p>In each <code>getDb()</code> (or the equivalent lazy constructor), <em>before</em> calling <code>postgres(DATABASE_URL, &hellip;)</code>, call <code>assertDbSafeForBranch(DATABASE_URL)</code>. Guard runs once per process — cache the &ldquo;guard ran&rdquo; flag alongside the client cache so a thrown error isn't re-thrown on every subsequent <code>getDb()</code> call (though it will be — that's fine, the process should already be dead).</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>pnpm -r build</code> clean. Existing test suites in <code>store</code>/<code>orchestrator</code>/<code>analytics</code> still green (they use <code>_test</code> or <code>_sb_*</code> DBs, so the guard is silent for them).</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">4</span> Route MCPs via <code>.env.local</code> <span class="tag config">config</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>.mcp.json</code></li>
+  </ul>
+
+  <h4>What</h4>
+  <p>For each of the 12 MCP entries that contain <code>"--env-file=.env"</code>, insert <code>"--env-file-if-exists=.env.local"</code> as the next array element:</p>
+
+  <pre><code>"args": [
+  "--env-file=.env",
+  "--env-file-if-exists=.env.local",
+  "mcp-servers/&lt;name&gt;/dist/index.js"
+]</code></pre>
+
+  <p>Affected entries: <code>meta-ads</code>, <code>meta-organic</code>, <code>analytics</code>, <code>orchestrator</code>, <code>corpus</code>, <code>experiment</code>, <code>heygen</code>, <code>media-providers-gemini</code>, <code>media-providers-kie-ai</code>, <code>store</code>, <code>youtube</code>, plus any others already on <code>--env-file=.env</code>. Skip <code>asset-store</code>, <code>static-renderer</code>, <code>engineerdad_site</code>.</p>
+
+  <div class="callout warn">
+    Per <code>CLAUDE.md</code>: <strong>restart Claude Code</strong> after editing <code>.mcp.json</code> so MCP registrations reload. Step 8's verification needs the restart to have happened.
+  </div>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> JSON is valid (<code>node -e "JSON.parse(require('fs').readFileSync('.mcp.json','utf8'))"</code>). All 12 expected entries now have both flags.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">5</span> Snapshot script (<code>db:snapshot</code>)</h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>scripts/db-snapshot.mjs</code> <em>(new)</em></li>
+    <li><code>package.json</code> (root) — add script entry</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>ESM script. Logic:</p>
+  <ol>
+    <li><code>import { branchSlug } from "./lib/db-slug.mjs"</code>; resolve <code>target</code>.</li>
+    <li>Read the current branch from <code>.git/HEAD</code>; if <code>main</code>, exit with message &ldquo;nothing to snapshot to&rdquo;.</li>
+    <li>Verify the target DB exists by connecting briefly (using <code>postgres</code> client) and querying <code>pg_database</code>. If missing, exit non-zero with &ldquo;run <code>pnpm db:sandbox</code> first&rdquo;.</li>
+    <li>Define <code>SRC=engineerdad</code>, <code>TGT=&lt;slug&gt;</code>, <code>TMP=/tmp/&lt;slug&gt;.dump</code>.</li>
+    <li><code>execSync</code> the dump:
+      <pre><code>docker exec engineerdad-postgres bash -c \
+  "pg_dump --no-owner --no-acl --clean --if-exists -Fc \
+     -U engineerdad -d ${SRC} -f ${TMP}"</code></pre>
+    </li>
+    <li><code>execSync</code> the restore:
+      <pre><code>docker exec engineerdad-postgres bash -c \
+  "pg_restore --no-owner --no-acl --clean --if-exists \
+     -U engineerdad -d ${TGT} ${TMP}"</code></pre>
+    </li>
+    <li>Re-apply the same Drizzle pushes that <code>db-sandbox.mjs</code> does (the schema-push helper can be refactored out or duplicated — duplication is fine; ~3 lines).</li>
+    <li><code>docker exec engineerdad-postgres rm ${TMP}</code>.</li>
+    <li>Print &ldquo;Snapshotted <code>engineerdad</code> &rarr; <code>&lt;slug&gt;</code>&rdquo; on success.</li>
+  </ol>
+
+  <p>Set <code>process.env.ALLOW_LIVE_DB = "1"</code> at the top of the script if it ever opens a JS-side connection to <code>engineerdad</code> (the existence-check uses the admin <code>postgres</code> DB, not <code>engineerdad</code>, so likely not needed — but cheap insurance).</p>
+
+  <p><code>package.json</code> root, scripts section:</p>
+  <pre><code>"db:snapshot": "node scripts/db-snapshot.mjs"</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>pnpm db:snapshot</code> on this branch completes without error, and <code>docker exec engineerdad-postgres psql -U engineerdad -d &lt;slug&gt; -c "SELECT count(*) FROM orchestrator.runs"</code> shows the same count as live.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">6</span> Update <code>CLAUDE.md</code> <span class="tag docs">docs</span></h3>
+
+  <h4>Files</h4>
+  <ul><li><code>CLAUDE.md</code></li></ul>
+
+  <h4>What</h4>
+  <p>In the &ldquo;Database workflow&rdquo; section, add three bullets and lightly edit:</p>
+  <ul>
+    <li>Add: <code>pnpm db:snapshot</code> — clone live <code>engineerdad</code> data into the current branch sandbox. Run after <code>pnpm db:sandbox</code>; re-run anytime you want fresher live data. Targets the branch sandbox automatically — does nothing on <code>main</code>.</li>
+    <li>Add: <strong>MCPs respect <code>.env.local</code>.</strong> All DB-touching MCP servers now load <code>.env</code> first, then <code>.env.local</code> if present (last-wins). Branch sandboxes Just Work; main with no <code>.env.local</code> stays on live. Restart Claude Code after first <code>db:sandbox</code> on a branch so the MCP layer picks up the override.</li>
+    <li>Add: <strong>Override escape hatch.</strong> Set <code>ALLOW_LIVE_DB=1</code> to bypass the branch-safety guard. Used by <code>db:migrate</code> and <code>db:snapshot</code> themselves; anything else should think twice.</li>
+    <li>Add: <strong>Querying the DB.</strong> Use <code>docker exec engineerdad-postgres psql -U engineerdad -d &lt;db&gt; -c "&hellip;"</code> for any read or one-off patch. The host has no psql binary &mdash; do not invent alternatives (Node scripts with <code>pg</code>, custom inspect helpers, etc.). For the live DB use <code>-d engineerdad</code>; for the current branch sandbox use <code>-d $(node -e 'import("./scripts/lib/db-slug.mjs").then(m =&gt; console.log(m.branchSlug()))')</code> or just paste the URL from <code>.env.local</code>.</li>
+  </ul>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> the three bullets are in place; section reads cleanly top-to-bottom.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">7</span> Build &amp; test</h3>
+
+  <h4>What</h4>
+  <pre><code>pnpm -r build
+pnpm --filter @engineerdad/shared test
+pnpm --filter @engineerdad/store test
+pnpm --filter @engineerdad/orchestrator test
+pnpm --filter @engineerdad/analytics test</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> build clean, all four test suites green.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">8</span> Manual verification (post Claude-Code restart)</h3>
+
+  <h4>What</h4>
+  <ol>
+    <li>Restart Claude Code so the new <code>.mcp.json</code> args load.</li>
+    <li>Run <code>pnpm db:sandbox</code> (idempotent; ensures <code>.env.local</code> has the branch URL).</li>
+    <li>Run <code>pnpm db:snapshot</code> (clone live).</li>
+    <li>From the new Claude session: call <code>mcp__orchestrator__status</code>. Should list the same runs as live (including <code>run_1779779169</code>).</li>
+    <li>Trigger a fresh <code>/loop</code> from the branch. Stop at the first gate. Inspect: <code>docker exec engineerdad-postgres psql -U engineerdad -d &lt;sandbox&gt; -c "SELECT id, stage FROM orchestrator.runs ORDER BY created_at DESC LIMIT 5"</code> — the new run should appear in the <strong>sandbox</strong>.</li>
+    <li>Re-check live: <code>docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "&hellip;same query&hellip;"</code> — new run should <strong>not</strong> appear.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> the new loop run lands in sandbox; live DB is untouched; previous runs are reachable in sandbox.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">9</span> Negative-path verification (main branch)</h3>
+
+  <h4>What</h4>
+  <p>Stash or remove <code>.env.local</code> (or check out a state where it doesn't exist). Restart Claude Code. Confirm <code>/status</code> reads live <code>engineerdad</code> — unchanged behavior for the non-sandbox case.</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> with no <code>.env.local</code> present, MCPs continue to talk to live. Restore <code>.env.local</code> afterwards.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">10</span> Commit</h3>
+
+  <h4>What</h4>
+  <p>One commit. Suggested message:</p>
+  <pre><code>feat(db): route MCPs to .env.local; add db:snapshot + branch safety guard
+
+- .mcp.json: add --env-file-if-exists=.env.local to every DB-touching MCP
+- packages/shared/db-guard: refuse live engineerdad from non-main branches
+- scripts/db-snapshot.mjs: pg_dump live -> pg_restore branch sandbox
+- CLAUDE.md: document the new workflow + ALLOW_LIVE_DB escape hatch</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> committed on branch; <code>git status</code> clean.</div>
+</div>
+
+<h2>2. Verification matrix</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Expected</th><th>How to confirm</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Branch + sandbox + snapshot + new <code>/loop</code></td>
+      <td>Writes to sandbox</td>
+      <td>Step 8.5</td>
+    </tr>
+    <tr>
+      <td>Branch + sandbox + no snapshot</td>
+      <td>Writes to sandbox (empty DB; loop may fail downstream if it needs prior runs)</td>
+      <td>Step 8.5 minus the snapshot</td>
+    </tr>
+    <tr>
+      <td>Branch + no <code>.env.local</code></td>
+      <td>Guard throws on first DB touch with clear message</td>
+      <td>Remove <code>.env.local</code>, attempt a tool call; observe error in MCP log</td>
+    </tr>
+    <tr>
+      <td>Main + no <code>.env.local</code></td>
+      <td>Writes to live</td>
+      <td>Step 9</td>
+    </tr>
+    <tr>
+      <td>Branch + <code>ALLOW_LIVE_DB=1</code> + <code>.env</code> only</td>
+      <td>Writes to live (used by db:migrate)</td>
+      <td>Manual: run a one-liner script with the env var set</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. Rollback</h2>
+
+<p>If something goes wrong post-merge:</p>
+<ol>
+  <li>Revert the commit. <code>.mcp.json</code> reverts to live-only; guard helper goes away.</li>
+  <li>No data migration needed — branch sandboxes are throwaway; live <code>engineerdad</code> was never modified by the rollback path.</li>
+  <li>Restart Claude Code.</li>
+</ol>
+
+<h2>4. Open questions deferred to implementation</h2>
+
+<ul>
+  <li>Does <code>scripts/db-sandbox.mjs</code> ever connect to <code>engineerdad</code> directly? If yes, set <code>ALLOW_LIVE_DB=1</code> at its top too. (Likely no — it only talks to admin <code>postgres</code> DB plus the sandbox.)</li>
+  <li>Should the guard's error message be a hyperlink to the spec? Plain text is fine; keep it terminal-friendly.</li>
+  <li>Should we add a CI check that <code>.mcp.json</code> stays in sync (each <code>--env-file=.env</code> followed by <code>--env-file-if-exists=.env.local</code>)? Out of scope for this plan; add if it bites us.</li>
+</ul>
+
+</div>
+</body>
+</html>

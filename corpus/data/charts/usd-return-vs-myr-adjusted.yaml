@@ -1,0 +1,35 @@
+# USD headline return vs what a Malaysian actually keeps after the MYR/USD move
+# Source: corpus/data/datasets/us-vs-my-returns.json (Invesco QQQ + SSGA SPY published 5y/10y
+# annualised NAV returns as of 2026-05-31; BNM 1700-session USD/MYR middle rates at the
+# window endpoints; FTSE Russell FBM KLCI factsheet capital return as at 2026-05-29).
+# Used by media-production when scene argues "QQQ/SPY crushes Malaysian funds",
+# "US returns are better", "forex doesn't matter"
+# (objection myth d2-qqq-spy-crush-my-funds).
+
+id: usd-return-vs-myr-adjusted
+title_en: "The same 5 years, two currencies — headline USD return vs the MYR-adjusted return (2021–2026)"
+title_ms: "5 tahun yang sama, dua mata wang — pulangan utama USD vs pulangan terlaras MYR (2021–2026)"
+chart_type: bar
+x_label_en: "Fund (5-year standard period, as at 2026-05-31)"
+x_label_ms: "Dana (tempoh piawai 5 tahun, setakat 2026-05-31)"
+y_label_en: "Annualised return (% per year)"
+y_label_ms: "Pulangan tahunan terkompaun (% setahun)"
+labels:
+  - "Invesco QQQ (Nasdaq-100)"
+  - "SPDR SPY (S&P 500)"
+series:
+  - name_en: "MYR-adjusted return (what a Malaysian actually keeps, before fees and taxes)"
+    name_ms: "Pulangan terlaras MYR (apa yang sebenarnya diperoleh pelabur Malaysia, sebelum fi dan cukai)"
+    semantic_role: hero          # the corrected number — the variable the myth ignores
+    values: [16.99, 13.10]
+  - name_en: "Headline USD return (as published on the factsheet)"
+    name_ms: "Pulangan utama USD (seperti diterbitkan dalam helaian fakta)"
+    semantic_role: comparison    # the number the screenshot shows
+    values: [17.92, 14.00]
+  - name_en: "FBM KLCI, same window (MYR, capital return — excludes dividends)"
+    name_ms: "FBM KLCI, tetingkap sama (MYR, pulangan modal — tidak termasuk dividen)"
+    semantic_role: floor         # the local reference, on a weaker basis — flagged in caption
+    values: [1.2, 1.2]
+caption_en: "Period shown: the 5-year factsheet standard period, 2021-05-31 to 2026-05-31. QQQ's published 17.92%/yr and SPY's 14.00%/yr are USD numbers (NAV, annualised, as at 2026-05-31). A Malaysian investor's outcome also rides the currency: over this window the ringgit strengthened from RM4.1290 to RM3.9680 per USD (BNM 1700-session middle rates; window-end rate is the last published day, 2026-05-29), trimming about 0.79%/yr — so the MYR-adjusted figures are 16.99%/yr and 13.10%/yr. The US market's long-run strength is genuine: even after the currency adjustment, both funds far outpaced the FBM KLCI's 1.2%/yr over the same window — though that KLCI bar is capital return only (the published factsheet carries no total-return table; the index yielded 3.97% in dividends as at 2026-05-29, which this bar excludes). The dataset also carries the 10-year standard period (currency effect -0.40%/yr; QQQ 21.32%, SPY 15.03% MYR-adjusted): different windows give different results, and a window where the ringgit weakens pushes the adjustment the other way. This chart ranks nothing and recommends nothing — it shows one variable, the exchange rate, that a USD screenshot quietly omits. Figures as at 2026-05-31 (funds) and 2026-05-29 (FX, KLCI); past performance is not indicative of future results."
+caption_ms: "Tempoh dipaparkan: tempoh piawai 5 tahun helaian fakta, 2021-05-31 hingga 2026-05-31. 17.92%/tahun (QQQ) dan 14.00%/tahun (SPY) yang diterbitkan ialah angka USD (NAV, terkompaun tahunan, setakat 2026-05-31). Hasil pelabur Malaysia turut menumpang pergerakan mata wang: dalam tetingkap ini ringgit mengukuh daripada RM4.1290 kepada RM3.9680 se-USD (kadar tengah sesi 1700 BNM; kadar hujung tetingkap ialah hari penerbitan terakhir, 2026-05-29), memangkas kira-kira 0.79%/tahun — maka angka terlaras MYR ialah 16.99%/tahun dan 13.10%/tahun. Kekuatan jangka panjang pasaran AS memang benar: selepas pelarasan mata wang pun, kedua-dua dana jauh mengatasi FBM KLCI pada 1.2%/tahun dalam tetingkap yang sama — tetapi bar KLCI itu pulangan modal sahaja (helaian fakta yang diterbitkan tiada jadual jumlah pulangan; indeks itu memberi hasil dividen 3.97% setakat 2026-05-29, yang tidak termasuk dalam bar ini). Set data turut membawa tempoh piawai 10 tahun (kesan mata wang -0.40%/tahun; QQQ 21.32%, SPY 15.03% terlaras MYR): tetingkap berbeza memberi keputusan berbeza, dan tetingkap di mana ringgit melemah menolak pelarasan ke arah sebaliknya. Carta ini tidak menarafkan apa-apa dan tidak mengesyorkan apa-apa — ia menunjukkan satu pemboleh ubah, kadar pertukaran, yang senyap-senyap ditinggalkan oleh tangkapan skrin USD. Angka setakat 2026-05-31 (dana) dan 2026-05-29 (FX, KLCI); prestasi lalu bukan petunjuk prestasi masa hadapan."
+source_citation: "All rows from corpus/data/datasets/us-vs-my-returns.json (fetched 2026-06-11). USD returns exactly as published, NAV-based, factsheet standard periods: QQQ 5y +17.92%/yr, 10y +21.80%/yr (invesco.com QQQ performance page, Annualized returns as of 05/31/2026); SPY 5y 14.00%/yr, 10y 15.49%/yr (ssga.com SPY page, as of 2026-05-31). FX: BNM 1700-session USD/MYR middle rates — 2021-05-31 and 2016-05-31 both 4.1290, window end 3.9680 on 2026-05-29, the last published day before the funds' 2026-05-31 as-at (api.bnm.gov.my; bnm.gov.my blocks non-browser fetches). Arithmetic: MYR-adjusted = (1 + USD return) x (3.9680/4.1290)^(1/n) - 1; factor 0.961008 = MYR strengthened 3.90% over each window = -0.79%/yr (5y) or -0.40%/yr (10y). KLCI floor: FTSE Russell FBM KLCI factsheet, data as at 29 May 2026, capital return pa 5YR 1.2% — capital return only, total return and 10y figures not published in the factsheet (gap flagged in the dataset). One named window shown (5y); the 10y standard period is in the dataset and gives different results. Comparison of return mechanics across structurally different instruments (USD ETFs vs a MYR index); not a ranking, a recommendation, or a forecast; past performance is not indicative of future performance."

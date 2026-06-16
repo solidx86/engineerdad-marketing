@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel Visual Scenes — Implementation Plan</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         background:#fbfbfd; color:#1f2430; margin:0; line-height:1.5; }
+  .wrap { max-width: 1000px; margin:0 auto; padding:32px 28px 80px; }
+  .banner { background:#1B2B6B; color:#fff; padding:18px 22px; border-radius:10px; margin-bottom:20px; }
+  .banner h1 { margin:0 0 4px; font-size:22px; }
+  .banner p { margin:0; font-size:13px; color:#c9d2f0; }
+  .banner .accent { color:#F07621; font-weight:600; }
+  pre.doc { background:#0f1424; color:#e6e9f2; padding:22px 24px; border-radius:10px;
+            overflow-x:auto; font-family:"SF Mono", Menlo, Consolas, monospace;
+            font-size:12.5px; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; }
+  .note { font-size:12px; color:#6b7280; margin-top:14px; }
+</style></head>
+<body><div class="wrap">
+<div class="banner">
+  <h1>Reel Visual Scenes — Implementation Plan</h1>
+  <p>Mirror of <span class="accent">2026-05-30-reel-visual-scenes.md</span> · same content · canonical checkboxes live in the .md</p>
+</div>
+<pre class="doc"># Reel Visual Scenes Implementation Plan
+
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Give reel non-face scenes real explanatory power — a two-track visual model (library-grounded data `chart` scenes + free-form `visual` concept scenes), one explaining voiceover per visual with chart-only emphasis, multiple visual scenes per reel, a reel-specific reference-design set, and a frames-only dev harness.
+
+**Architecture:** The render substrate (`render_html_to_png({ html })`) and the `generate_reel` wrapper already support everything; this is an authoring + prompt + plumbing change. We enrich the Reel shotlist schema, plumb `paletteEmphasis` into the reel worker (gap G1), rewrite the reel-render-worker's frame-building step to reuse the static worker's chart recipe at 9:16 with HTML-overlay emphasis and a reel safe-area (gap G2), and keep concept-visual compliance via a no-numbers rule + HG3 (gap G3).
+
+**Tech Stack:** TypeScript + Zod (`packages/shared`), Vitest, Drizzle (no migration — shotlists are ephemeral step-results), Markdown worker prompts (`corpus/templates/worker-prompts`), Chart.js 4.x via CDN, Node ESM harness script.
+
+**Spec:** `docs/superpowers/specs/2026-05-30-reel-visual-scenes-design.html`
+
+**Branch:** `feat/reel-visual-scenes` (already created). Run `pnpm db:sandbox` once before starting so `.env.local` points at the branch DB; restart Claude Code so MCPs pick up the override. No `schema.ts` change in this plan, so no `db:generate` / `db:migrate`.
+
+---
+
+## File map
+
+| File | Responsibility | Change |
+|---|---|---|
+| `packages/shared/src/zod.ts` | `ReelShotlistSceneSchema` validation | enum → `face\|chart\|visual`; add `visualBrief`/`explains`/`emphasize`; conditional VO cap; refinements |
+| `packages/shared/src/zod.test.ts` | schema unit tests | add cases for new fields/refinements |
+| `packages/shared/src/derive/specs.ts` | `SceneCard` / `CreativeUnit` types | add Reel-only optional fields; change `sceneType` union |
+| `packages/orchestrator/src/produce/reel-worker-input.ts` | reel worker input contract + projection | add `paletteEmphasis` + new scene fields (G1) |
+| `packages/orchestrator/src/produce/reel-worker-input.test.ts` | projection tests | add cases for new fields + palette |
+| `.claude/agents/creative-director.md` + `packages/shared/src/prompts/creative-director*.md` | authoring guidance | cap-lift, chart-vs-visual rule, multi-visual, new-field authoring |
+| `corpus/templates/worker-prompts/render-worker.md` | static render worker | cap-lift only |
+| `corpus/templates/worker-prompts/reel-render-worker.md` | reel render worker | Step 2 rewrite, emphasis, safe-area, reference designs §6, frames-only mode |
+| `scripts/test-reel-frames.mjs` + `package.json` | frames-only dev harness | new |
+| `scripts/fixtures/reel-worker/*.json` | harness fixtures | new |
+| `corpus/templates/reference-designs/reel-9x16-*.png` + `src/*.html` + `README.md` | reel exemplars | new |
+| `docs/decisions/029-reel-visual-scenes.md` | ADR refining ADR-028 | new |
+| `ARCHITECTURE.md`, `TASKS.md` | doctrine + status | update |
+
+&gt; **Where the creative-director prompt body lives:** the agent file `.claude/agents/creative-director.md` is generated from a fragment under `packages/shared/src/prompts/` via `pnpm sync:agents`. Edit the fragment, run `pnpm sync:agents`, verify with `pnpm sync:agents:check`. Before Task 4, confirm which fragment feeds it: `grep -rl "Reel-specific shotlist" packages/shared/src/prompts/`.
+
+---
+
+## Phase A — Schema &amp; types
+
+### Task 1: Reel shotlist schema — two-track sceneType + new fields
+
+**Files:**
+- Modify: `packages/shared/src/zod.ts:164-184`
+- Test: `packages/shared/src/zod.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `packages/shared/src/zod.test.ts` (import `ReelShotlistSceneSchema` if not already imported):
+
+```ts
+import { ReelShotlistSceneSchema } from "./zod.js";
+
+const faceScene = {
+  scene: 1, voiceover: "Most parents already know they should invest.",
+  onScreenText: "hook", chartRef: null, visualBrief: null, explains: null,
+  emphasize: null, shotNotes: "tight", sceneType: "face", estimatedSeconds: 4,
+};
+
+describe("ReelShotlistSceneSchema two-track", () =&gt; {
+  it("accepts a face scene with all visual fields null", () =&gt; {
+    expect(ReelShotlistSceneSchema.safeParse(faceScene).success).toBe(true);
+  });
+
+  it("accepts a chart scene with chartRef + emphasize and null visualBrief", () =&gt; {
+    const r = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, scene: 2, sceneType: "chart", chartRef: "compounding-30y",
+      emphasize: "the year-30 gap", explains: "early start wins",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a chart scene with no chartRef", () =&gt; {
+    const r = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, sceneType: "chart", chartRef: null,
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts a visual scene with a non-empty visualBrief and null chartRef", () =&gt; {
+    const r = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, scene: 3, sceneType: "visual", chartRef: null,
+      visualBrief: "Split screen: saver vs investor, two columns.",
+      explains: "doing nothing has a cost",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a visual scene with an empty visualBrief", () =&gt; {
+    const r = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, sceneType: "visual", chartRef: null, visualBrief: "   ",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects emphasize on a visual scene (chart-only)", () =&gt; {
+    const r = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, sceneType: "visual", chartRef: null,
+      visualBrief: "A labelled diagram.", emphasize: "the middle node",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("allows 45 words of voiceover on a chart scene but rejects 46", () =&gt; {
+    const w = (n: number) =&gt; Array.from({ length: n }, () =&gt; "word").join(" ");
+    const ok = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, sceneType: "chart", chartRef: "compounding-30y", voiceover: w(45),
+    });
+    const bad = ReelShotlistSceneSchema.safeParse({
+      ...faceScene, sceneType: "chart", chartRef: "compounding-30y", voiceover: w(46),
+    });
+    expect(ok.success).toBe(true);
+    expect(bad.success).toBe(false);
+  });
+
+  it("rejects 31 words of voiceover on a face scene", () =&gt; {
+    const w = (n: number) =&gt; Array.from({ length: n }, () =&gt; "word").join(" ");
+    expect(ReelShotlistSceneSchema.safeParse({ ...faceScene, voiceover: w(31) }).success).toBe(false);
+  });
+
+  it("rejects the retired face-over-chart sceneType", () =&gt; {
+    expect(ReelShotlistSceneSchema.safeParse({ ...faceScene, sceneType: "face-over-chart" }).success).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `pnpm vitest run packages/shared/src/zod.test.ts -t "two-track"`
+Expected: FAIL (current schema has `face-over-chart`, no `visualBrief`/`explains`/`emphasize`, fixed ≤30 VO cap).
+
+- [ ] **Step 3: Rewrite the schema**
+
+Replace `packages/shared/src/zod.ts:164-184` (the `ReelSceneTypeEnum` + `ReelShotlistSceneSchema` block) with:
+
+```ts
+export const ReelSceneTypeEnum = z.enum(["face", "chart", "visual"]);
+
+const reelWordCount = (s: string) =&gt; s.trim().split(/\s+/).filter(Boolean).length;
+
+export const ReelShotlistSceneSchema = z
+  .object({
+    // creative-director emits `scene: number` per SceneCard; the
+    // reel-worker-input projection converts to string for the worker.
+    scene: z.union([z.number(), z.string().min(1)]),
+    voiceover: z.string(),
+    onScreenText: z.string(),
+    chartRef: z.string().nullable(),
+    // Two-track additions (per 2026-05-30-reel-visual-scenes spec):
+    visualBrief: z.string().nullable().optional(),
+    explains: z.string().nullable().optional(),
+    emphasize: z.string().nullable().optional(),
+    shotNotes: z.string(),
+    sceneType: ReelSceneTypeEnum,
+    estimatedSeconds: z.number().positive(),
+  })
+  // VO budget: face ≤30, chart/visual ≤45 (Reel pacing).
+  .refine(
+    (s) =&gt; reelWordCount(s.voiceover) &lt;= (s.sceneType === "face" ? 30 : 45),
+    { message: "voiceover exceeds the per-scene word budget (face ≤30, chart/visual ≤45)" },
+  )
+  // chart ⇒ chartRef non-null &amp; visualBrief null.
+  .refine(
+    (s) =&gt; s.sceneType !== "chart" || (s.chartRef !== null &amp;&amp; (s.visualBrief ?? null) === null),
+    { message: "'chart' scenes require a non-null chartRef and a null visualBrief" },
+  )
+  // visual ⇒ non-empty visualBrief &amp; chartRef null.
+  .refine(
+    (s) =&gt;
+      s.sceneType !== "visual" ||
+      (typeof s.visualBrief === "string" &amp;&amp; s.visualBrief.trim().length &gt; 0 &amp;&amp; s.chartRef === null),
+    { message: "'visual' scenes require a non-empty visualBrief and a null chartRef" },
+  )
+  // face ⇒ chartRef null &amp; visualBrief null.
+  .refine(
+    (s) =&gt; s.sceneType !== "face" || (s.chartRef === null &amp;&amp; (s.visualBrief ?? null) === null),
+    { message: "'face' scenes must have null chartRef and null visualBrief" },
+  )
+  // emphasize is chart-only.
+  .refine(
+    (s) =&gt; s.sceneType === "chart" || (s.emphasize ?? null) === null,
+    { message: "emphasize applies to 'chart' scenes only" },
+  );
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `pnpm vitest run packages/shared/src/zod.test.ts`
+Expected: PASS (new cases + existing zod tests still green).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/shared/src/zod.ts packages/shared/src/zod.test.ts
+git commit -m "feat(reel): two-track shotlist schema (chart|visual) with emphasis + VO budget"
+```
+
+---
+
+### Task 2: SceneCard / CreativeUnit Reel-only fields
+
+**Files:**
+- Modify: `packages/shared/src/derive/specs.ts:15-29` (SceneCard)
+- Test: `packages/shared/src/derive/specs.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `packages/shared/src/derive/specs.test.ts` (it already imports `CreativeUnit`/types and has a `unit()` helper):
+
+```ts
+it("a Reel SceneCard carries the two-track fields", () =&gt; {
+  const card: import("./specs.js").SceneCard = {
+    scene: 2, durationSec: 6, visual: "full-frame chart", onScreenText: "By year 30",
+    voiceover: "vo", shotNotes: "n", chartRef: "compounding-30y",
+    sceneType: "chart", estimatedSeconds: 6,
+    visualBrief: null, explains: "early start wins", emphasize: "the year-30 gap",
+  };
+  expect(card.sceneType).toBe("chart");
+  expect(card.emphasize).toBe("the year-30 gap");
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `pnpm vitest run packages/shared/src/derive/specs.test.ts -t "two-track fields"`
+Expected: FAIL — TypeScript error: `visualBrief`/`explains`/`emphasize` not on `SceneCard`, and `sceneType` does not allow `"visual"` removal of `face-over-chart`.
+
+- [ ] **Step 3: Update the SceneCard interface**
+
+Replace `packages/shared/src/derive/specs.ts:15-29` with:
+
+```ts
+export interface SceneCard {
+  scene: number;
+  durationSec: number;
+  visual: string;
+  onScreenText: string;
+  voiceover: string;
+  shotNotes: string;
+  chartRef: string | null;
+  // Reel-only optional fields (per 2026-05-30-reel-visual-scenes spec).
+  // Static formats (Feed/Carousel/YT-Long) leave these undefined; the
+  // ReelShotlistSchema enforces them for every Reel CreativeUnit at the
+  // P1-fanout boundary.
+  sceneType?: "face" | "chart" | "visual";
+  estimatedSeconds?: number;
+  visualBrief?: string | null; // free-form concept-visual brief; visual scenes only
+  explains?: string | null;    // one-line takeaway the narration must land
+  emphasize?: string | null;   // what to spotlight/annotate; chart scenes only
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `pnpm vitest run packages/shared/src/derive/specs.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Build the shared package to confirm no type breaks**
+
+Run: `pnpm -r --filter='@engineerdad/shared' build`
+Expected: clean build.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/shared/src/derive/specs.ts packages/shared/src/derive/specs.test.ts
+git commit -m "feat(reel): SceneCard two-track fields (visualBrief/explains/emphasize)"
+```
+
+---
+
+### Task 3: Plumb paletteEmphasis + new fields into the reel worker input (gap G1)
+
+**Files:**
+- Modify: `packages/orchestrator/src/produce/reel-worker-input.ts:14-85`
+- Test: `packages/orchestrator/src/produce/reel-worker-input.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Add to `packages/orchestrator/src/produce/reel-worker-input.test.ts`. Set the required env (the file's `beforeEach` may already set `HEYGEN_AVATAR_ID`/`HEYGEN_VOICE_ID`; if not, set them in this `describe`):
+
+```ts
+describe("reelWorkerInput two-track plumbing", () =&gt; {
+  beforeEach(() =&gt; {
+    process.env.HEYGEN_AVATAR_ID = "av_1";
+    process.env.HEYGEN_VOICE_ID = "vo_1";
+  });
+
+  it("projects paletteEmphasis from the unit", () =&gt; {
+    const out = reelWorkerInput({ unit: baseReelUnit({ paletteEmphasis: "alert" }), id: "row1" }, "run_1");
+    expect(out.paletteEmphasis).toBe("alert");
+  });
+
+  it("projects visualBrief/explains/emphasize per scene, defaulting to null", () =&gt; {
+    const unit = baseReelUnit({
+      shotlistEn: [
+        baseSceneCard(),
+        baseSceneCard({
+          scene: 2, sceneType: "chart", chartRef: "compounding-30y",
+          explains: "early start wins", emphasize: "the year-30 gap", estimatedSeconds: 6,
+        }),
+        baseSceneCard({
+          scene: 3, sceneType: "visual", chartRef: null,
+          visualBrief: "Split screen saver vs investor.", explains: "cost of waiting", estimatedSeconds: 5,
+        }),
+      ],
+    });
+    const out = reelWorkerInput({ unit, id: "row1" }, "run_1");
+    expect(out.scenes[0]).toMatchObject({ visualBrief: null, explains: null, emphasize: null });
+    expect(out.scenes[1]).toMatchObject({ sceneType: "chart", emphasize: "the year-30 gap", explains: "early start wins" });
+    expect(out.scenes[2]).toMatchObject({ sceneType: "visual", visualBrief: "Split screen saver vs investor.", emphasize: null });
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `pnpm vitest run packages/orchestrator/src/produce/reel-worker-input.test.ts -t "two-track plumbing"`
+Expected: FAIL — `paletteEmphasis` and the new scene fields are not on the output.
+
+- [ ] **Step 3: Extend the interface**
+
+In `packages/orchestrator/src/produce/reel-worker-input.ts`, update the `ReelWorkerInput` interface: change the `scenes[]` `sceneType` union and add the three scene fields + a top-level `paletteEmphasis`:
+
+```ts
+  paletteEmphasis: string;
+  scenes: Array&lt;{
+    scene: string;
+    voiceover: string;
+    onScreenText: string;
+    chartRef: string | null;
+    sceneType: "face" | "chart" | "visual";
+    estimatedSeconds: number;
+    visualBrief: string | null;
+    explains: string | null;
+    emphasize: string | null;
+  }&gt;;
+```
+
+- [ ] **Step 4: Extend the projection**
+
+In the same file, update the returned object in `reelWorkerInput()` — add `paletteEmphasis` and the three per-scene fields:
+
+```ts
+    paletteEmphasis: unit.paletteEmphasis,
+    scenes: unit.shotlistEn.map((s) =&gt; ({
+      scene: String(s.scene),
+      voiceover: s.voiceover,
+      onScreenText: s.onScreenText,
+      chartRef: s.chartRef,
+      sceneType: s.sceneType ?? "face",
+      estimatedSeconds: s.estimatedSeconds ?? s.durationSec ?? 5,
+      visualBrief: s.visualBrief ?? null,
+      explains: s.explains ?? null,
+      emphasize: s.emphasize ?? null,
+    })),
+```
+
+- [ ] **Step 5: Run to verify it passes**
+
+Run: `pnpm vitest run packages/orchestrator/src/produce/reel-worker-input.test.ts`
+Expected: PASS.
+
+- [ ] **Step 6: Confirm produce stage doesn't strip the fields**
+
+The reel path builds its worker input via `reelWorkerInput` (it does not use the static `renderScenes`). Confirm no parallel reel-scene projection exists in `produce.ts`:
+
+Run: `grep -n "shotlistEn\|reelWorkerInput\|sceneType" packages/orchestrator/src/stages/produce.ts`
+Expected: the reel path calls `reelWorkerInput(...)`; the only inline scene `.map` is `renderScenes` (static Feed/Carousel). If a reel-specific `.map` over `shotlistEn` exists there, add the same three fields + nothing else. Otherwise no change.
+
+- [ ] **Step 7: Build orchestrator + commit**
+
+Run: `pnpm -r --filter='@engineerdad/shared' --filter='@engineerdad/orchestrator' build`
+Expected: clean.
+
+```bash
+git add packages/orchestrator/src/produce/reel-worker-input.ts packages/orchestrator/src/produce/reel-worker-input.test.ts
+git commit -m "feat(reel): plumb paletteEmphasis + two-track fields into ReelWorkerInput (G1)"
+```
+
+---
+
+## Phase B — Prompts
+
+### Task 4: Creative-director — cap-lift, chart-vs-visual rule, multi-visual, new fields
+
+**Files:**
+- Modify: the prompt fragment feeding `.claude/agents/creative-director.md` (find via `grep -rl "Reel-specific shotlist" packages/shared/src/prompts/`)
+- Regenerate: `.claude/agents/creative-director.md`
+
+- [ ] **Step 1: Locate the fragment**
+
+Run: `grep -rl "Reel-specific shotlist\|inventory\|compounding-30y" packages/shared/src/prompts/`
+Note the file. If the Reel shotlist guidance is only in `.claude/agents/creative-director.md` (not a fragment), edit that file directly and skip `sync:agents`.
+
+- [ ] **Step 2: Lift the chart cap (3 → all 14)**
+
+Replace every occurrence of the inventory phrase
+`compounding-30y · dca-vs-lump · children-fund-cost` (and the "Set to a chart filename ... only from the inventory" wording at Step 3c and the Reel `chartRef` rule) with:
+
+```
+**3c. `chartRef`.** `null` for most scenes. Set to a chart **id** (filename without `.yaml`)
+that exists under `corpus/data/charts/` — the full vetted inventory, currently:
+alpha-vs-return · children-fund-cost · coffee-to-compound · compounding-30y ·
+consistency-vs-intensity · dca-vs-lump · epf-baseline-tiers · glide-path-allocation ·
+inflation-vs-savings-real-value · lifestyle-bloat-leaks · panic-sell-vs-hold ·
+single-country-vs-global · start-age-penalty · target-by-budget.
+Use a `chart` scene only when the argument is comparative-numeric / trend / threshold /
+distribution. **Never invent a chartRef that is not a file in `corpus/data/charts/` — that
+is a fake-data compliance violation.**
+```
+
+- [ ] **Step 3: Replace the Reel sceneType list (drop face-over-chart, add visual)**
+
+In Step 3.5, replace the `sceneType` bullet list with:
+
+```
+- **`sceneType`** — one of:
+  - `face` — HeyGen avatar (Shoo) fills the frame, talking. Hooks, anecdotes, confessionals, CTAs. The first scene MUST be `face`.
+  - `chart` — full-frame **data** chart from `corpus/data/charts/*.yaml` (vetted numbers). Use when the data IS the argument. Requires `chartRef`; `visualBrief` stays null.
+  - `visual` — full-frame **concept** visual built from a free-form `visualBrief` (comparison, labelled diagram, metaphor, big stat-callout). Use for non-numeric explanation. `chartRef` stays null. **HARD RULE: a concept visual carries NO numbers/stats — anything quantitative must be a `chart`.**
+```
+
+- [ ] **Step 4: Add the new per-scene authoring fields + multi-visual guidance**
+
+Add immediately after the sceneType bullet:
+
+```
+- **`explains`** — REQUIRED on `chart`/`visual` scenes: the one-line takeaway the voiceover must land. `null` on `face`.
+- **`emphasize`** — `chart` scenes only: what to spotlight/annotate (e.g. "the year-30 gap", "Fund B's +3% alpha bar"). `null` on `face`/`visual`.
+- **`visualBrief`** — REQUIRED on `visual` scenes: a concrete free-form description of the frame (layout, elements, labels, focal point). No numbers. `null` otherwise.
+- **`estimatedSeconds`** — voiceover length estimate; ≤30 words for `face`, **≤45 words for `chart`/`visual`**.
+
+**Multiple visual scenes.** A Reel MAY contain up to **3** `chart`/`visual` scenes, interleaved
+(face → chart → face → chart → face/CTA) or consecutive (face → chart → chart → face → face/CTA).
+Keep ONE idea per Reel; a `face` scene must open (faceFirstHook) and a `face` scene must close/CTA;
+never an all-chart reel.
+```
+
+- [ ] **Step 5: Update the Step-3.5 chartRef line + the return-shape example**
+
+In Step 3.5 remove the old "`chartRef` — REQUIRED for `chart` and `face-over-chart`" inventory line (superseded by Step 2 above). In the "Return shape" JSON example, change the chart scene object to include the new fields and ensure the visual example exists, e.g.:
+
+```json
+{ "scene": 2, "durationSec": 8, "visual": "full-frame chart", "onScreenText": "By year 30", "voiceover": "...", "shotNotes": "...", "chartRef": "compounding-30y", "sceneType": "chart", "estimatedSeconds": 8, "visualBrief": null, "explains": "early start wins", "emphasize": "the year-30 gap" },
+{ "scene": 3, "durationSec": 6, "visual": "split comparison", "onScreenText": "Saver vs investor", "voiceover": "...", "shotNotes": "...", "chartRef": null, "sceneType": "visual", "estimatedSeconds": 6, "visualBrief": "Two-column split: left a piggy bank labelled 'Saver', right a growth arrow labelled 'Investor'. Focal point: the widening gap arrow.", "explains": "doing nothing has a cost", "emphasize": null }
+```
+
+- [ ] **Step 6: Regenerate the agent file**
+
+Run: `pnpm sync:agents &amp;&amp; pnpm sync:agents:check`
+Expected: `.claude/agents/creative-director.md` updated; check passes.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/shared/src/prompts/ .claude/agents/creative-director.md
+git commit -m "feat(creative-director): two-track scene authoring + 14-chart inventory"
+```
+
+---
+
+### Task 5: Static render-worker — cap-lift only
+
+**Files:**
+- Modify: `corpus/templates/worker-prompts/render-worker.md:214` (the "Never invent chartRefs" rule) + line ~44 example enum
+
+- [ ] **Step 1: Replace the inventory rule**
+
+Replace the line at `render-worker.md:214`:
+
+```
+- **Never invent chartRefs.** Only chart ids that exist as files under `corpus/data/charts/*.yaml` are valid (the full vetted inventory — `alpha-vs-return`, `children-fund-cost`, `coffee-to-compound`, `compounding-30y`, `consistency-vs-intensity`, `dca-vs-lump`, `epf-baseline-tiers`, `glide-path-allocation`, `inflation-vs-savings-real-value`, `lifestyle-bloat-leaks`, `panic-sell-vs-hold`, `single-country-vs-global`, `start-age-penalty`, `target-by-budget`). If a scene names a non-existent file, skip the chart and append to `errors[]`.
+```
+
+- [ ] **Step 2: Update the input-shape example**
+
+At `render-worker.md:44`, replace the `chartRef` example enum `null | "compounding-30y" | "dca-vs-lump" | "children-fund-cost"` with `null | "&lt;any id under corpus/data/charts/&gt;"`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add corpus/templates/worker-prompts/render-worker.md
+git commit -m "feat(render-worker): lift chart inventory cap to the full corpus/data/charts set"
+```
+
+---
+
+### Task 6: Reel-render-worker rewrite (Step 2, emphasis, safe-area, reference designs, frames-only mode)
+
+**Files:**
+- Modify: `corpus/templates/worker-prompts/reel-render-worker.md`
+
+This task is a documentation rewrite; verification is via the harness in Task 7, so there is no unit test. Make the edits, then sanity-read the file.
+
+- [ ] **Step 1: Replace Step 2 (frame rendering)**
+
+Replace the current `### Step 2. Render chart frames` block with:
+
+````markdown
+### Step 2. Build + render each visual frame (chart and visual scenes)
+
+For each scene where `sceneType` is `chart` or `visual`, author a self-contained 1080×1920 HTML
+document and render it. **You build the HTML; `render_html_to_png` only converts HTML→PNG.** Map
+`input.paletteEmphasis` to brand-contract §1 tokens (see `corpus/templates/partials/chartjs-config.js`
+header for the token shape).
+
+**`chart` scenes:**
+1. `Read corpus/data/charts/&lt;chartRef&gt;.yaml`. Note `chart_type`, `labels`, `series` (with
+   `semantic_role`), `caption_en`, `source_citation`.
+2. Build the Chart.js 4.x config with `buildChartConfig(yaml, tokens, { lang: "en" })` from
+   `corpus/templates/partials/chartjs-config.js`; embed Chart.js via CDN and emit the
+   `window.__chartsReady` signal (same mechanics as `render-worker.md` §4/§7).
+3. **Apply `emphasize`** as an HTML/CSS overlay (NOT the Chart.js annotation plugin): render the
+   emphasized series/category at full hero color and dim the others (reduced opacity / muted token);
+   add a positioned HTML badge/label naming the emphasized point. **Never change the YAML's numbers**
+   — render `caption_en` and the full `source_citation` (≥24px, not truncated) unchanged.
+4. Respect the reel safe-area (§ Reel safe-area below).
+
+**`visual` scenes:**
+1. Compose a brand-compliant self-contained HTML frame from `scene.visualBrief` + `scene.explains`
+   + `scene.onScreenText`, bound by brand contract §6 (palette-only colors, the two allowed fonts,
+   logo present, no animation). **HARD RULE: no numbers/stats on the frame** — if the brief implies a
+   statistic, that is a creative-director bug; append to `warnings[]` and render the qualitative point only.
+2. Respect the reel safe-area.
+
+Render each frame:
+
+```
+mcp__static-renderer__render_html_to_png({
+  html: "&lt;the HTML you authored&gt;",
+  width: input.width, height: input.height,   // 1080 × 1920
+  run_id: input.runId, variant_id: input.variantId, scene_id: &lt;scene index&gt;,
+  wait_for_charts: &lt;true for chart scenes, false for visual scenes&gt;
+})
+```
+
+Collect `framePngPath` keyed by scene index. `face` scenes render no frame.
+````
+
+- [ ] **Step 2: Add the Reel safe-area subsection**
+
+Add after Step 2:
+
+```markdown
+### Reel safe-area (mandatory for every frame)
+
+IG/FB Reels overlay platform UI on the frame edges. Keep ALL text, the logo, the chart caption +
+`source_citation`, and the emphasis callout inside the central column:
+- top ~14% clear, bottom ~20% clear, right ~12% clear of the 1080×1920 frame.
+Content placed in those zones will be occluded by the Reels UI. Verify against the reel exemplars
+(§ Reference designs).
+```
+
+- [ ] **Step 3: Update Step 4 (generate_reel mapping)**
+
+Replace the Step 4 mapping description so `visual` maps to a chart-image scene too:
+
+```
+Map every scene: `face` → kind:"face"; `chart`/`visual` → kind:"chart" with
+`chart_url: chartUrl[i]` (full-frame image, VO only). The HeyGen wrapper treats any image
+background identically — there is no separate "visual" kind.
+```
+
+And in the code block, change the map predicate to:
+
+```
+scenes: input.scenes.map((s, i) =&gt; s.sceneType === "face"
+  ? { kind: "face", voiceover: s.voiceover }
+  : { kind: "chart", voiceover: s.voiceover, chart_url: chartUrl[i] })
+```
+
+- [ ] **Step 4: Fix the input-shape example + the hard rules**
+
+In the "Inputs you'll receive" JSON example, set `sceneType` enum context to `face|chart|visual`, add
+`"visualBrief": null, "explains": "...", "emphasize": "..."` to a scene, and add `"paletteEmphasis": "authoritative"`
+at the top level. In "Hard rules", replace the `chartRef`-only rules with:
+
+```
+- **Never invent chartRefs.** Only ids that exist as files under `corpus/data/charts/*.yaml`. Missing file → hard fail (`RenderFailed`, error JSON, exit).
+- **Concept visuals carry no numbers.** A `visual` frame must not display a statistic; quantitative claims belong in a `chart`.
+- **Respect the reel safe-area** on every frame.
+- **Persist `reelHeygenJobId` before polling** (Step 4a — unchanged orphan-recovery invariant).
+```
+
+Remove all remaining `face-over-chart` mentions (Steps 2 and 4 references).
+
+- [ ] **Step 5: Add the Reference designs section**
+
+Add a new section near the end (before "What you're NOT responsible for"):
+
+```markdown
+## Reference designs
+
+Before composing a frame, `Read` the matching 9:16 exemplar and match its density, rhythm, safe-area,
+and quality bar. These are reel-specific — do NOT use the Feed (1:1/4:5) exemplars.
+
+- `corpus/templates/reference-designs/reel-9x16-chart-line-emphasis-001.png` — line chart, light bg, point spotlit + annotation callout.
+- `corpus/templates/reference-designs/reel-9x16-chart-bar-emphasis-002.png` — bar chart, dark bg, one bar spotlit.
+- `corpus/templates/reference-designs/reel-9x16-visual-comparison-001.png` — two-column comparison.
+- `corpus/templates/reference-designs/reel-9x16-visual-diagram-002.png` — labelled diagram / stat-callout.
+```
+
+- [ ] **Step 6: Add the frames-only harness mode**
+
+Add a subsection under "Inputs":
+
+```markdown
+### Frames-only harness mode
+
+If the spawn prompt declares **"FRAMES-ONLY MODE"**, do Step 2 + the §5.5-style visual-QA pass ONLY:
+render every `chart`/`visual` frame, `Read` each PNG and write evidence-cited QA notes, then return
+`{ "frames": [{ "sceneIndex": n, "sceneType": "...", "path": "...", "qa": "..." }], "warnings": [] }`.
+Do NOT upload to HeyGen, do NOT call `generate_reel`, do NOT write the store (skip Steps 3–5).
+```
+
+- [ ] **Step 7: Sanity-read the file**
+
+Run: `grep -n "face-over-chart\|chartRef:" corpus/templates/worker-prompts/reel-render-worker.md`
+Expected: no `face-over-chart` left; no `render_html_to_png({ chartRef })` call remaining.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add corpus/templates/worker-prompts/reel-render-worker.md
+git commit -m "feat(reel-worker): build-HTML frame recipe, HTML-overlay emphasis, safe-area, reference designs, frames-only mode"
+```
+
+---
+
+## Phase C — Dev harness
+
+### Task 7: Frames-only harness + fixtures
+
+**Files:**
+- Create: `scripts/test-reel-frames.mjs`
+- Modify: `package.json` (root `scripts`)
+- Create: `scripts/fixtures/reel-worker/chart-emphasis.json`, `concept-visual.json`, `mixed-reel.json`
+
+- [ ] **Step 1: Create three fixtures**
+
+`scripts/fixtures/reel-worker/chart-emphasis.json`:
+
+```json
+{
+  "scriptId": "test_chart",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 25, "faceFirstHook": true, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "Start early and time does the heavy lifting.", "onScreenText": "Start at 30", "chartRef": null, "sceneType": "face", "estimatedSeconds": 4, "visualBrief": null, "explains": null, "emphasize": null },
+    { "scene": "2", "voiceover": "Start at 30 instead of 40 and by retirement the early starter has about three times as much, same monthly amount.", "onScreenText": "By year 30", "chartRef": "compounding-30y", "sceneType": "chart", "estimatedSeconds": 9, "visualBrief": null, "explains": "early start wins on time, not amount", "emphasize": "the year-30 gap" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}
+```
+
+`scripts/fixtures/reel-worker/concept-visual.json`:
+
+```json
+{
+  "scriptId": "test_visual",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 20, "faceFirstHook": true, "paletteEmphasis": "calm",
+  "scenes": [
+    { "scene": "1", "voiceover": "Doing nothing is also a choice with a cost.", "onScreenText": "The cost of waiting", "chartRef": null, "sceneType": "face", "estimatedSeconds": 4, "visualBrief": null, "explains": null, "emphasize": null },
+    { "scene": "2", "voiceover": "On one side the saver who waits, on the other the investor who starts; the gap between them only widens.", "onScreenText": "Saver vs Investor", "chartRef": null, "sceneType": "visual", "estimatedSeconds": 7, "visualBrief": "Two-column split-screen. Left column labelled 'Saver' with a static piggy bank. Right column labelled 'Investor' with an upward growth arrow. Focal point: a widening gap arrow between the columns. Calm palette, no numbers.", "explains": "waiting has a widening cost", "emphasize": null }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}
+```
+
+`scripts/fixtures/reel-worker/mixed-reel.json`: a 5-scene reel (face → chart → visual → face → face/CTA) reusing the scene objects above plus a closing `face` scene. Use the same field shape; sceneTypes in order: `face`, `chart`, `visual`, `face`, `face`.
+
+- [ ] **Step 2: Create the harness script**
+
+`scripts/test-reel-frames.mjs` — modeled on `scripts/test-static-worker.mjs`:
+
+```js
+#!/usr/bin/env node
+// Frames-only test harness for the reel-render-worker.
+//
+// Usage:   pnpm run test:reel-frames &lt;fixture-name&gt; [--copy] [--open]
+// Example: pnpm run test:reel-frames chart-emphasis --copy
+//
+// Assembles a FRAMES-ONLY spawn prompt (reel-render-worker.md + the fixture)
+// and prints a paste-able Task() call. The spawned worker builds + renders
+// each chart/visual frame at 1080×1920 and STOPS before HeyGen (no upload,
+// no generate_reel, no store writes). Reuses the live MCP stack — no SDK.
+//
+// PNGs land at data/assets/test-reel-&lt;fixture&gt;/&lt;variantId&gt;/&lt;scene&gt;.png
+
+import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, "..");
+const args = process.argv.slice(2);
+const positional = args.filter((a) =&gt; !a.startsWith("--"));
+const flags = new Set(args.filter((a) =&gt; a.startsWith("--")));
+const fixtureDir = resolve(repoRoot, "scripts/fixtures/reel-worker");
+
+if (positional.length !== 1) {
+  console.error("usage: pnpm run test:reel-frames &lt;fixture-name&gt; [--copy] [--open]");
+  if (existsSync(fixtureDir)) {
+    console.error("available fixtures:");
+    for (const f of readdirSync(fixtureDir)) if (f.endsWith(".json")) console.error(`  - ${f.replace(/\.json$/, "")}`);
+  }
+  process.exit(1);
+}
+
+const name = positional[0];
+const fixturePath = resolve(fixtureDir, `${name}.json`);
+const promptPath = resolve(repoRoot, "corpus/templates/worker-prompts/reel-render-worker.md");
+for (const p of [fixturePath, promptPath]) {
+  if (!existsSync(p)) { console.error(`error: not found at ${p}`); process.exit(1); }
+}
+
+const workerPrompt = readFileSync(promptPath, "utf8");
+const fixture = JSON.parse(readFileSync(fixturePath, "utf8"));
+fixture.runId = `test-reel-${name}`;
+fixture.id = "test-row";
+fixture.variantId = createHash("sha256").update(`${fixture.scriptId}|Reel|9:16`).digest("hex").slice(0, 12);
+fixture.resumeFromJobId = null;
+
+const spawnPrompt = `${workerPrompt}
+
+---
+
+## FRAMES-ONLY MODE
+
+Operate in frames-only mode (see "Frames-only harness mode"): render every chart/visual frame at
+1080×1920, run the visual-QA pass, and STOP before Step 3. Do not call HeyGen or the store.
+
+## Spawn-time inputs
+
+\`\`\`json
+${JSON.stringify(fixture, null, 2)}
+\`\`\`
+
+Return only the frames-only JSON described in the prompt. No surrounding prose.`;
+
+const taskCall = `Task({
+  subagent_type: "general-purpose",
+  description: "Test reel frames (${name})",
+  prompt: \`${spawnPrompt.replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`
+})`;
+
+const outDir = resolve(repoRoot, "tmp/test-output", `reel-${name}`);
+mkdirSync(outDir, { recursive: true });
+writeFileSync(resolve(outDir, "spawn-prompt.md"), spawnPrompt);
+
+console.log("=".repeat(72));
+console.log(`REEL FRAMES-ONLY HARNESS — fixture: ${name}`);
+console.log("=".repeat(72));
+console.log(`Spawn prompt: tmp/test-output/reel-${name}/spawn-prompt.md`);
+console.log(`Renders land at: data/assets/${fixture.runId}/${fixture.variantId}/&lt;scene&gt;.png`);
+console.log("Paste this into a Claude Code conversation with: Task, Read, mcp__static-renderer__*\n");
+console.log("─".repeat(72));
+console.log(taskCall);
+console.log("─".repeat(72));
+
+if (flags.has("--copy")) {
+  const r = spawnSync("pbcopy", { input: taskCall });
+  console.log(r.status === 0 ? "✓ copied to clipboard" : "⚠ pbcopy unavailable");
+}
+if (flags.has("--open")) spawnSync("open", [outDir]);
+```
+
+- [ ] **Step 3: Register the script**
+
+Add to root `package.json` `scripts`:
+
+```json
+"test:reel-frames": "node scripts/test-reel-frames.mjs",
+```
+
+- [ ] **Step 4: Smoke-test the harness (prints, does not render)**
+
+Run: `pnpm test:reel-frames chart-emphasis`
+Expected: prints the Task() call + the render path; writes `tmp/test-output/reel-chart-emphasis/spawn-prompt.md`. (No render yet — that happens when the Task() call is pasted into a conversation.)
+
+- [ ] **Step 5: Run one fixture end-to-end (manual)**
+
+Paste the printed `Task()` call into this conversation. Expected: the worker returns frames-only JSON and PNGs exist at `data/assets/test-reel-chart-emphasis/&lt;variantId&gt;/2.png`. `Read` the PNG to confirm: chart rendered, year-30 point spotlit, others dimmed, callout present, citation legible, content inside the safe-area.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/test-reel-frames.mjs scripts/fixtures/reel-worker/ package.json
+git commit -m "feat(harness): frames-only reel-render test harness + fixtures"
+```
+
+---
+
+## Phase D — Reference exemplars
+
+### Task 8: Author the 4 reel exemplars (harness-driven)
+
+**Files:**
+- Create: `corpus/templates/reference-designs/src/reel-9x16-chart-line-emphasis-001.html` (+ 3 more `src/*.html`)
+- Create: the 4 rendered `corpus/templates/reference-designs/reel-9x16-*.png`
+- Modify: `corpus/templates/reference-designs/README.md`
+
+These are design artifacts; refine them visually via the harness/render loop. Acceptance criteria are concrete; the exact pixel design is produced by iteration, grounded in the brand contract §1 tokens and the existing Feed exemplars.
+
+- [ ] **Step 1: Author the chart-line exemplar source**
+
+Create `corpus/templates/reference-designs/src/reel-9x16-chart-line-emphasis-001.html` as a self-contained 1080×1920 document: light (`--offwhite`) background; a top headline (`var(--font-head)`, ≥72px) inside the top safe-area; a Chart.js line chart built from `compounding-30y.yaml` via `buildChartConfig` with the hero line at full `--orange` and the comparison line dimmed; an HTML callout badge over the year-30 point; `caption_en` (~28px) + full `source_citation` (≥24px) stacked below the chart; logo block placed to clear the bottom-20%/right-12% safe-area. Use a static `&lt;canvas&gt;` + inline `&lt;script&gt;` with `window.__chartsReady = true` after `new Chart(...)`.
+
+Acceptance criteria:
+- All content inside central column (top 14% / bottom 20% / right 12% clear).
+- Hero series visually dominant; comparison dimmed.
+- Callout names the emphasized point.
+- `source_citation` present and not truncated.
+
+- [ ] **Step 2: Render it via the static renderer**
+
+Paste a `render_html_to_png` call into this conversation (or add a one-line fixture to the harness):
+
+```
+mcp__static-renderer__render_html_to_png({
+  html: "&lt;contents of reel-9x16-chart-line-emphasis-001.html&gt;",
+  width: 1080, height: 1920,
+  run_id: "exemplars", variant_id: "reel9x16", scene_id: "chart-line-001",
+  wait_for_charts: true
+})
+```
+
+Copy the resulting PNG to `corpus/templates/reference-designs/reel-9x16-chart-line-emphasis-001.png`. `Read` it and confirm the acceptance criteria.
+
+- [ ] **Step 3: Author + render the chart-bar exemplar**
+
+Create `src/reel-9x16-chart-bar-emphasis-002.html`: dark (`--navy-dark`) background; bar chart from `dca-vs-lump.yaml` (or `alpha-vs-return.yaml`); one bar at full hero color, the rest dimmed; white tick/grid per the chartjs-config dark-bg note; callout on the emphasized bar; caption + citation; safe-area respected. Render with `scene_id: "chart-bar-002"`, `wait_for_charts: true`. Save to `reel-9x16-chart-bar-emphasis-002.png`.
+
+- [ ] **Step 4: Author + render the visual-comparison exemplar**
+
+Create `src/reel-9x16-visual-comparison-001.html`: a two-column split ("start at 30" vs "start at 40" or "Saver vs Investor"), calm palette, no chart, no numbers; clear focal contrast; logo; safe-area respected. Render with `wait_for_charts: false`, `scene_id: "visual-comparison-001"`. Save to `reel-9x16-visual-comparison-001.png`.
+
+- [ ] **Step 5: Author + render the visual-diagram exemplar**
+
+Create `src/reel-9x16-visual-diagram-002.html`: a labelled diagram / metaphor or a single big qualitative stat-callout, neutral-authoritative palette, no fabricated numbers; safe-area respected. Render `wait_for_charts: false`, `scene_id: "visual-diagram-002"`. Save to `reel-9x16-visual-diagram-002.png`.
+
+- [ ] **Step 6: Update the README**
+
+Add a "Reel exemplars (9:16)" section to `corpus/templates/reference-designs/README.md` listing the 4 PNGs, their `src/` HTML, the 1080×1920 geometry, and the safe-area margins (top 14% / bottom 20% / right 12%).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add corpus/templates/reference-designs/
+git commit -m "feat(reference-designs): 4 reel 9:16 exemplars (chart+emphasis, concept-visual) with source HTML"
+```
+
+---
+
+## Phase E — Docs
+
+### Task 9: ADR-029 + ARCHITECTURE/TASKS updates
+
+**Files:**
+- Create: `docs/decisions/029-reel-visual-scenes.md`
+- Modify: `ARCHITECTURE.md`, `TASKS.md`
+
+- [ ] **Step 1: Write ADR-029**
+
+Create `docs/decisions/029-reel-visual-scenes.md` (Status: Accepted; Refines: ADR-028). Capture: the two-track model (`face|chart|visual`), the dropped `face-over-chart`, chart-only `emphasize`, HTML-overlay emphasis (not the Chart.js annotation plugin), the no-numbers compliance rule for concept visuals + HG3 backstop, the G1 palette plumbing, the G2 reel safe-area, and the frames-only harness. Consequences: `render-worker.md`/`reel-render-worker.md` now share the `buildChartConfig` recipe; reels stay EN-only; `targetSeconds ≥ Σ estimatedSeconds` remains a prompt rule.
+
+- [ ] **Step 2: Update ARCHITECTURE.md**
+
+Find the reel/sceneType reference (`grep -n "sceneType\|face-over-chart\|reel" ARCHITECTURE.md`) and update the sceneType enum to `face | chart | visual`, note the two-track model + reference to ADR-029.
+
+- [ ] **Step 3: Add a TASKS.md entry / close it**
+
+Add (or close, if tracked) the reel-visual-scenes item in `TASKS.md`, refresh the Status header per CLAUDE.md maintenance rules.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add docs/decisions/029-reel-visual-scenes.md ARCHITECTURE.md TASKS.md
+git commit -m "docs(adr): ADR-029 reel two-track visual scenes; refresh ARCHITECTURE + TASKS"
+```
+
+---
+
+## Final verification
+
+- [ ] **Full build (sequential — never parallel):** `pnpm -r --filter='!@engineerdad/webapp' build` → clean.
+- [ ] **Full test:** `pnpm vitest run packages/shared packages/orchestrator` → green.
+- [ ] **Agent sync:** `pnpm sync:agents:check` → passes.
+- [ ] **Harness:** `pnpm test:reel-frames mixed-reel` → prints; pasted Task() renders 1 chart + 1 visual frame, both pass safe-area + emphasis QA against the exemplars.
+- [ ] **Open a PR** from `feat/reel-visual-scenes`.
+
+---
+
+## Self-review notes (for the implementer)
+
+- **No DB migration:** shotlist data lives in ephemeral orchestrator step-results, not a durable column. Dropping `face-over-chart` and adding fields needs no `db:generate`/`db:migrate`.
+- **Reels are EN-only:** `ReelWorkerInput.language` is hardcoded `"en"`; frame text uses the `_en` YAML fields and English briefs. Bilingual frame text is out of scope.
+- **`targetSeconds ≥ Σ estimatedSeconds`** stays a creative-director prompt rule (not a zod refine) — consistent with current behavior.
+- **Emphasis = HTML/CSS overlay**, never the Chart.js annotation plugin (no new CDN dep).
+- **Compliance:** concept-visual on-frame text is not machine-scanned; the no-numbers rule + HG3 human review are the backstop.
+</pre>
+<p class="note">This HTML is a faithful render of the Markdown plan (the canonical source for task tracking). Edit the .md and regenerate.</p>
+</div></body></html>

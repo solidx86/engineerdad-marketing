@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain Initiative — graduation-rate-driven evolution of the OS07 reasoner</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .pill.bad { background: var(--bad-bg); border-color: var(--bad-line); color: #8a2727; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+  .toc {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin: 20px 0 32px;
+    font-size: 13.5px;
+    column-count: 2;
+    column-gap: 28px;
+  }
+  .toc h3 { margin: 0 0 8px; column-span: all; font-size: 13px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+  .toc ol { margin: 0; padding-left: 22px; }
+  .toc li { margin: 3px 0; break-inside: avoid; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Brain Initiative — graduation-rate-driven evolution of the OS07 reasoner</h1>
+  <p class="subtitle">One programme spec that supersedes the two prior brain designs. Phase 0 (E-035 / <code>experimentParams</code>) unblocks the loop; Phase 1 (calibration suite) measures the baseline; Phase 2 (Brain v3 MoE-Critic) upgrades the reasoner against a measurable gate; Phase 3 (generic critic step kind) seeds the cross-stage critic pattern. North star: Hypothesis graduation rate.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-26</dd>
+    <dt>Status</dt><dd><span class="pill">Designed — awaiting approval before plan</span></dd>
+    <dt>Branch home</dt><dd><code>feat/brain-experiment-params</code> &rarr; renamed <code>feat/brain-initiative</code></dd>
+    <dt>Closes</dt><dd>E-035 (in Phase 0); folds in the v3 MoE-Critic spec and E-033 (scoped to <code>synthesize</code> only)</dd>
+    <dt>Supersedes</dt><dd>
+      <code>docs/superpowers/specs/2026-05-24-brain-moe-critic-topology-design.html</code><br>
+      <code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.html</code><br>
+      <code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.md</code><br>
+      <em>(deleted in Phase 0 PR)</em>
+    </dd>
+    <dt>Discovered</dt><dd>2026-05-25 — <code>run_1779696355</code> halted at X2-design with <code>factors must be non-empty</code>.</dd>
+    <dt>Related ADRs</dt><dd>ADR-020 (cells; amended in Phase 2) &middot; ADR-022 (claim-check, shipped) &middot; ADR-023 (orchestrator-resident, shipped) &middot; ADR-024 (staged input, shipped). <strong>ADR-026</strong> (Brain MoE-Critic topology + critic step kind doctrine) drafted with Phase 2, accepted on Phase 3 merge.</dd>
+  </dl>
+</header>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#s1">Why this programme exists</a></li>
+    <li><a href="#s2">North-star metric &amp; merge gates</a></li>
+    <li><a href="#s3">Programme architecture</a></li>
+    <li><a href="#s4">Phase 0 — <code>experimentParams</code></a></li>
+    <li><a href="#s5">Phase 1 — Calibration suite</a></li>
+    <li><a href="#s6">Phase 2 — Brain v3 MoE-Critic</a></li>
+    <li><a href="#s7">Phase 3 — Generic critic step kind</a></li>
+    <li><a href="#s8">Cross-phase contracts</a></li>
+    <li><a href="#s9">Testing strategy</a></li>
+    <li><a href="#s10">Branch &amp; PR plan</a></li>
+    <li><a href="#s11">Programme rollover (future E-numbers)</a></li>
+    <li><a href="#s12">Out of scope</a></li>
+    <li><a href="#s13">Definition of done</a></li>
+    <li><a href="#s14">Open questions / future work</a></li>
+  </ol>
+</nav>
+
+<h2 id="s1"><span class="num">1.</span> Why this programme exists &mdash; the data-driven marketing read</h2>
+
+<p>Brain quality is the compounding edge of this OS. Every other stage (brief, content, produce, distribute) is mostly a deterministic transformation of Brain's decisions. The thing that gets sharper over time &mdash; or doesn't &mdash; is Brain's prediction calibration: do Brain's bets land where Brain said they would, often enough that the next cycle's bets are tighter?</p>
+
+<p>Today that compounding doesn't happen for three structural reasons.</p>
+
+<div class="callout bad">
+  <span class="tag">(1) The loop has never completed end-to-end on the current branch.</span>
+  <p><code>packages/orchestrator/src/stages/experiment.ts:18</code> flags that "experiment-design inputs Brain writes into <code>run.params</code>" was never wired. Today, X2-design reads <code>run.params as unknown as ExperimentParams</code>, sees <code>undefined</code>, calls <code>mcp__experiment__design({ factors: [] })</code>, and the design library throws. Every cycle halts at the experiment stage. <strong>#Hypotheses graded per week = 0.</strong> Calibration data accumulates at zero rate.</p>
+</div>
+
+<div class="callout bad">
+  <span class="tag">(2) The reasoner is architecturally mismatched to the system it reasons over.</span>
+  <p>The current <code>brain</code> agent runs the &sect;B 9-step scaffold end-to-end as one Opus context across four channels (Meta-paid, Meta-organic, YouTube, Authority) &mdash; channels that grade independently (per-channel rules in &sect;B step 2) but reason monolithically. A Meta-paid CPA forecast gets unconsciously anchored by Meta-organic engagement signal; an Authority article's GSC prediction borrows uncalibrated confidence from a Meta-paid winner. Four distinct evidence regimes are compressed into one context window.</p>
+</div>
+
+<div class="callout bad">
+  <span class="tag">(3) The adversarial check is too soft.</span>
+  <p>The current self-critique is a paragraph re-read as paragraph context by the next cycle's monolithic Brain. Prose criticism does not reliably tighten the next prediction's confidence interval. Hypotheses get refuted without the topology learning <em>why</em> in any structured way.</p>
+</div>
+
+<p>What a data-driven marketer would do faced with these three: <strong>ship the measurement first, generate baseline, then upgrade the reasoner against measurable evidence.</strong> Not the other way around. This programme is that sequence.</p>
+
+<h2 id="s2"><span class="num">2.</span> North-star metric &amp; per-phase merge gates</h2>
+
+<p><strong>North star:</strong> <code>graduation_rate = #Hypotheses (Open &rarr; Confirmed) per N completed cycles</code></p>
+
+<p>Single number, monotonic, derived from <code>performance_reports</code> &times; <code>hypotheses.predictions_history</code>. Each phase contributes by removing a different blocker on that number.</p>
+
+<table>
+  <thead><tr><th>Phase</th><th>Ships</th><th>Sub-gate before merge</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="n">0</td>
+      <td>E-035 &mdash; Brain emits <code>experimentParams</code>; X2-design reads from the memo; verifier asserts shape</td>
+      <td>One <code>/loop</code> cycle reaches HG4 with <code>experimentParams</code> populated. (Today: 0.)</td>
+    </tr>
+    <tr>
+      <td class="n">1</td>
+      <td><code>tools/eval/calibration-suite/</code> &mdash; replay harness with <code>graduation_rate</code> + <code>ci_hit_rate</code> scorers; snapshot-on-write hook in <code>synthesize</code></td>
+      <td>Suite scores &ge;3 post-Phase-0 cycles deterministically (two runs &rarr; identical scores). Baseline <code>graduation_rate(v2)</code> recorded.</td>
+    </tr>
+    <tr>
+      <td class="n">2</td>
+      <td>Brain v3 MoE-Critic &mdash; 5-phase debate graph; 6 new agent prompt fragments; <code>DecisionMemoV3</code> extends V2; <code>debate_transcripts</code> + <code>critic_calibration_summary</code> JSONB columns</td>
+      <td><code>pnpm calibrate --gate phase-2</code> exits 0: over &ge;5 replays, v3 wins on <code>graduation_rate</code> in &ge;4/5 <strong>AND</strong> beats v2 on <code>ci_hit_rate</code> at p&lt;0.10. Re-evaluate at cycles 10 and 20 post-merge; fork v2.5 back if v3 regresses.</td>
+    </tr>
+    <tr>
+      <td class="n">3</td>
+      <td>Generic <code>kind: "critic"</code> step in <code>packages/orchestrator/src/types.ts</code>; <code>synthesize</code> migrates its v3 critic spawns onto the generic kind</td>
+      <td>No regression: <code>pnpm calibrate --gate phase-3</code> shows <code>graduation_rate</code> post-migration &ge; Phase-2 baseline.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Why <code>graduation_rate</code>, not <code>ci_hit_rate</code></h3>
+
+<p>CI-hit-rate measures the reasoner alone. A Brain that emits <code>CPA MYR 1&ndash;100, 95% CI</code> wins CI-hit-rate and tells you nothing &mdash; the v3 spec's gate doesn't catch this. Graduation rate forces three things to be simultaneously true: <strong>(a)</strong> Brain emits a bet specific enough to be graded, <strong>(b)</strong> the experiment has enough power to confirm/refute it, <strong>(c)</strong> calibration is honest enough that confirmations are real. CI-hit-rate is retained as the <strong>secondary</strong> diagnostic.</p>
+
+<h3>Why &ge;5 replays at the Phase 2 gate (and not 10/20)</h3>
+
+<p>5 is the cheap-but-not-cheating middle. If v3 wins 4/5 on graduation rate, binomial p &asymp; 0.19 vs. null &mdash; informative, not proof. If v3 wins 5/5, p &asymp; 0.03 &mdash; defensible. 1&ndash;2 replays = pure luck; 20+ = months of elapsed time for marginal certainty. Solo-consultant tempo argues for 5 + a written promise to re-evaluate at 10 and 20 post-merge.</p>
+
+<h3>Why pre-merge, not "merge then evaluate"</h3>
+
+<div class="callout warn">
+  <span class="tag">v3 is not a free upgrade.</span>
+  <p>17&times; v2's Opus spawn cost per cycle (~$650/year vs. ~$40/year at current scale, out of your pocket) and 7&times; the prompt files to maintain. Reverting v3 once it's in main is a multi-file, doctrine-touching, 6-prompt unwind &mdash; by the time evidence shows v3 isn't better, sunk-cost gravity will rationalize keeping it. Also: critic transcripts compound &mdash; bad v3 cycles seed the next cycle's critic with bad priors. The longer we run before checking, the more compounded damage to unwind. The pre-merge gate forces evidence to land while the change is cheap to reverse.</p>
+</div>
+
+<h2 id="s3"><span class="num">3.</span> Programme architecture</h2>
+
+<p>Four phases, four PRs off main, each independently revertable. Each phase is gated by (a) its predecessor's merge and (b) its own merge gate.</p>
+
+<div class="diagram">this branch (feat/brain-experiment-params) ──renamed──&gt; feat/brain-initiative
+   │
+   │  Phase 0 PR: umbrella spec + E-035 code + supersession of old specs
+   │             merges to main
+   ▼
+main ─────────────────────────────────────────────────────────────────────
+   │  Phase 1 PR (branch: feat/brain-calibration-suite, off main):
+   │             suite + snapshot hook + executable `pnpm calibrate` gate
+   ▼
+main ─────────────────────────────────────────────────────────────────────
+   │  Phase 2 PR (branch: feat/brain-moe-critic, off main):
+   │             v3 + ADR-026 + ADR-020 amend
+   │             cannot merge until `pnpm calibrate --gate phase-2` exits 0
+   ▼
+main ─────────────────────────────────────────────────────────────────────
+   │  Phase 3 PR (branch: feat/brain-critic-step, off main):
+   │             generic critic step kind + synthesize migration
+   │             cannot merge until `pnpm calibrate --gate phase-3` exits 0
+   ▼
+main ─────────────────────────────────────────────────────────────────────</div>
+
+<p>Small PRs off main, each revertable in isolation. The "one long-lived branch with stacked PRs" alternative remains viable but isn't recommended here &mdash; review pain in solo mode outweighs the branch-locality benefit.</p>
+
+<h3>Dependency posture across ADRs</h3>
+<ul>
+  <li><strong>ADR-020</strong> (agentic cells) &mdash; amended in Phase 2 to list the new 6 cells; pre-Phase 0 it stays as-is.</li>
+  <li><strong>ADR-022</strong> (claim-check) &mdash; shipped; hard prereq for Phase 2's 17-spawn topology; no work.</li>
+  <li><strong>ADR-023</strong> (orchestrator-resident execution) &mdash; shipped; the eager-execute path Phases 2&ndash;3 depend on; no work.</li>
+  <li><strong>ADR-024</strong> (orchestrator staged input) &mdash; shipped; the spawnPrompt-ref pattern Phase 2 uses to keep judge spawn payloads under cap; no work.</li>
+  <li><strong>ADR-026</strong> (new) &mdash; drafted with the Phase 2 PR; accepted on the Phase 3 PR merge. Covers two doctrines: MoE-Critic topology and the generic critic step kind.</li>
+</ul>
+
+<h2 id="s4"><span class="num">4.</span> Phase 0 &mdash; <code>experimentParams</code> (E-035 fold-in)</h2>
+
+<h3>4.1 Problem</h3>
+
+<p><code>packages/orchestrator/src/stages/experiment.ts:18</code> flags that Phase 6 (Brain &rarr; <code>run.params</code> wiring) never landed. X2-design reads <code>run.params as unknown as ExperimentParams</code>, sees <code>undefined</code> for every field, calls <code>mcp__experiment__design({ factors: [] })</code>, and the design library throws <code>factors must be non-empty</code> at <code>packages/experiment/src/design.ts:34</code>. Every cycle halts there. The only known unblock is hand-editing <code>runs.params</code> JSON in sqlite &mdash; a dangerous one-off.</p>
+
+<h3>4.2 Decisions</h3>
+<ol>
+  <li><strong>Ownership.</strong> Brain emits <code>experimentParams</code> in its Decision Memo. Engine lifts it into the experiment stage via the synthesize step result.</li>
+  <li><strong>Factor model.</strong> One factor (<code>"angle"</code>) with <code>levels = recommendedAngles[]</code>. v1 only. Multi-factor (angle &times; persona) is a Brain-prompt-only upgrade because the schema is <code>factors[]</code> from day one &mdash; see E-039 in &sect;11.</li>
+  <li><strong>No <code>run.params</code> mutation.</strong> The experiment stage reads the resolved memo from <code>run.steps[].result</code> for <code>S1-reason</code>. <code>resolveRefs()</code> already dereferences claim-check refs at the MCP boundary.</li>
+  <li><strong>Legitimate-skip path.</strong> When Brain has only one recommended angle (cold-start, single proof archetype), it emits <em>no</em> <code>experimentParams</code>. X2-design and X3-write detect this and return empty <code>calls: []</code>. The run flows past experiment into distribute unchanged.</li>
+</ol>
+
+<h3>4.3 Type lineage &mdash; <code>packages/shared/src/types/brain.ts</code> (NEW)</h3>
+
+<p>Phase 0 creates a real shared type file so v2 has a defined shape that v3 can extend in Phase 2.</p>
+
+<pre>export interface ExperimentParams {
+  hypothesis: string;
+  factors: Array&lt;{ name: string; levels: string[] }&gt;;
+  holdConstant: string[];
+  primaryMetric: "cpa" | "hook_rate" | "thumbstop" | "ctr";
+  dailyBudgetMyr: number;
+  durationDays: number;
+}
+
+export interface DecisionMemoV2 {
+  schemaVersion: 2;
+  runId: string;
+  memoId: string;
+  recommendedAngles: string[];
+  personas: string[];
+  topCreatives: unknown;        // pass-through from analytics
+  hypothesisIds: string[];
+  banditAllocation: unknown;    // pass-through from analytics
+  experimentParams?: ExperimentParams;   // absent = Brain declined
+  notes?: string;
+}</pre>
+
+<p><strong>Naming convention:</strong> camelCase, matching the rest of the memo. The experiment library's snake_case (<code>hold_constant</code>, <code>primary_metric</code>, etc.) translation lives in the X2-design build, not in the schema.</p>
+
+<p><strong>Why multi-factor-shaped on v1:</strong> when Brain later learns to reason about angle &times; persona, the engine accepts the wider shape with no code change. Locking v1 to a flat <code>angles: string[]</code> shape would require synchronized changes across three files later. Forward cost: a 3-token shape (<code>factors: [{...}]</code>) instead of (<code>angles: [...]</code>).</p>
+
+<h3>4.4 Brain prompt change &mdash; <code>.claude/agents/brain.md</code></h3>
+
+<p>&sect;B-step-9 EMIT, step 3 (claim-check persist): extend the payload object Brain hands to <code>mcp__orchestrator__write_step_result</code> with one more required key:</p>
+
+<pre>experimentParams: {
+  hypothesis: &lt;top Recommended Action's hypothesis sentence&gt;,
+  factors: [{ name: "angle", levels: recommendedAngles }],
+  holdConstant: [],
+  primaryMetric: "cpa",
+  dailyBudgetMyr: &lt;bandit_allocate input dailyBudgetMyr, default 200&gt;,
+  durationDays: &lt;bandit_allocate input durationDays, default 7&gt;,
+}</pre>
+
+<p>Brain already computed <code>recommendedAngles</code> (step 7 CHOOSE) and budget inputs (step 8 ALLOCATE). This block re-emits them in the experiment library's shape. <strong>No new strategic reasoning required.</strong></p>
+
+<p>&sect;C &mdash; Decision Memo v2 structure: add row 10 &mdash; <em>"Experiment Params (factors/budget/metric for X2-design) | inline in payload, no Notion property"</em>. Wiring data, no PerformanceReports column.</p>
+
+<p>Hard rules &mdash; new bullet:</p>
+
+<div class="quote">
+  <strong><code>experimentParams.factors[0].levels</code> must have &ge;2 entries.</strong> A single-level factor degenerates to no test. If Brain has only one recommended angle, do not emit <code>experimentParams</code>; surface a warning in <code>notes</code> so the human can decide whether to skip the experiment stage manually.
+</div>
+
+<p>This is the cold-start escape valve. It avoids halting synthesize when Brain genuinely has nothing to test.</p>
+
+<p><code>brain.md</code> is hand-edited (not fragment-driven). Direct edit + commit.</p>
+
+<h3>4.5 Engine wiring &mdash; <code>packages/orchestrator/src/stages/experiment.ts</code></h3>
+
+<p>New helpers at the top of the file:</p>
+
+<pre>import type { ExperimentParams, DecisionMemoV2 } from "@engineerdad/shared/types/brain";
+
+function memoParams(run: RunState): ExperimentParams | undefined {
+  const memo = stepResult&lt;DecisionMemoV2&gt;(run, "S1-reason");
+  return memo?.experimentParams;
+}
+
+function experimentDeclined(run: RunState): boolean {
+  const p = memoParams(run);
+  return !p || !p.factors || p.factors.length === 0;
+}</pre>
+
+<p><strong>X2-design <code>build</code></strong> &mdash; replaces the <code>run.params</code> cast:</p>
+
+<pre>build: (run): Step =&gt; {
+  if (experimentExists(run)) {
+    return { kind: "write", stepId: "X2-design", calls: [] };
+  }
+  if (experimentDeclined(run)) {
+    return { kind: "write", stepId: "X2-design", calls: [] };
+  }
+  const p = memoParams(run)!;
+  return {
+    kind: "write",
+    stepId: "X2-design",
+    calls: [
+      {
+        tool: "mcp__experiment__design",
+        args: {
+          hypothesis: p.hypothesis ?? "",
+          factors: p.factors!,
+          hold_constant: p.holdConstant ?? [],
+          primary_metric: p.primaryMetric ?? "cpa",
+          daily_budget_myr: p.dailyBudgetMyr ?? 200,
+          duration_days: p.durationDays ?? 7,
+        },
+      },
+    ],
+  };
+},</pre>
+
+<p><strong>X3-write <code>build</code></strong> &mdash; early return added at the top, mirroring X2:</p>
+
+<pre>if (experimentExists(run)) {
+  return { kind: "write", stepId: "X3-write", calls: [] };
+}
+if (experimentDeclined(run)) {                              // ← new
+  return { kind: "write", stepId: "X3-write", calls: [] };  // ← new
+}
+// ... existing body</pre>
+
+<p><strong>X3-write <code>verify</code></strong> &mdash; symmetric early return so the verifier doesn't reject the legitimate-skip path.</p>
+
+<p><strong>Deletions:</strong></p>
+<ul>
+  <li><code>interface ExperimentParams</code> (lines 19&ndash;26 of <code>experiment.ts</code>) &mdash; superseded by the shared type.</li>
+  <li><code>const p = run.params as unknown as ExperimentParams;</code> (line 104) &mdash; gone with the rest of the legacy block.</li>
+</ul>
+
+<h3>4.6 Verifier extension &mdash; <code>packages/orchestrator/src/verifiers/verify-synthesize.ts</code></h3>
+
+<p>Today's verifier checks only <code>recommendedAngles.length &gt; 0</code>. Extend it: when the memo carries <code>experimentParams</code>, validate the block; when it doesn't, allow it (cold-start escape).</p>
+
+<pre>const VALID_METRICS = new Set(["cpa", "hook_rate", "thumbstop", "ctr"]);
+
+function verifyExperimentParams(p: unknown): string[] {
+  const problems: string[] = [];
+  // ... assertions (full list below) ...
+  return problems;
+}</pre>
+
+<p><code>verifySynthesize</code> calls <code>verifyExperimentParams</code> when <code>memo.experimentParams !== undefined</code>. <strong>Absent block = allowed; present block with bad shape = fail closed.</strong> This is the discipline B-016 calls for &mdash; don't let half-formed strategic data slip through automated acceptance.</p>
+
+<p>Full assertion list:</p>
+<ul>
+  <li><code>hypothesis</code> must be a non-empty string</li>
+  <li><code>factors</code> must be a non-empty array; each <code>factors[i]</code> must be <code>{ name: non-empty string, levels: string[] with &ge;2 entries }</code></li>
+  <li><code>holdConstant</code> must be an array (use <code>[]</code> when nothing held)</li>
+  <li><code>primaryMetric</code> must be one of <code>cpa | hook_rate | thumbstop | ctr</code></li>
+  <li><code>dailyBudgetMyr</code> must be a positive number</li>
+  <li><code>durationDays</code> must be a positive number</li>
+</ul>
+
+<p><code>verify-experiment.ts</code> itself stays untouched. The "Brain declined" skip is gated at the X3 verify call site, not inside the pure verifier &mdash; the discipline (no row + no cells = real bug) remains intact for non-skip runs.</p>
+
+<h3>4.7 Phase 0 commit slicing</h3>
+
+<p>Three commits within the Phase 0 PR, each independently shippable for review:</p>
+
+<table>
+  <thead><tr><th>Commit</th><th>Files</th><th>Why this order</th></tr></thead>
+  <tbody>
+    <tr><td><strong>C1</strong> <code>feat(shared): extract DecisionMemoV2 + ExperimentParams types</code></td><td><code>packages/shared/src/types/brain.ts</code> (NEW), <code>packages/shared/src/index.ts</code></td><td>Type prereq. Foundation for C2/C3.</td></tr>
+    <tr><td><strong>C2</strong> <code>feat(experiment): read params from synthesize memo, not run.params</code></td><td><code>experiment.ts</code>, <code>experiment.test.ts</code></td><td>Switches the broken source. Brain unchanged &rarr; legitimate-skip branch &rarr; loop completes; HG4 reachable.</td></tr>
+    <tr><td><strong>C3</strong> <code>feat(verify+brain): assert experimentParams shape; brain emits the block</code></td><td><code>verify-synthesize.ts</code> (+test), <code>.claude/agents/brain.md</code>, <code>TASKS.md</code> (close E-035)</td><td>Verifier hardens <em>ahead of</em> Brain's first emission so the first attempt gets validated.</td></tr>
+  </tbody>
+</table>
+
+<h3>4.8 Phase 0 tests</h3>
+
+<p>Inherits the E-035 spec's test plan verbatim.</p>
+
+<h4>verify-synthesize.test.ts — 7 specs</h4>
+<ul>
+  <li>passes a memo without <code>experimentParams</code> (legitimate-skip)</li>
+  <li>passes a memo with a valid block</li>
+  <li>fails on missing/empty <code>hypothesis</code></li>
+  <li>fails on factors with &lt;2 levels</li>
+  <li>fails on unknown <code>primaryMetric</code></li>
+  <li>fails on non-positive <code>dailyBudgetMyr</code> / <code>durationDays</code></li>
+  <li>fails on <code>holdConstant</code> not an array</li>
+</ul>
+
+<h4>experiment.test.ts — extend + rewire</h4>
+<ul>
+  <li>existing specs flip from <code>run.params</code> to a fake <code>S1-reason</code> step result populated with <code>{ experimentParams: {...} }</code></li>
+  <li>X2-design no-ops when memo has no <code>experimentParams</code></li>
+  <li>X3-write no-ops when memo has no <code>experimentParams</code></li>
+  <li>X2-design unpacks camelCase memo block into snake_case <code>mcp__experiment__design</code> args</li>
+  <li>integration spec: <code>X1&rarr;X2&rarr;X3</code> happy path with a populated memo produces a real <code>Experiments</code> create call</li>
+</ul>
+
+<p><code>brain.md</code> &mdash; no unit tests. Wire contract = verify-synthesize. The verifier is the agent-prompt SLA.</p>
+
+<h3>4.9 Phase 0 backward compatibility</h3>
+
+<div class="callout ok">
+  <span class="tag">Strict improvement for run_1779696355.</span>
+  <p>The live halted run takes the legitimate-skip branch after this change: X2 + X3 no-op, run flows past experiment into distribute. Strictly better than its current halted state. No DB migration. No "is the memo legacy?" check &mdash; the absent-block branch <em>is</em> the back-compat path by design.</p>
+</div>
+
+<h3>4.10 Phase 0 merge gate</h3>
+
+<p><code>pnpm test:unit &amp;&amp; pnpm test:integration</code> pass. One <code>/loop</code> cycle, started after the Phase 0 PR lands, reaches HG4 with <code>experimentParams</code> populated on the memo (verifiable via <code>select experiment_params from performance_reports where run_id = '&lt;latest&gt;'</code> returning non-null).</p>
+
+<h2 id="s5"><span class="num">5.</span> Phase 1 &mdash; Calibration suite</h2>
+
+<h3>5.1 Why this phase</h3>
+
+<p>v3's merge gate needs measurable evidence. Today, with <code>graduation_rate = 0</code> from zero cycles, no evidence exists. Phase 0 starts producing cycles. Phase 1 turns those cycles into a deterministic replay harness &mdash; the same input always produces the same scores &mdash; so v3 can be compared to v2 head-to-head, fairly, without waiting months for live cycle accumulation.</p>
+
+<h3>5.2 Snapshot-on-write hook (engine change)</h3>
+
+<p><code>packages/orchestrator/src/stages/synthesize.ts</code> gains a hook at the start of the stage that writes the inputs Brain saw into a deterministic location:</p>
+
+<div class="diagram">data/snapshots/&lt;runId&gt;/
+  analytics-top-creatives.json
+  analytics-cost-per-angle.json
+  analytics-decay-curve-&lt;adId&gt;.json   (one per top-3 spender)
+  analytics-bandit-allocate.json
+  store-hypotheses-pending.json
+  store-learnings-active.json
+  store-performance-reports-prior3.json
+  corpus-compliance-block-en.txt
+  corpus-compliance-block-ms.txt
+  run-meta.json                       (runId, window, timestamp, schema_version)</div>
+
+<p>The hook reads from the same MCPs Brain would call but persists the responses before spawning the synth agent. Brain's actual MCP calls then return the same data (read-through cache: if a snapshot exists for this <code>runId</code>, return it; otherwise call MCP and write the snapshot). The cache is keyed on <code>runId</code> so it's a one-shot per cycle, no staleness risk.</p>
+
+<p>Per-cycle disk cost: ~5&ndash;20 KB. At 52 cycles/year &asymp; 0.5&ndash;1 MB/year. Trivially cumulative.</p>
+
+<p>This hook is the deterministic-input foundation. Without it, replays would read live analytics data which mutates daily.</p>
+
+<h3>5.3 The suite &mdash; <code>tools/eval/calibration-suite/</code> (NEW)</h3>
+
+<p>Directory layout:</p>
+
+<div class="diagram">tools/eval/calibration-suite/
+  README.md                — how to run, what gates exist
+  replay.ts                — replay a snapshot through a Brain version
+  score.ts                 — graduation_rate + ci_hit_rate scorers
+  gate.ts                  — exits 0 iff gate criterion holds
+  fixtures/
+    &lt;runId&gt;/               — symlinks to data/snapshots/&lt;runId&gt;/
+  reports/
+    YYYY-MM-DD-&lt;gate&gt;.json — gate result per run</div>
+
+<p>CLI entry points (wired in <code>package.json</code>):</p>
+
+<pre>pnpm calibrate replay &lt;runId&gt; [--brain-version v2|v3]
+  → runs the named Brain against the snapshot; writes a Decision Memo
+    to data/snapshots/&lt;runId&gt;/memo-&lt;brain-version&gt;.json
+
+pnpm calibrate score &lt;runId&gt;
+  → loads memo-v2.json and memo-v3.json + the historical outcomes
+    (the hypotheses rows for this runId, post-Reflect grading);
+    emits a row in reports/.
+
+pnpm calibrate gate phase-2|phase-3
+  → loads all reports for the last N=5 runs; checks gate criterion;
+    exits 0 on pass, 1 on fail; prints summary table.</pre>
+
+<h3>5.4 Scorers</h3>
+
+<p><strong><code>graduation_rate(memo, outcomes)</code></strong> &mdash; for each Hypothesis the memo emitted, look up the outcome's eventual status (Confirmed / Refuted / Inconclusive). Return <code>#Confirmed / #total</code>. A cycle's <code>graduation_rate</code> is averaged across its emitted Hypotheses.</p>
+
+<p><strong><code>ci_hit_rate(memo, outcomes)</code></strong> &mdash; for each Hypothesis, did the actual outcome land inside the predicted CI band? Returns <code>#hit / #total</code>.</p>
+
+<p>Both scorers are pure functions of <code>(memo, outcomes)</code>. Deterministic given the inputs. Two runs of <code>pnpm calibrate score &lt;runId&gt;</code> produce identical output &mdash; asserted in tests.</p>
+
+<h3>5.5 Phase 1 tests</h3>
+<ul>
+  <li><code>replay.test.ts</code> &mdash; deterministic: replay the same snapshot twice, assert identical Decision Memos (modulo the runId, which is the snapshot's own).</li>
+  <li><code>score.test.ts</code> &mdash; golden-file: fixture snapshots with known outcomes, scorers produce expected <code>graduation_rate</code> and <code>ci_hit_rate</code> values.</li>
+  <li><code>gate.test.ts</code> &mdash; gate logic: feed synthetic per-run reports, assert pass/fail per spec.</li>
+  <li>Cold-start handling: a snapshot with no prior Hypotheses scores <code>0/0 graduation_rate</code> (returns NaN-handled-as-0, not crash).</li>
+  <li>Snapshot hook integration in <code>packages/orchestrator/src/stages/synthesize.test.ts</code>: the synth stage writes the expected files in the expected location.</li>
+</ul>
+
+<h3>5.6 Phase 1 merge gate</h3>
+
+<p><code>pnpm calibrate replay &lt;runId&gt; &amp;&amp; pnpm calibrate score &lt;runId&gt;</code> runs deterministically on the post-Phase-0 cycles. Two runs produce byte-identical reports. Baseline <code>graduation_rate(v2)</code> recorded for at least 3 cycles.</p>
+
+<h2 id="s6"><span class="num">6.</span> Phase 2 &mdash; Brain v3 MoE-Critic (folded-in spec, edited for inheritance)</h2>
+
+<p>This section is the v3 spec rewritten to inherit Phase 0's contracts. The v3 design's substance is preserved; the edits are to (a) reference the Phase-0 <code>DecisionMemoV2</code> instead of assuming one, (b) move <code>experimentParams</code> derivation into the judge's EMIT step, (c) update the merge gate to <code>graduation_rate</code>-as-primary.</p>
+
+<h3>6.1 Failure mode v3 addresses</h3>
+
+<p>The current monolithic Brain reasons across 4 channels in one context window. <strong>Channels grade independently but reasoning doesn't.</strong> Cross-channel context bleed leaks into per-channel predictions; the adversarial check (paragraph self-critique) is too soft to tighten CIs reliably across cycles.</p>
+
+<h3>6.2 Topology &mdash; 5 phases, one debate graph</h3>
+
+<div class="diagram">synthesize stage (under /loop)
+├── Phase 1: GENERATOR R1 fanout  (4 spawns in parallel, ~30s)
+│       ├─ brain-channel-paid       → ChannelCandidatePacket
+│       ├─ brain-channel-organic    → ChannelCandidatePacket
+│       ├─ brain-channel-youtube    → {noSignal:true} (stub)
+│       └─ brain-channel-authority  → {noSignal:true} (stub)
+│
+├── Phase 2: CRITIC R1 fanout      (parallel per non-stub channel, ~25s)
+│       ├─ brain-critic[paid]       → CalibrationAttack
+│       └─ brain-critic[organic]    → CalibrationAttack
+│
+├── Phase 3: GENERATOR R2 fanout   (parallel; revise attacked moves only, ~20s)
+│       ├─ brain-channel-paid       → revised ChannelCandidatePacket
+│       └─ brain-channel-organic    → revised ChannelCandidatePacket
+│
+├── Phase 4: CRITIC R2 fanout      (parallel; final attack residual, ~15s)
+│       ├─ brain-critic[paid]       → final CalibrationAttack
+│       └─ brain-critic[organic]    → final CalibrationAttack
+│
+└── Phase 5: JUDGE spawn           (sequential after fanout, ~40s)
+        └─ brain-judge → reads 4× FinalChannelPacket
+                       → runs §B steps 6–9 portfolio-wide
+                       → emits Decision Memo v3 (extends V2)
+                       → derives experimentParams from chosen actions
+                       → writes Hypotheses + PerformanceReports
+                       → persists debate_transcripts on PerformanceReport</div>
+
+<p>Up to 17 spawns/cycle in full mode; 11 in stub mode (YouTube + Authority generators stub out and skip critic + R2). Wall-clock ~130s vs. current ~45s &mdash; channels parallelize within each phase; the longest path is <code>max(gen R1) + max(critic R1) + max(gen R2) + max(critic R2) + judge &asymp; 30+25+20+15+40s</code>.</p>
+
+<h4>Key topology properties</h4>
+<ul>
+  <li><strong>Debate is intra-channel, not cross-channel.</strong> Preserves parallelism. The failure mode being fixed (<em>"channels grade independently but reasoning doesn't"</em>) is solved by giving each channel its own reasoner, not by making one reasoner think harder.</li>
+  <li><strong>The judge is the only writer to <code>performance_reports</code> / <code>hypotheses</code>.</strong> Single audit trail, single compliance scan, single <code>runId</code> propagation point (preserves ADR-011, ADR-005 thin-adapter doctrine).</li>
+  <li><strong><code>CalibrationAttack</code> transcripts persist on <code>performance_reports</code>.</strong> Next cycle's critics retrieve them as priors. Topology is self-sharpening across cycles &mdash; see &sect;6.7.</li>
+  <li><strong>Cold-start safe.</strong> Stub channels return <code>{noSignal:true}</code> packets; judge handles them explicitly. No special-casing in the orchestrator.</li>
+</ul>
+
+<h3>6.3 Six new agent prompt fragments</h3>
+
+<p>All under <code>packages/shared/src/prompts/</code>; materialized into <code>.claude/agents/</code> by <code>pnpm sync:agents</code>. All reference <code>packages/shared/src/prompts/brain-shared.md</code> (the &sect;D move catalog + &sect;F cold-start handling, extracted from the retired <code>brain.md</code>).</p>
+
+<table>
+  <thead><tr><th>Agent file</th><th>Role</th><th>Output JSON</th><th>Tools (frontmatter)</th></tr></thead>
+  <tbody>
+    <tr><td><code>brain-channel-paid.md</code></td><td>Generator for Meta-paid channel</td><td><code>ChannelCandidatePacket</code></td><td>analytics (paid only), corpus, store query (channel-filtered to <code>meta-paid</code>), <code>write_step_result</code></td></tr>
+    <tr><td><code>brain-channel-organic.md</code></td><td>Generator for Meta-organic</td><td><code>ChannelCandidatePacket</code></td><td>analytics (organic incl. <code>engagement_per_angle</code>), corpus, store query, <code>write_step_result</code></td></tr>
+    <tr><td><code>brain-channel-youtube.md</code></td><td>Generator for YouTube (stub)</td><td><code>{noSignal:true}</code></td><td><code>write_step_result</code> only</td></tr>
+    <tr><td><code>brain-channel-authority.md</code></td><td>Generator for Authority articles (stub)</td><td><code>{noSignal:true}</code></td><td><code>write_step_result</code> only</td></tr>
+    <tr><td><code>brain-critic.md</code></td><td>Channel-agnostic adversarial critic, parameterized by <code>channel</code></td><td><code>CalibrationAttack</code></td><td>store query (refuted Hypotheses + prior <code>debate_transcripts</code> for this channel), analytics (calibration-history), <code>read_step_result</code>, <code>write_step_result</code></td></tr>
+    <tr><td><code>brain-judge.md</code></td><td>Portfolio synthesis &amp; memo writer &mdash; <strong>the only writer to entity store</strong></td><td><code>DecisionMemoV3</code> + Hypothesis rows</td><td>All current <code>brain.md</code> write tools (store create/update, <code>bandit_allocate</code>, <code>log_event</code>), <code>read_step_result</code> (load 4 FinalChannelPackets), <code>write_step_result</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout new">
+  <span class="tag">Critic is one prompt parameterized by channel</span> &mdash; not 4 separate critic prompts. Channel-specific calibration history is what differs at runtime, not the critic's reasoning template. Cheaper to maintain; easier to evolve; single point of prompt iteration.
+</div>
+
+<h3>6.4 JSON contracts &mdash; <code>packages/shared/src/types/brain.ts</code> (extended in Phase 2)</h3>
+
+<pre>export type Channel = "meta-paid" | "meta-organic" | "youtube" | "authority";
+
+// Per-channel generator output
+export type ChannelCandidatePacket = {
+  runId: string;
+  channel: Channel;
+  observations: string[];
+  candidateMoves: Array&lt;{
+    moveId: string;
+    archetype: string;          // from brain-shared.md §D move catalog
+    trigger: string;
+    expectedOutcome: string;
+    iceComponents: { I: number; C: number; E: number };
+  }&gt;;
+  predictions: Array&lt;{
+    moveId: string;
+    metric: "cpa" | "hook_rate" | "thumbstop" | "ctr" | "leads_per_day"
+          | "save_rate" | "engagement_rate" | "ctr_organic";
+    direction: "up" | "down" | "hold";
+    magnitudePct: number;
+    ci: { low: number; high: number; level: number };
+    runtimeDays: number;
+  }&gt;;
+  coldStartFlags: string[];
+  citedEvidence: string[];
+  noSignal?: true;
+  noSignalReason?: string;
+};
+
+// Per-channel critic output
+export type CalibrationAttack = {
+  runId: string;
+  channel: Channel;
+  attacks: Array&lt;{
+    targetMoveId: string;
+    attackType: "ci_too_tight" | "magnitude_implausible"
+              | "ignored_refuted_pattern" | "compliance_risk";
+    priorCalibrationCite: {
+      kind: "refuted_hypothesis" | "prior_critic_transcript" | "calibration_error_history";
+      sourceId: string;
+      summary: string;
+    };
+    suggestedRevision: Partial&lt;ChannelCandidatePacket["predictions"][number]&gt;;
+    rationale: string;
+  }&gt;;
+};
+
+// Full debate transcript persisted on PerformanceReport
+export type FinalChannelPacket = {
+  runId: string;
+  channel: Channel;
+  generatorR1: ChannelCandidatePacket;
+  criticR1: CalibrationAttack;
+  generatorR2: ChannelCandidatePacket;
+  criticR2Final: CalibrationAttack;
+  resolvedMoves: ChannelCandidatePacket["candidateMoves"];
+  gradeUpdates: Array&lt;{
+    hypothesisId: string;
+    newStatus: "Confirmed" | "Refuted" | "Inconclusive";
+    predicted: unknown;
+    actual: unknown;
+    error: number;
+  }&gt;;
+};
+
+// Judge output — extends V2 with debate fields
+export interface DecisionMemoV3 extends Omit&lt;DecisionMemoV2, "schemaVersion"&gt; {
+  schemaVersion: 3;
+  debateTranscripts: FinalChannelPacket[];
+  criticTighteningApplied: Array&lt;{
+    channel: Channel;
+    moveId: string;
+    fromCi: { low: number; high: number };
+    toCi: { low: number; high: number };
+    attackCite: string;
+  }&gt;;
+  criticCalibrationSummary: Record&lt;Channel, {
+    runsWindow: number;
+    criticAttackHitRate: number;
+    meanCiTightening: number;
+  }&gt;;
+}</pre>
+
+<p><code>experimentParams</code> is inherited from V2 unchanged. The judge re-emits it via &sect;6.6's derivation.</p>
+
+<h3>6.5 Schema additions &mdash; Postgres</h3>
+
+<p>Two JSONB columns on <code>public.performance_reports</code> (<code>packages/store/src/schema.ts</code>):</p>
+
+<pre>debate_transcripts          JSONB NOT NULL DEFAULT '[]'::jsonb,
+critic_calibration_summary  JSONB NOT NULL DEFAULT '{}'::jsonb,</pre>
+
+<p>Applied via <code>pnpm store:push</code>. No new tables. No schema collision with <code>orchestrator.step_results</code> (separate schema).</p>
+
+<h3>6.6 Judge's <code>experimentParams</code> derivation</h3>
+
+<p>The judge runs &sect;B steps 6&ndash;9 portfolio-wide and derives <code>experimentParams</code> from the chosen Recommended Actions:</p>
+
+<table>
+  <thead><tr><th>Field</th><th>Derivation</th></tr></thead>
+  <tbody>
+    <tr><td><code>hypothesis</code></td><td>Top Recommended Action's hypothesis sentence</td></tr>
+    <tr><td><code>factors[0].name</code></td><td><code>"angle"</code> (v1)</td></tr>
+    <tr><td><code>factors[0].levels</code></td><td>The 3 <code>recommendedAngles[]</code> from judge's CHOOSE step</td></tr>
+    <tr><td><code>holdConstant</code></td><td><code>[]</code> (v1)</td></tr>
+    <tr><td><code>primaryMetric</code></td><td>Dominant predicted metric across the 3 chosen actions; tie-break <code>"cpa"</code></td></tr>
+    <tr><td><code>dailyBudgetMyr</code></td><td>Portfolio-wide <code>bandit_allocate</code> daily total, divided by 7</td></tr>
+    <tr><td><code>durationDays</code></td><td><strong><code>max(runtimeDays)</code> across the 3 chosen Recommended Actions</strong> &mdash; long enough for any chosen bet to graduate</td></tr>
+  </tbody>
+</table>
+
+<p>If the judge has only one chosen Recommended Action (cold-start), it follows V2's legitimate-skip path: emit no <code>experimentParams</code>; surface a <code>notes</code> warning. Same back-compat path as Phase 0.</p>
+
+<h3>6.7 Calibration compounding &mdash; the self-sharpening mechanism</h3>
+
+<p>Every <code>CalibrationAttack</code> persists on the <code>performance_reports.debate_transcripts</code> JSONB. Next cycle's critic does an explicit retrieval:</p>
+
+<pre>// brain-critic, Phase 2, grounding step
+const prior = await mcp.store.query({
+  entity: "PerformanceReports",
+  filter: { channel },
+  last: 5
+});
+const myPriorAttacks = prior
+  .flatMap(p =&gt; p.debate_transcripts)
+  .filter(t =&gt; t.channel === channel)
+  .flatMap(t =&gt; t.criticR2Final.attacks);
+// grouped by attackType: "this critic for meta-paid has historically tightened CI
+//   by avg 38% on ci_too_tight attacks; 76% of those tightenings were correct
+//   vs. eventual outcome"</pre>
+
+<p>A critic that over-attacks (always says CI is too tight when actuals land inside the original CI) gets evidence of its own miscalibration and self-corrects. The judge precomputes <code>criticCalibrationSummary</code> at emit time (rolled-up per-channel critic accuracy from the last N runs) so the retrieval is one query, not a recomputation.</p>
+
+<p>This is the recursive Reflect layer that monolithic Brain cannot have because there is no division of labor to grade.</p>
+
+<h3>6.8 Quiescence &mdash; critics may return <code>{attacks: []}</code></h3>
+
+<div class="callout new">
+  <span class="tag">Quiescence allowed.</span>
+  <p>If the generator's predictions are well-grounded, the critic emits no attacks. <strong>Don't manufacture them.</strong> This prevents FUD from a misfiring critic and lets a well-calibrated critic explicitly assent. The judge weighs an empty <code>criticR2Final</code> as <em>endorsement</em>, not <em>missed work</em>.</p>
+</div>
+
+<h3>6.9 Error handling, fallbacks, cost guards</h3>
+
+<table>
+  <thead><tr><th>Failure mode</th><th>Behavior</th></tr></thead>
+  <tbody>
+    <tr><td>One channel generator fails</td><td>Stage records <code>{channel, status:"failed"}</code>; judge proceeds with surviving channels. Cold-start (<code>noSignal:true</code>) is <strong>not</strong> a failure.</td></tr>
+    <tr><td>&ge;2 of 4 channels fail</td><td>Stage HALTs. Too little signal to write a memo. Surfaces to <code>/status</code>.</td></tr>
+    <tr><td>Critic spawn fails</td><td>Pass-through: generator's R1 packet becomes the <code>FinalChannelPacket</code> with empty critic transcripts. Logged as <code>event_type:"critic_pass_through"</code>. Judge tags the memo <code>notes:"critic unavailable for channel X &mdash; predictions ungraded"</code>.</td></tr>
+    <tr><td>Judge fails</td><td>Stage HALTs. <strong>No partial Decision Memo write &mdash; never.</strong> The 8 generator/critic outputs are persisted as a <code>failed_debate</code> event in the analytics audit trail so a re-run can use them (idempotency via <code>runId</code>).</td></tr>
+    <tr><td>Cost ceiling exceeded</td><td>Hard-coded <code>MAX_BRAIN_SPAWNS_PER_CYCLE = 17</code>. Orchestrator refuses to fan out beyond this. A future expansion to 3-round debate would push this to 25 &mdash; explicit lift required, not creeping.</td></tr>
+    <tr><td>Rolling-cycle cost regression</td><td><code>synthesize</code> stage's first step checks <code>analytics.cost_per_cycle</code> rolling 7-day average; if last 7 runs exceeded <code>BRAIN_BUDGET_USD * 1.5</code>, stage HALTs with a guidance message before fanning out. Threshold in <code>packages/orchestrator/src/config.ts</code>.</td></tr>
+    <tr><td>Re-run after partial failure</td><td>All agent outputs are JSON refs in <code>orchestrator.step_results</code>. Orchestrator can re-run any failed Phase by re-spawning with the same <code>runId</code>. Judge de-duplicates Hypothesis rows by <code>(runId, channel, moveArchetype)</code>.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout ok">
+  <span class="tag">Backwards compatibility.</span>
+  <p><code>DecisionMemoV3</code> is a <strong>strict superset</strong> of V2 (adds <code>debateTranscripts</code>, <code>criticTighteningApplied</code>, <code>criticCalibrationSummary</code>, <code>schemaVersion:3</code>; everything in V2 still present). The brief stage's consumer of the memo (<code>brief-writer</code>) needs no change.</p>
+</div>
+
+<h3>6.10 The retired <code>brain.md</code> and <code>brain-shared.md</code> extraction</h3>
+
+<p>Phase 2 retires <code>brain.md</code>. Sequence within this PR:</p>
+
+<ol>
+  <li>Extract &sect;D (move catalog) + &sect;F (cold-start handling) from <code>brain.md</code> into <code>packages/shared/src/prompts/brain-shared.md</code>.</li>
+  <li>Author the 6 new agent prompt fragments under <code>packages/shared/src/prompts/</code>, each referencing <code>brain-shared.md</code>.</li>
+  <li><code>pnpm sync:agents</code> materializes them into <code>.claude/agents/brain-*.md</code>.</li>
+  <li><strong>Delete</strong> <code>brain.md</code> + <code>packages/shared/src/prompts/brain.md</code> fragment in the same commit that lands the <code>/brain</code> slash-command rewrite.</li>
+  <li>Update <code>ARCHITECTURE.md</code> &mdash; agent table replaces <code>brain</code> with the 6 new entries.</li>
+  <li>ADR-020 amended in the same PR to list the new cells.</li>
+</ol>
+
+<p>The &sect;B 9-step scaffold splits cleanly across the new agents:</p>
+<ul>
+  <li>Steps 1, 3&ndash;6 (Read, Observe, Enumerate, Predict, Score) &rarr; each channel generator, scoped to its channel's data</li>
+  <li>Step 2 (Reflect) &rarr; critic's grounding-retrieval step (each critic grades Open Hypotheses on its channel during Phase 2)</li>
+  <li>Steps 7&ndash;9 (Choose, Allocate, Emit) &rarr; the judge, portfolio-wide</li>
+</ul>
+
+<h3>6.11 Off-loop command rewrite</h3>
+<ul>
+  <li><code>/brain</code> &rarr; invokes the full synthesize-stage debate graph as a standalone run (not tied to a /loop cycle). Same 17 spawns.</li>
+  <li><code>/analyze</code> &rarr; invokes judge-in-summary-mode: judge spawns with pre-computed analytics inputs, no debate phase. Emits a read-only summary report; no Hypothesis writes. Requires adding a <code>mode: "summary" | "memo" | "reflect"</code> parameter to the judge prompt.</li>
+  <li><code>/reflect</code> &rarr; invokes critics-only fanout: 4 critics spawn, each grades prior Open Hypotheses on its channel; the judge runs in <code>mode:"reflect"</code> to synthesize Self-Critique paragraphs onto the prior PerformanceReport. Emits no new memo.</li>
+</ul>
+
+<h3>6.12 Phase 2 tests</h3>
+
+<p>Inherits the v3 spec's &sect;8.1&ndash;&sect;8.3 verbatim.</p>
+
+<h4>Unit (<code>packages/shared/src/types/brain.test.ts</code> + per-agent fixture suites)</h4>
+<ul>
+  <li>Zod schema parse round-trips for <code>DecisionMemoV3</code>, <code>ChannelCandidatePacket</code>, <code>CalibrationAttack</code>, <code>FinalChannelPacket</code></li>
+  <li>Cold-start packet shape (<code>{noSignal:true, noSignalReason:...}</code>) parses + flows through judge without crashing</li>
+  <li>Critic quiescence (<code>{attacks:[]}</code>) is a valid <code>CalibrationAttack</code>, not an error</li>
+  <li>Judge de-dup of Hypothesis rows by <code>(runId, channel, moveArchetype)</code> is unit-testable from a <code>FinalChannelPacket[]</code> fixture</li>
+</ul>
+
+<h4>Stage-level (<code>packages/orchestrator/src/stages/synthesize.test.ts</code>)</h4>
+<ul>
+  <li>The 5-phase <code>StageDefinition</code> wires correctly: gen-R1 fanout &rarr; critic-R1 fanout &rarr; gen-R2 fanout &rarr; critic-R2 fanout &rarr; judge spawn. Each phase emits claim-check refs; each next phase's <code>spawnPrompt</code> carries the prior phase's refs verbatim.</li>
+  <li>Step-fail paths: 1 of 4 generators fails &rarr; judge runs with 3 packets; 2+ fail &rarr; stage HALTs.</li>
+  <li>Critic-pass-through when critic spawn errors (emits empty <code>CalibrationAttack</code>, logs <code>event_type:"critic_pass_through"</code>).</li>
+  <li>Judge HALT propagates correctly (no partial PerformanceReport write).</li>
+  <li>Cost guard: simulated 7-day cycle cost &gt; <code>BRAIN_BUDGET_USD * 1.5</code> &rarr; stage HALTs before fanout.</li>
+</ul>
+
+<h4>Integration (mirrors E-031 Task 16 live walk)</h4>
+<ul>
+  <li>Cold-start <code>/loop-once</code> runs through to HG1; PerformanceReport carries <code>debate_transcripts</code> JSON with 4 channels (2 with <code>noSignal:true</code>); Hypothesis rows are channel-tagged correctly.</li>
+  <li>Second <code>/loop-once</code> shows the critic actually retrieving prior <code>criticR2Final</code> from PerformanceReports (verifiable via <code>event_type:"critic_history_retrieved"</code> count &gt; 0).</li>
+</ul>
+
+<h3>6.13 Phase 2 merge gate (executable)</h3>
+
+<div class="callout new">
+  <span class="tag">Pre-merge, executable gate.</span>
+  <p><code>pnpm calibrate --gate phase-2</code> exits 0 iff:</p>
+  <ul>
+    <li><code>graduation_rate(v3) &ge; graduation_rate(v2)</code> in &ge;4 of 5 replays, <strong>AND</strong></li>
+    <li><code>ci_hit_rate(v3) &gt; ci_hit_rate(v2)</code> at p&lt;0.10 across the 5 replays.</li>
+  </ul>
+  <p>Output is appended to the PR body. The gate is a tool, not a discipline.</p>
+</div>
+
+<p><strong>Post-merge re-evaluation written into the spec:</strong> at cycles 10 and 20 post-merge, re-run <code>pnpm calibrate --gate phase-2</code> against the accumulated data. If v3 regresses (graduation_rate falls below v2 baseline on either re-eval), fork v2.5 back as a recovery branch. This commitment is documented in the spec, not just expected of future-you.</p>
+
+<h2 id="s7"><span class="num">7.</span> Phase 3 &mdash; Generic critic step kind (E-033, scoped to synthesize)</h2>
+
+<h3>7.1 Why this phase</h3>
+
+<p>Phase 2's critic agents are coupled to the synthesize stage's bespoke fanout. Phase 3 generalizes them into a first-class conductor step kind that any stage can opt into via its verifier. Synthesize is the canonical implementation; brief / produce / distribute become E-036 / E-037 / E-038, dormant in TASKS.md until their trigger conditions hit (see &sect;11).</p>
+
+<h3>7.2 New step kind</h3>
+
+<p><code>packages/orchestrator/src/types.ts</code> gains:</p>
+
+<pre>export interface CriticStep {
+  kind: "critic";
+  stepId: string;
+  spawnPrompt: string;
+  inputRefs: string[];          // claim-check refs into orchestrator.step_results
+  channel?: string;             // optional channel parameterization
+}
+
+export type Step = WriteStep | SpawnStep | FanoutStep | CriticStep;</pre>
+
+<p><code>packages/orchestrator/src/exec.ts</code> adds the dispatch arm: a <code>CriticStep</code> is a constrained <code>spawn</code> that takes only <code>inputRefs</code> (no <code>outputRefs</code> until the critic writes one), targets the <code>brain-critic</code> agent (or a parameterized variant), and emits a <code>CalibrationAttack</code> shape.</p>
+
+<h3>7.3 Migration of synthesize's v3 critics</h3>
+
+<p>Phase 2 ships synthesize's critic phases as <code>fanout</code> steps over <code>brain-critic</code> spawns. Phase 3 replaces those with <code>kind: "critic"</code> steps. Behavioral diff: zero &mdash; golden-file test asserts <code>step_results</code> rows are byte-identical pre/post migration. The change is structural: the orchestrator now knows what a critic <em>is</em>.</p>
+
+<h3>7.4 ADR-026 final draft (accepted on Phase 3 merge)</h3>
+
+<p>Single doctrine doc, two parts:</p>
+
+<h4>Part A &mdash; MoE-Critic topology for <code>synthesize</code></h4>
+<ul>
+  <li>The synthesize stage uses a 5-phase MoE-Critic debate graph: 4 channel-specialist generators &rarr; critics R1 &rarr; generators R2 &rarr; critics R2 &rarr; portfolio judge.</li>
+  <li>Debate is intra-channel only (cross-channel deferred to E-040).</li>
+  <li>The judge is the only writer to <code>performance_reports</code> / <code>hypotheses</code>.</li>
+  <li>Critic transcripts persist on <code>performance_reports.debate_transcripts</code> to make calibration self-sharpening across cycles.</li>
+</ul>
+
+<h4>Part B &mdash; Generic <code>kind: "critic"</code> step</h4>
+<ul>
+  <li>A first-class conductor step kind for verifier&rarr;delegate flows where structural verification is insufficient.</li>
+  <li>Initial implementation: synthesize's v3 critic agents.</li>
+  <li>Opt-in by stage: a stage's verifier decides whether to delegate to a critic step; the orchestrator dispatches.</li>
+  <li>Composes with ADR-022 (claim-check transport), ADR-023 (orchestrator-resident execution), ADR-024 (staged input).</li>
+  <li>Future stages (E-036/037/038) adopt independently.</li>
+</ul>
+
+<h3>7.5 Phase 3 tests</h3>
+<ul>
+  <li><code>packages/orchestrator/src/types.test.ts</code>: Step union includes <code>"critic"</code> kind.</li>
+  <li><code>packages/orchestrator/src/exec.test.ts</code>: a CriticStep payload dispatches correctly.</li>
+  <li><code>packages/orchestrator/src/stages/synthesize.test.ts</code>: golden-file diff &mdash; synthesize's <code>step_results</code> rows are byte-identical pre/post Phase 3 migration.</li>
+</ul>
+
+<h3>7.6 Phase 3 merge gate</h3>
+
+<p><code>pnpm calibrate --gate phase-3</code> exits 0 iff <code>graduation_rate</code> post-migration &ge; Phase-2 baseline across the last 5 cycles. No behavioral regression; the migration is structural.</p>
+
+<h2 id="s8"><span class="num">8.</span> Cross-phase contracts (the seams between phases)</h2>
+
+<p>Most are mechanical inheritances; two are derivation rules already locked in earlier sections. Surfacing them here as one table for the implementer.</p>
+
+<table>
+  <thead><tr><th>Contract</th><th>Where defined</th><th>Where consumed</th></tr></thead>
+  <tbody>
+    <tr><td><code>ExperimentParams</code> shape</td><td>Phase 0 &mdash; <code>packages/shared/src/types/brain.ts</code></td><td>Phase 0 &mdash; X2-design; Phase 2 &mdash; judge's EMIT step (re-emits via &sect;6.6 derivation)</td></tr>
+    <tr><td><code>DecisionMemoV2</code> shape</td><td>Phase 0 &mdash; <code>packages/shared/src/types/brain.ts</code></td><td>Phase 0 &mdash; verifier; Phase 2 &mdash; <code>DecisionMemoV3 extends V2</code></td></tr>
+    <tr><td><code>DecisionMemoV3</code> shape</td><td>Phase 2 &mdash; <code>packages/shared/src/types/brain.ts</code></td><td>Phase 2 &mdash; judge writes; Phase 1 calibration suite reads</td></tr>
+    <tr><td>Snapshot directory layout</td><td>Phase 1 &mdash; <code>data/snapshots/&lt;runId&gt;/...</code></td><td>Phase 1 &mdash; calibration suite reads; Phase 2 &mdash; v3 replay reads same layout</td></tr>
+    <tr><td><code>verify-synthesize.ts</code> shape assertions</td><td>Phase 0 (experimentParams) &rarr; Phase 2 (V3 invariants)</td><td>Phase 0/2 &mdash; verifier called on every synth memo</td></tr>
+    <tr><td><code>brain-shared.md</code> fragment</td><td>Phase 2 &mdash; <code>packages/shared/src/prompts/brain-shared.md</code></td><td>Phase 2 &mdash; all 6 new agent fragments reference it</td></tr>
+    <tr><td><code>kind: "critic"</code> step type</td><td>Phase 3 &mdash; <code>packages/orchestrator/src/types.ts</code></td><td>Phase 3 &mdash; synthesize migration</td></tr>
+    <tr><td><code>MAX_BRAIN_SPAWNS_PER_CYCLE</code></td><td>Phase 2 &mdash; <code>packages/orchestrator/src/config.ts</code></td><td>Phase 2 &mdash; orchestrator fanout limiter; Phase 1 &mdash; calibration suite cost note</td></tr>
+    <tr><td><code>pnpm calibrate --gate &lt;phase&gt;</code> script</td><td>Phase 1 &mdash; <code>tools/eval/calibration-suite/gate.ts</code></td><td>Phase 2/3 &mdash; PR merge gates</td></tr>
+  </tbody>
+</table>
+
+<h2 id="s9"><span class="num">9.</span> Testing strategy across the programme</h2>
+
+<p>Inherits per-phase tests. The cross-cutting tests:</p>
+<ul>
+  <li><strong>Snapshot determinism (Phase 1 &rarr; onward):</strong> every cycle's <code>data/snapshots/&lt;runId&gt;/</code> is byte-identical across two replays. Asserted in <code>packages/orchestrator/src/stages/synthesize.test.ts</code> and in <code>tools/eval/calibration-suite/replay.test.ts</code>.</li>
+  <li><strong>Type lineage (Phase 0 &rarr; Phase 2):</strong> <code>DecisionMemoV3 extends V2</code> compiles; a V2 memo deserializes correctly through the V3 verifier (the V3 invariants only assert when <code>schemaVersion === 3</code>).</li>
+  <li><strong>Calibration gate as executable contract:</strong> <code>pnpm calibrate --gate phase-2</code> and <code>--gate phase-3</code> are wired in <code>package.json</code> and run from CI on the calibration-suite-tagged subset of <code>data/snapshots/</code>.</li>
+  <li><strong>Cost ceiling (Phase 2 onward):</strong> the cost-guard tests assert the stage HALTs deterministically when the rolling 7-day cycle cost exceeds <code>BRAIN_BUDGET_USD * 1.5</code>.</li>
+</ul>
+
+<h2 id="s10"><span class="num">10.</span> Branch &amp; PR plan (summary table)</h2>
+
+<table>
+  <thead><tr><th>Phase</th><th>Branch</th><th>PR title</th><th>Merge gate</th></tr></thead>
+  <tbody>
+    <tr><td class="n">0</td><td><code>feat/brain-initiative</code> (renamed from <code>feat/brain-experiment-params</code>)</td><td><code>feat: Brain Initiative Phase 0 &mdash; experimentParams + umbrella spec</code></td><td><code>pnpm test:unit &amp;&amp; pnpm test:integration</code>; one <code>/loop</code> cycle reaches HG4</td></tr>
+    <tr><td class="n">1</td><td><code>feat/brain-calibration-suite</code> (off main)</td><td><code>feat: Brain Initiative Phase 1 &mdash; calibration suite + snapshot hook</code></td><td><code>pnpm calibrate replay &amp;&amp; score</code> deterministic on &ge;3 post-Phase-0 cycles</td></tr>
+    <tr><td class="n">2</td><td><code>feat/brain-moe-critic</code> (off main)</td><td><code>feat: Brain Initiative Phase 2 &mdash; v3 MoE-Critic + ADR-026</code></td><td><code>pnpm calibrate --gate phase-2</code> exits 0</td></tr>
+    <tr><td class="n">3</td><td><code>feat/brain-critic-step</code> (off main)</td><td><code>feat: Brain Initiative Phase 3 &mdash; generic critic step kind</code></td><td><code>pnpm calibrate --gate phase-3</code> exits 0</td></tr>
+  </tbody>
+</table>
+
+<p>Each PR squash-merges to main. No long-lived parent branch.</p>
+
+<h2 id="s11"><span class="num">11.</span> Programme rollover &mdash; future E-numbers</h2>
+
+<p>Six enhancements become eligible when their trigger conditions hold. <strong>All six are opened in TASKS.md as part of Phase 0's PR</strong>, marked <code>BlockedBy: Brain Initiative Phase 3</code>, and re-evaluated when Phase 3 merges. Belt + suspenders: the doctrine lives here; the open-work tracker lives in TASKS.md; <code>/status</code> reads against TASKS.md so they don't drift.</p>
+
+<div class="diagram">E-036 — Critic step in brief stage.
+  Trigger: ≥2 cycles where brief-writer emitted Briefs that passed structural
+           verify but were rejected at HG1 for strategic mismatch (or vice versa).
+  Scope:   Apply the generic critic step kind (Phase 3) to verify-brief.ts.
+
+E-037 — Critic step in produce stage.
+  Trigger: ≥2 cycles where Creative Variants passed all derived spec checks
+           but were rejected at HG3 for tonal incoherence.
+  Scope:   Apply to verify-produce.ts.
+
+E-038 — Critic step in distribute stage.
+  Trigger: ≥1 cycle where distribution went out paused-by-design but a critic
+           would have prevented the dry-run from being submitted at all.
+  Scope:   Apply to verify-distribute.ts.
+
+E-039 — Multi-factor experiment design (angle × persona).
+  Trigger: Brain v3 stable across ≥10 cycles; calibration suite shows
+           graduation_rate plateau (3 cycles with no graduation deltas).
+  Scope:   Brain v3 prompt-only upgrade; experimentParams schema already
+           accepts factors[N&gt;1].
+
+E-040 — Cross-channel critic debate (v3.1).
+  Trigger: Portfolio coherence flagged at HG1 in ≥3 consecutive cycles
+           ("Brain picked 3 actions but they don't fit together").
+  Scope:   Add a Phase 4.5 cross-channel critic between R2 and judge.
+
+E-041 — DSPy-style auto-tuning of critic prompts from calibration scores.
+  Trigger: Critic over-attack rate (attacks the judge ignored AND the actual
+           outcome landed in the original CI) ≥40% across ≥20 cycles.
+  Scope:   Learn critic prompts from calibration scores; orthogonal infrastructure.</div>
+
+<p>Three (E-036/037/038) are Phase 3's direct progeny. The other three (E-039/040/041) are v3 spec &sect;9.1's "out of scope" promoted to dormant TASKS entries with explicit re-open conditions.</p>
+
+<h2 id="s12"><span class="num">12.</span> Out of scope (this programme)</h2>
+<ul>
+  <li><strong>Cross-channel critic debate (v3.1)</strong> &mdash; Phase 2's debate is intra-channel only; cross-channel is E-040.</li>
+  <li><strong>3-round debate</strong> &mdash; <code>MAX_BRAIN_SPAWNS_PER_CYCLE = 17</code> is intentional; revisit only with calibration-suite evidence.</li>
+  <li><strong>DSPy-style auto-tuning of critic prompts</strong> &mdash; E-041; orthogonal infrastructure.</li>
+  <li><strong>YouTube + Authority ingestion</strong> &mdash; separate workstream; Phase 2 ships their channel agents as stubs.</li>
+  <li><strong>Multi-agent voting / self-consistency ensembles</strong> &mdash; different topology axis; rejected in favor of channel-MoE.</li>
+  <li><strong>B-005 / B-010 / B-015 / B-016</strong> &mdash; already-tracked open work, unchanged by this programme.</li>
+  <li><strong>A broader <code>run.params</code> typing audit across distribute/produce</strong> &mdash; B-010 follow-up.</li>
+  <li><strong>Generalizing the critic step kind to brief / produce / distribute</strong> &mdash; E-036 / E-037 / E-038, post-Phase-3.</li>
+</ul>
+
+<h2 id="s13"><span class="num">13.</span> Definition of done</h2>
+
+<table>
+  <thead><tr><th>Check</th><th>Source</th></tr></thead>
+  <tbody>
+    <tr><td>Phase 0 PR squash-merged; one <code>/loop</code> cycle reaches HG4 with <code>experimentParams</code> populated</td><td>&sect;4.10</td></tr>
+    <tr><td>Phase 1 PR squash-merged; <code>pnpm calibrate replay &amp;&amp; score</code> deterministic on &ge;3 cycles</td><td>&sect;5.6</td></tr>
+    <tr><td>Phase 2 PR squash-merged; <code>pnpm calibrate --gate phase-2</code> exited 0</td><td>&sect;6.13</td></tr>
+    <tr><td>Phase 3 PR squash-merged; <code>pnpm calibrate --gate phase-3</code> exited 0</td><td>&sect;7.6</td></tr>
+    <tr><td>ADR-026 (Brain MoE-Critic + critic step kind doctrine) drafted with Phase 2 PR; accepted on Phase 3 PR merge</td><td>&sect;3, &sect;7.4</td></tr>
+    <tr><td>ADR-020 amended to list the 6 new cells</td><td>&sect;6.10</td></tr>
+    <tr><td><code>brain.md</code> + its prompt fragment deleted in Phase 2 PR; <code>brain-shared.md</code> exists and is referenced by all 6 new agents</td><td>&sect;6.10</td></tr>
+    <tr><td><code>tools/eval/calibration-suite/</code> exists with <code>replay.ts</code>, <code>score.ts</code>, <code>gate.ts</code>, README</td><td>&sect;5.3</td></tr>
+    <tr><td>Snapshot-on-write hook in <code>synthesize</code> writes <code>data/snapshots/&lt;runId&gt;/...</code></td><td>&sect;5.2</td></tr>
+    <tr><td>E-036/037/038/039/040/041 opened in TASKS.md with <code>BlockedBy: Brain Initiative Phase 3</code></td><td>&sect;11</td></tr>
+    <tr><td>Post-merge re-evaluation written into spec; v2.5 recovery branch path documented</td><td>&sect;6.13</td></tr>
+    <tr><td>Old specs (<code>2026-05-24-brain-moe-critic</code>, <code>2026-05-25-brain-experiment-params</code> <code>.html</code> + <code>.md</code>) deleted in Phase 0 PR</td><td>Header</td></tr>
+  </tbody>
+</table>
+
+<h2 id="s14"><span class="num">14.</span> Open questions / future work</h2>
+<ul>
+  <li><strong>Multi-factor designs (<code>angle &times; persona</code>)</strong> &mdash; E-039; Brain v3 prompt-only upgrade. Engine + verifier already accept the shape.</li>
+  <li><strong><code>primaryMetric</code> driven by hypothesis type</strong> &mdash; today fixed to <code>"cpa"</code> at the judge's emit. When Brain emits hook-rate-driven hypotheses (organic), <code>primaryMetric</code> could shift. Schema accepts the four-value enum.</li>
+  <li><strong>Cell-count budget vs. produce capacity</strong> &mdash; Brain doesn't see how many variants downstream produce will create. If a future Brain emits 2&times;3 (6 cells) while produce creates 4, the verifier admits the design but distribute partially-skips. Either teach Brain a <code>min_creatives_needed</code> budget, or add a soft warning in <code>notes</code>. Not blocking this programme.</li>
+</ul>
+
+<footer class="doc">
+  Brain Initiative &mdash; graduation-rate-driven evolution of the OS07 reasoner &middot; 2026-05-26 &middot; awaiting approval before plan &middot; supersedes 2026-05-24-brain-moe-critic-topology + 2026-05-25-brain-experiment-params.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "@engineerdad/mcp-youtube",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "mcp-youtube": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node --env-file=../../.env dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "googleapis": "^144.0.0",
+    "zod": "^3.23.8"
+  }
+}

@@ -1,0 +1,28 @@
+# Lifestyle Bloat — visible monthly leaks the household audit surfaces
+# Source: corpus/courses/children-fund-101.md Module 3.1 ("Finding the Money — Lifestyle
+# Audit. RM15 × 4 coffee runs/week = ~RM240/month. RM2,500/month eating out → RM1,000
+# with one home-cooked dinner per week."). Also referenced in corpus/courses/content-
+# recipes.md Bug Series Part 2.
+# Used by media-production when scene argues "find the money before claiming you don't
+# have any", "lifestyle bloat is silent inflation", "the household audit", or any
+# Bug Series Part 2 hook.
+
+id: lifestyle-bloat-leaks
+title_en: "Two common monthly leaks an EngineerDad household audit usually finds"
+title_ms: "Dua kebocoran bulanan biasa yang audit rumah tangga EngineerDad selalu jumpa"
+chart_type: bar
+x_label_en: "Leak category"
+x_label_ms: "Kategori kebocoran"
+y_label_en: "Monthly amount that can be redirected (RM)"
+y_label_ms: "Jumlah bulanan yang boleh dihalakan semula (RM)"
+labels:
+  - "Coffee runs (RM15 × 4/week)"
+  - "Eating out (cut from RM2,500 → RM1,000/mo)"
+series:
+  - name_en: "Recoverable RM/month"
+    name_ms: "RM/bulan yang boleh dipulihkan"
+    semantic_role: hero
+    values: [240, 1500]
+caption_en: "RM240 from the coffee habit. RM1,500 from one extra home-cooked dinner a week instead of eating out. That's RM1,740/month — not deprivation, just visibility. Most household budgets carry leaks this size, and most parents have never priced them. The audit is engineering work, not moralising."
+caption_ms: "RM240 daripada tabiat kopi. RM1,500 daripada satu hidangan masakan rumah seminggu menggantikan makan luar. Itu RM1,740/sebulan — bukan kepayahan, hanya kejelasan. Kebanyakan bajet rumah tangga membawa kebocoran sebesar ini, dan kebanyakan ibu bapa tidak pernah menghargakannya. Audit ialah kerja kejuruteraan, bukan moralisasi."
+source_citation: "Figures from the canonical Lifestyle Audit example in corpus/courses/children-fund-101.md Module 3.1. Coffee leak (RM15 × 4 runs/week) and eating-out reduction (RM2,500 → RM1,000) are illustrative household-level numbers, not population averages — the audit's job is to make YOUR specific leaks visible."

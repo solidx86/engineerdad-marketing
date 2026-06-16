@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAUDE.md Hardening — Design Spec</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #6c8ebf;
+    --accent2: #7ec8a4;
+    --warn: #e0a84b;
+    --del: #c0616b;
+    --add: #7ec8a4;
+    --text: #d4d8e8;
+    --muted: #7a7f99;
+    --code-bg: #12141e;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 40px 24px;
+  }
+  .page { max-width: 860px; margin: 0 auto; }
+
+  h1 { font-size: 1.7rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 36px; }
+  h2 {
+    font-size: 1.1rem; font-weight: 600; color: var(--accent);
+    margin: 40px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  h3 { font-size: 1rem; font-weight: 600; color: #c8ceee; margin: 22px 0 8px; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 5px; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: #aed6f1;
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.6;
+    margin-bottom: 14px;
+    color: #c8d8f8;
+  }
+  pre .del { color: var(--del); background: rgba(192,97,107,0.12); display: block; }
+  pre .add { color: var(--add); background: rgba(126,200,164,0.10); display: block; }
+  pre .neutral { color: var(--muted); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  td code { font-size: 0.78em; }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge-del  { background: rgba(192,97,107,0.2);  color: var(--del);  border: 1px solid rgba(192,97,107,0.3); }
+  .badge-add  { background: rgba(126,200,164,0.15); color: var(--add);  border: 1px solid rgba(126,200,164,0.25); }
+  .badge-keep { background: rgba(108,142,191,0.15); color: var(--accent); border: 1px solid rgba(108,142,191,0.25); }
+  .badge-fix  { background: rgba(224,168,75,0.15);  color: var(--warn); border: 1px solid rgba(224,168,75,0.25); }
+  .callout {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.del  { border-left-color: var(--del); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+  .section-label {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>CLAUDE.md Hardening</h1>
+<p class="meta">Design spec &nbsp;·&nbsp; 2026-05-25 &nbsp;·&nbsp; engineerdad-marketing</p>
+
+<!-- ============================================================ -->
+<h2>1 · Goal</h2>
+
+<p>
+  Harden the repo's orientation files so Claude Code (and human developers) always have an
+  accurate, concise picture and so the files stay current automatically.
+  The four principles driving every change:
+</p>
+<ol>
+  <li><strong>No redundancy</strong> — each fact lives in one place only.</li>
+  <li><strong>CLAUDE.md stays thin</strong> — every line costs session tokens; cut ruthlessly.</li>
+  <li><strong>ARCHITECTURE.md is the SSOT</strong> for the system as built; CLAUDE.md links to it.</li>
+  <li><strong>Maintenance is explicit</strong> — CLAUDE.md tells Claude when to update which file.</li>
+</ol>
+
+<!-- ============================================================ -->
+<h2>2 · Files in scope</h2>
+
+<table>
+  <thead>
+    <tr><th>File</th><th>Action</th><th>Rationale</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CLAUDE.md</code></td>
+      <td><span class="badge badge-fix">Revise</span></td>
+      <td>Remove stale sections, compress architecture, replace ADR block with pointer, add maintenance rule.</td>
+    </tr>
+    <tr>
+      <td><code>README.md</code></td>
+      <td><span class="badge badge-fix">Fix staleness</span></td>
+      <td>Three targeted fixes: stale <code>PLAN.md</code> reference, misleading parallel-build label, stale <code>DONE.md</code> reference.</td>
+    </tr>
+    <tr>
+      <td><code>TASKS.md</code></td>
+      <td><span class="badge badge-fix">Fix staleness</span></td>
+      <td>Remove <code>DONE.md</code> reference from header line.</td>
+    </tr>
+    <tr>
+      <td><code>DONE.md</code></td>
+      <td><span class="badge badge-del">Retire</span></td>
+      <td>Content is covered by <code>git log</code> + the Status header in <code>TASKS.md</code>. One less file to maintain.</td>
+    </tr>
+    <tr>
+      <td><code>ARCHITECTURE.md</code></td>
+      <td><span class="badge badge-keep">No change</span></td>
+      <td>Already accurate and positioned as SSOT. The new maintenance rule in CLAUDE.md points to it.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>3 · CLAUDE.md — section-by-section changes</h2>
+
+<h3>3.1 "What this repo is" <span class="badge badge-keep">keep</span></h3>
+<p>Accurate and concise. No changes.</p>
+
+<h3>3.2 "Where to look first" table <span class="badge badge-fix">minor update</span></h3>
+<ul>
+  <li>Update the <code>docs/decisions/</code> row description → <em>"ADRs — see ARCHITECTURE.md §<i>Where doctrine lives</i>"</em> (no longer needs to say "see the Load-bearing ADRs section below" because that section is becoming a pointer).</li>
+  <li>Remove the trailing compliance footnote at the bottom of the section (it duplicates what ARCHITECTURE.md's §<i>Where doctrine lives</i> already says).</li>
+  <li><code>DONE.md</code> reference removed (file retired).</li>
+</ul>
+
+<h3>3.3 "Build / dev commands" <span class="badge badge-fix">revise</span></h3>
+<p>Remove stale, add one genuinely non-obvious command:</p>
+
+<table>
+  <thead><tr><th>Command</th><th>Action</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>pnpm -r build</code> (sequential note)</td>
+      <td><span class="badge badge-keep">keep</span></td>
+      <td>Real gotcha — parallel form races on <code>@engineerdad/shared</code>.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm sync:agents</code></td>
+      <td><span class="badge badge-keep">keep</span></td>
+      <td>Still active — 3 prompt fragments in <code>packages/shared/src/prompts/</code> are pasted into agents.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm bootstrap:notion</code></td>
+      <td><span class="badge badge-del">remove</span></td>
+      <td>Script no longer exists in <code>package.json</code>. Notion is retired.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm test</code> (full form)</td>
+      <td><span class="badge badge-del">remove</span></td>
+      <td>Already in README workspace scripts table. Not non-obvious.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm vitest run &lt;path&gt;</code></td>
+      <td><span class="badge badge-keep">keep</span></td>
+      <td>The single-test form is non-obvious; worth keeping.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm test:worker &lt;fixture&gt;</code></td>
+      <td><span class="badge badge-keep">keep</span></td>
+      <td>Non-obvious name for the static-renderer pipeline test.</td>
+    </tr>
+    <tr>
+      <td><code>pnpm orchestrator:push</code></td>
+      <td><span class="badge badge-add">add</span></td>
+      <td>Applies <code>orchestrator.step_results</code> Postgres schema. Separate from <code>pnpm store:push</code>; both required on cold-start. Easy to miss.</td>
+    </tr>
+    <tr>
+      <td>MCP restart note</td>
+      <td><span class="badge badge-keep">keep</span></td>
+      <td>Real gotcha — settings changes require Claude Code restart.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.4 "Architecture — the big picture" <span class="badge badge-fix">shrink ~40%</span></h3>
+
+<p>Keep the closed-loop one-liner (fastest orientation) and a compressed three-layers summary. Drop two subsections:</p>
+
+<table>
+  <thead><tr><th>Subsection</th><th>Action</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>Closed loop one-liner</td><td><span class="badge badge-keep">keep</span></td><td>Fastest way to orient. Not in ARCHITECTURE.md as a one-liner.</td></tr>
+    <tr><td>"Three layers, one direction"</td><td><span class="badge badge-fix">compress</span></td><td>Collapse to 2 bullets + "→ <code>ARCHITECTURE.md</code> for the full map". Fix server count 11 → 14.</td></tr>
+    <tr><td>"Storage" subsection</td><td><span class="badge badge-del">drop</span></td><td>Fully covered by ARCHITECTURE.md §Storage. No unique information.</td></tr>
+    <tr><td>"Notion DBs (8)"</td><td><span class="badge badge-del">drop</span></td><td>Stale header (moved to Postgres). Content already in ARCHITECTURE.md §Postgres entities.</td></tr>
+  </tbody>
+</table>
+
+<p>Add an explicit pointer after the summary:</p>
+<pre>→ See <code>ARCHITECTURE.md</code> for the full map (stages, orchestrator internals,
+  storage layout, command surface, MCP servers).</pre>
+
+<h3>3.5 "Load-bearing ADRs" → pointer only <span class="badge badge-fix">shrink ~25 lines</span></h3>
+<p>Replace the six-ADR block with:</p>
+<pre>## Load-bearing ADRs
+
+See `ARCHITECTURE.md` § *Where doctrine lives* before making cross-cutting
+changes. Read the ADR file itself before touching its named surface.</pre>
+
+<h3>3.6 New "Maintenance" section <span class="badge badge-add">add</span></h3>
+<p>Three explicit triggers — tells Claude when to update which file without ambiguity:</p>
+<pre>## Maintenance
+
+- **Architectural change** (new MCP server, stage, agent, or storage layout) →
+  update `ARCHITECTURE.md`; keep this file's big-picture summary in sync.
+- **Bug or enhancement uncovered** → open a new entry in `TASKS.md`.
+- **Work ships / ticket closes** → close the entry in `TASKS.md`, refresh the
+  Status header.</pre>
+
+<!-- ============================================================ -->
+<h2>4 · README.md — targeted staleness fixes</h2>
+
+<div class="callout warn">Structural changes only where needed. README is a good developer doc; don't reorganise it.</div>
+
+<table>
+  <thead><tr><th>Location</th><th>Current (stale)</th><th>Replace with</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Line 7 — source-of-truth link</td>
+      <td><code>**Source of truth for design:** [PLAN.md](./PLAN.md)</code></td>
+      <td><code>**Current architecture:** [ARCHITECTURE.md](./ARCHITECTURE.md)</code></td>
+    </tr>
+    <tr>
+      <td>Line 8 — build history link</td>
+      <td><code>**Build history:** [DONE.md](./DONE.md)</code></td>
+      <td>Remove (DONE.md retired; git log is the record).</td>
+    </tr>
+    <tr>
+      <td>Workspace scripts table — <code>pnpm build</code> row</td>
+      <td>"Build every workspace package in parallel"</td>
+      <td>"Sequential build (see CLAUDE.md — parallel form races on shared)"</td>
+    </tr>
+    <tr>
+      <td>Day-1 checklist step 9</td>
+      <td>References <code>PLAN.md §9</code></td>
+      <td>Remove the <code>PLAN.md</code> cross-reference (file is archived).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>5 · TASKS.md — staleness fix</h2>
+
+<p>Header line 8 currently reads:</p>
+<pre class="neutral">**Open work:** `TASKS.md`  •  **Build history:** `DONE.md`  •  …</pre>
+<p>Remove the <code>DONE.md</code> bullet. Keep the rest.</p>
+
+<!-- ============================================================ -->
+<h2>6 · DONE.md — retirement</h2>
+
+<div class="callout del">Delete <code>DONE.md</code> from the repo. No archive needed — full history is in <code>git log</code>.</div>
+<p>
+  The Status block at the top of <code>TASKS.md</code> covers "what shipped recently" in structured
+  prose. Any deeper history is a <code>git log --oneline</code> away.
+</p>
+
+<!-- ============================================================ -->
+<h2>7 · Expected CLAUDE.md after changes</h2>
+
+<p>Approximate final structure (≈40 lines, down from ≈60):</p>
+<pre>
+# CLAUDE.md
+
+## What this repo is          [unchanged]
+
+## Where to look first        [minor: ADR row + compliance footnote updated]
+
+## Build / dev commands       [5 bullets: -bootstrap:notion, -pnpm test, +orchestrator:push]
+
+## Architecture — the big picture
+  ### The closed loop         [unchanged]
+  ### Three layers            [compressed 2 bullets + pointer to ARCHITECTURE.md]
+  ~~### Storage~~             [dropped]
+  ~~### Notion DBs~~          [dropped]
+
+## Load-bearing ADRs          [2-line pointer replacing ~25 lines]
+
+## Maintenance                [new — 3 trigger bullets]
+</pre>
+
+<!-- ============================================================ -->
+<h2>8 · Out of scope</h2>
+<ul>
+  <li>No changes to <code>ARCHITECTURE.md</code> — it's already accurate.</li>
+  <li>No changes to ADR files.</li>
+  <li>No changes to <code>.claude/agents/</code> or <code>.claude/commands/</code>.</li>
+  <li>No restructuring of README.md beyond the four targeted fixes.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>9 · Open questions / risks</h2>
+<ul>
+  <li>
+    <strong>TASKS.md header</strong> — the exact line that references <code>DONE.md</code>
+    lives inside the top-level header prose, not in a structured field. Will confirm the
+    exact text before editing.
+  </li>
+  <li>
+    <strong>README workspace scripts table</strong> — the <code>pnpm build</code> row
+    currently says "in parallel". The replacement label is slightly verbose; if it crowds
+    the table, abbreviate to "Sequential — see CLAUDE.md".
+  </li>
+</ul>
+
+</div><!-- /page -->
+</body>
+</html>

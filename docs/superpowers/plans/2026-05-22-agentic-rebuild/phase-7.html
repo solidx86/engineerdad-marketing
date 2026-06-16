@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 7 — Trim brain.md; retire PLAN.md; ADR-020; command surface</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .badge.review { background: var(--warn); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 7 — Trim brain.md; retire PLAN.md; ADR-020; command surface</h1>
+  <p class="meta">
+    Implementation plan · phase 7 of 7 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phases 2–6 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">This is the closing phase</span>
+    The loop is live (Phase 6). Phase 7 ships <strong>no new orchestrator behaviour</strong>. It
+    removes the last stale section of <code>brain.md</code> (§G organic-planner — design §7
+    dissolved it), records the settled architecture as <strong>ADR-020</strong>, retires the
+    754-line <code>PLAN.md</code> into a short current <code>ARCHITECTURE.md</code>, re-points
+    every citation that pointed into PLAN.md, and <strong>rewrites the granular command surface</strong>
+    so the power-user escape hatches actually drive the orchestrator. After this phase the
+    7-phase agentic rebuild is complete.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Three facts baked in</span>
+    <strong>1 — §G is fully superseded, not orphaned.</strong> Design §7 re-homed every §G
+    responsibility into stages that already shipped: slot assignment →
+    <code>assignSchedule()</code> + the <code>schedule</code> stage (Phase 4); Reel video → the
+    <code>produce</code> stage (Phase 5); routing → the <code>distribute</code> stage's organic
+    branch (Phase 4). Organic is now 1:1 with a run, inside <code>/loop</code>.<br>
+    <strong>2 — ADR-020 is written last, on purpose.</strong> An ADR records a <em>settled</em>
+    decision; it settled when Phase 6 shipped. Sourced from the agentic-rebuild design spec +
+    the orchestrator-placement spec.<br>
+    <strong>3 — the command rewrite reuses the conductor; it does not fork it.</strong> The
+    loop-stage commands delegate to <code>loop.md</code>'s procedure verbatim — one conductor,
+    several scoped entry points. No conductor logic is duplicated.
+  </div>
+
+  <p><strong>Goal:</strong> Remove <code>brain.md</code> §G; write ADR-020 + a one-line status
+    note on ADR-005; create <code>ARCHITECTURE.md</code>; archive <code>PLAN.md</code> and
+    re-point every reference; rewrite the granular commands as orchestrator drivers — so the
+    agentic rebuild is complete and every runtime surface reflects the system as built.</p>
+  <p><strong>Architecture:</strong> No orchestrator code change, no test change. A documentation
+    + prompt-trim + command-rewrite phase. Executable surface touched: <code>brain.md</code> (a
+    section deletion) and the <code>.claude/commands/</code> set.</p>
+  <p><strong>Tech stack:</strong> Markdown. No build impact. Verification is
+    <code>pnpm sync:agents:check</code> + a no-dangling-reference grep + a one-step orchestrator
+    smoke on a rewritten command + the standard build/suite green check (regression guard).</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>.claude/agents/brain.md</code> <em>(modify)</em></td><td>Delete §G (organic-planner) + its Pending-Phase-7 note — brain is now §B/§C/§D/§F + hard rules only</td></tr>
+      <tr><td><code>docs/decisions/020-agentic-cell-architecture.md</code> <em>(new)</em></td><td>The settled architecture: orchestrator state machine, 4 agentic cells vs deterministic stages, the agentic litmus test; supersedes the 4-tier dispatch model</td></tr>
+      <tr><td><code>docs/decisions/005-mcp-architecture.md</code> <em>(modify)</em></td><td>One-line status note pointing to ADR-020 — not a rewrite</td></tr>
+      <tr><td><code>ARCHITECTURE.md</code> <em>(new)</em></td><td>Navigational snapshot (~120–180 lines) — the closed loop, 9 stages, 4 agents, orchestrator, storage, Notion DBs, human gates. Doctrine delegated to the ADRs. Replaces PLAN.md as "where to look first"</td></tr>
+      <tr><td><code>PLAN.md</code> → <code>docs/archive/PLAN.md</code> <em>(move)</em></td><td>Archived with a header banner — historical design record, no longer source of truth</td></tr>
+      <tr><td><code>CLAUDE.md</code> <em>(modify)</em></td><td>"Where to look first" points at <code>ARCHITECTURE.md</code>; PLAN.md row marked archived</td></tr>
+      <tr><td><code>.claude/agents/brief-writer.md</code> · <code>.claude/commands/reflect.md</code> · <code>packages/shared/src/prompts/tactical-piliero.md</code></td><td>Re-point <code>PLAN.md §x</code> citations to ADR-020 / ARCHITECTURE.md, or genericise the phrase</td></tr>
+      <tr><td><code>.claude/commands/{post-week,targeting}.md</code> <em>(delete)</em></td><td><code>/post-week</code> — organic-planner dissolved by design §7; <code>/targeting</code> — legacy-named duplicate of <code>/brief</code> (the agent it was named for was renamed in Phase 6). <code>/posting-pack</code> is <strong>kept</strong> — a live IG-posting aid, no brain dispatch.</td></tr>
+      <tr><td><code>.claude/commands/{loop-once,brief,content,produce,experiment,distribute}.md</code> <em>(rewrite)</em></td><td>Thin delegators to the <code>/loop</code> conductor — scoped entry points, no duplicated conductor body</td></tr>
+      <tr><td><code>.claude/commands/{analyze,reflect}.md</code> <em>(rewrite)</em> · <code>brain.md</code> <em>(touch-up)</em></td><td>Off-loop commands → scoped <code>brain</code> spawns; <code>/brain</code> description refreshed</td></tr>
+      <tr><td><code>docs/superpowers/plans/.../index.html</code> <em>(modify)</em></td><td>Mark Phase 7 shipped — the roadmap is complete</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Not in Phase 7:</strong> no Notion-schema change; no orchestrator code change; no
+    new vitest suites (command files are prompts, not unit-testable code — verified by grep +
+    a one-step smoke).</p>
+
+  <h2><span class="num">1.</span> ADR-020 — what it records</h2>
+  <p>ADR-020 is the durable artifact of this rebuild. Sourced from the two reviewed specs, it
+    records what is now <em>true in the code</em>:</p>
+  <ul>
+    <li><strong>Context</strong> — the pre-rebuild model: <code>brain</code> as a 4-tier router
+      dispatching 8 agents; deterministic logic living in agent prompts; the recurring G-series
+      regressions; PLAN.md as a 754-line cited-by-section spec.</li>
+    <li><strong>Decision</strong> — the orchestrator state machine
+      (<code>plan</code>/<code>verify</code>/<code>advance</code>, stage definitions, verifiers)
+      owns sequencing; <strong>four agentic cells</strong> (Strategy/brain, brief-writer,
+      content-writer, creative-director) do the open-ended reasoning; everything else is a
+      deterministic <code>StageDefinition</code> or a fan-out worker. The <em>agentic litmus
+      test</em>: a step is agentic only if it has genuine open decision space — otherwise it is
+      code.</li>
+    <li><strong>Retained from ADR-005</strong> — the thin-adapter doctrine, the no-MCP-mesh rule
+      (restated: "no MCP server opens a client to another MCP server" — shared <em>logic</em>
+      goes in <code>packages/</code>, cross-server <em>sequencing</em> through the hub), and the
+      compliance boundary (the scan fires at the notion MCP write boundary).</li>
+    <li><strong>Resolves</strong> — ADR-014's worker-split question (the ADR-014 + ADR-016
+      render-vs-handoff carve-out stands).</li>
+    <li><strong>Consequences</strong> — <code>/loop</code> is the conductor; the granular
+      commands are scoped delegators; the four human gates live inside stages as
+      <code>gate</code> steps; orchestration state is SQLite-owned, Notion owns artifacts.</li>
+    <li><strong>Status</strong> — Accepted, 2026-05-22. ADR-005 gets a one-line note:
+      <em>"Status note (2026-05-22): the dispatch model is superseded by ADR-020; the
+      thin-adapter + no-MCP-mesh + compliance-boundary doctrine below stands."</em></li>
+  </ul>
+
+  <h2><span class="num">2.</span> Command surface — the rewrite</h2>
+  <p>Phase 6 deleted <code>brain.md</code> §A (mode dispatch); every granular command that
+    spawned <code>brain</code> with a <code>mode:</code> string is non-functional. Phase 7
+    rebuilds them in two shapes:</p>
+  <table>
+    <thead><tr><th>Command(s)</th><th>New shape</th></tr></thead>
+    <tbody>
+      <tr><td><code>/loop-once</code> · <code>/brief</code></td><td><strong>Conductor delegator (start).</strong> Mint a fresh run and drive it via <code>loop.md</code>'s procedure to HUMAN GATE 1.</td></tr>
+      <tr><td><code>/content</code> · <code>/produce</code> · <code>/experiment</code> · <code>/distribute</code></td><td><strong>Conductor delegator (resume).</strong> Parse <code>runId</code> from <code>$ARGUMENTS</code> (<code>--run=&lt;id&gt;</code>); drive the run via <code>loop.md</code>'s procedure to the next human gate. The body names the stage the command is the escape hatch for.</td></tr>
+      <tr><td><code>/analyze</code> · <code>/reflect</code></td><td><strong>Scoped <code>brain</code> spawn.</strong> Off-loop reasoning ops. <code>/reflect</code> → spawn <code>brain</code> to run the §B-step-2 Reflect procedure on the given run. <code>/analyze</code> → spawn <code>brain</code> to summarise the analytics signal; experiment readout via <code>mcp__experiment__readout</code> when <code>--run</code> is given.</td></tr>
+      <tr><td><code>/brain</code></td><td><strong>Kept.</strong> Generic <code>brain</code> spawn — still valid (brain is a reasoner). Description refreshed to drop the router framing.</td></tr>
+      <tr><td><code>/loop</code> · <code>/status</code> · <code>/ingest-corpus</code> · <code>/posting-pack</code></td><td><strong>Unchanged.</strong> Already correct — conductor, run dashboard, corpus reindex, and the IG manual-posting aid (a script runner, no brain dispatch).</td></tr>
+      <tr><td><code>/post-week</code> · <code>/targeting</code></td><td><strong>Deleted.</strong> <code>/post-week</code> — the organic-planner flow dissolved by design §7. <code>/targeting</code> — a legacy-named duplicate of <code>/brief</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>The delegators carry <code>allowed-tools: Task, mcp__orchestrator__*</code> to match
+    <code>loop.md</code>; they reference <code>loop.md</code>'s loop body rather than restating
+    it — one conductor, several front doors.</p>
+
+  <h2><span class="num">3.</span> Tasks</h2>
+  <p>Commit prefix <code>chore:</code> for the <code>brain.md</code> trim, the PLAN.md move, and
+    the command rewrites; <code>docs:</code> for the ADRs / <code>ARCHITECTURE.md</code> /
+    roadmap. No TDD — there is no code under test; verification is sync-check + grep + a
+    one-step orchestrator smoke + a regression build/suite.</p>
+
+  <div class="task">
+    <h3>T1 — Trim <code>brain.md</code> §G</h3>
+    <p><span class="lbl">Files</span> <code>.claude/agents/brain.md</code>.</p>
+    <p><span class="lbl">Build</span> Delete the entire <code>## §G — Organic-planner step</code>
+      section, including the Phase-6 "Pending Phase 7 rework" note and the trailing
+      <code>---</code>. brain.md is left as: frontmatter, intro, §B (9-step scaffold), §C
+      (Decision Memo), §D (move catalog), §F (cold-start), Hard rules — a pure reasoner.</p>
+    <p><span class="lbl">Verify</span> <code>grep</code> finds no <code>§G</code> and no
+      <code>organic-planner</code> in brain.md; <code>pnpm sync:agents:check</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — Write ADR-020</h3>
+    <p><span class="lbl">Files</span> <code>docs/decisions/020-agentic-cell-architecture.md</code>.</p>
+    <p><span class="lbl">Build</span> Author ADR-020 per §1 — Context / Decision / Retained /
+      Resolves / Consequences / Status. Follow the existing ADR house format (see ADR-018 /
+      ADR-019 for structure). Source it from
+      <code>docs/superpowers/specs/2026-05-22-agentic-rebuild-design.html</code> and
+      <code>2026-05-21-orchestrator-placement-design.html</code>; do not invent doctrine beyond
+      what those specs settled.</p>
+    <p><span class="lbl">Verify</span> ADR-020 cites both source specs; the no-MCP-mesh +
+      thin-adapter + compliance-boundary text is carried in spirit from ADR-005. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — ADR-005 status note</h3>
+    <p><span class="lbl">Files</span> <code>docs/decisions/005-mcp-architecture.md</code>.</p>
+    <p><span class="lbl">Build</span> Add a single status-note line near the top (under the
+      Status field) pointing to ADR-020 — the §1 wording. Do <strong>not</strong> rewrite the
+      ADR body; ADR-005's thin-adapter doctrine still stands and is still cited by CLAUDE.md.</p>
+    <p><span class="lbl">Verify</span> the note is one line; the rest of ADR-005 is unchanged.
+      Commit (folded with T2 or standalone).</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — Create <code>ARCHITECTURE.md</code></h3>
+    <p><span class="lbl">Files</span> <code>ARCHITECTURE.md</code> (repo root).</p>
+    <p><span class="lbl">Build</span> A navigational snapshot (~120–180 lines). Sections: the
+      closed loop one-liner; the 9-stage order with each stage's kind (deterministic /
+      agentic-cell) and its human gate; the 4 agents; the orchestrator
+      (<code>plan</code>/<code>verify</code>/<code>advance</code>, stage definitions, verifiers,
+      <code>LIVE_REGISTRY</code>); storage (SQLite orchestration state, Notion artifacts,
+      committed corpus index); the 8 Notion DBs; the MCP server list; the command surface; a
+      pointer to <code>docs/decisions/</code> for doctrine. Describes the system <em>as
+      built</em> — no roadmap, no history, no aspiration; doctrine lives in the ADRs.</p>
+    <p><span class="lbl">Verify</span> every stage / agent / MCP / command named in
+      <code>ARCHITECTURE.md</code> exists in the repo (grep-spot-check). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — Archive <code>PLAN.md</code>; re-point citations</h3>
+    <p><span class="lbl">Files</span> <code>git mv PLAN.md docs/archive/PLAN.md</code>;
+      <code>CLAUDE.md</code>, <code>.claude/agents/brain.md</code>,
+      <code>.claude/agents/brief-writer.md</code>, <code>.claude/commands/reflect.md</code>,
+      <code>packages/shared/src/prompts/tactical-piliero.md</code>.</p>
+    <p><span class="lbl">Build</span> Move PLAN.md to <code>docs/archive/</code> with a top
+      banner: <em>"ARCHIVED 2026-05-22 — historical design record. Current architecture:
+      <code>ARCHITECTURE.md</code> + <code>docs/decisions/</code>."</em> Then sweep every
+      surviving citation: CLAUDE.md "Where to look first" → first row points at
+      <code>ARCHITECTURE.md</code> as source of truth, the PLAN.md row demoted to "archived
+      design record". Each <code>PLAN.md §x</code> citation in <code>brain.md</code> /
+      <code>brief-writer.md</code> / <code>reflect.md</code> / <code>tactical-piliero.md</code>
+      → re-point to the equivalent ADR-020 / ARCHITECTURE.md anchor, or genericise the phrase
+      if no longer load-bearing. Run <code>pnpm sync:agents</code> after the fragment edit.</p>
+    <p><span class="lbl">Verify</span> <code>grep -rn 'PLAN\.md'</code> across the runtime
+      surface (<code>.claude</code>, <code>CLAUDE.md</code>, <code>packages/shared/src/prompts</code>)
+      returns nothing pointing at the old path; <code>pnpm sync:agents:check</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — Delete the superseded /post-week command</h3>
+    <p><span class="lbl">Files</span> <code>git rm .claude/commands/post-week.md</code>.</p>
+    <p><span class="lbl">Build</span> Remove it — its premise (the organic-planner flow) was
+      dissolved by design §7. <strong>Keep <code>/posting-pack</code>:</strong> it is not stale
+      — it runs <code>scripts/build-posting-pack.mjs</code> directly (no brain dispatch) and is
+      the still-needed IG manual-posting aid until E-024 (ADR-019). Set the
+      <code>CLAUDE.md</code> command count to the post-Phase-7 number.</p>
+    <p><span class="lbl">Verify</span> no dangling <code>post-week</code> /
+      <code>organic-planner</code> reference on the runtime surface (grep). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — Rewrite the loop-stage commands as conductor delegators</h3>
+    <p><span class="lbl">Files</span> <code>.claude/commands/{loop-once,brief,content,produce,experiment,distribute}.md</code>;
+      <code>git rm .claude/commands/targeting.md</code>.</p>
+    <p><span class="lbl">Build</span> Delete <code>targeting.md</code> first — a legacy-named
+      duplicate of <code>/brief</code> (named after the <code>targeting</code> agent renamed in
+      Phase 6) that dispatches a dead <code>mode: targeting</code>. Then rewrite each remaining
+      file to the delegator shape:
+      <code>allowed-tools: Task, mcp__orchestrator__*</code>; a <code>description</code> +
+      <code>argument-hint</code> kept accurate to the stage; a body that says <em>"This is a
+      scoped entry to the closed-loop conductor. Drive the run via the procedure in
+      <code>.claude/commands/loop.md</code> exactly — the orchestrator owns sequencing. &lt;start
+      vs. resume note&gt;. You are the <code>&lt;stage&gt;</code> escape hatch; STOP at the next
+      human gate."</em> <code>loop-once</code> / <code>brief</code> are start delegators (mint a
+      run from <code>$ARGUMENTS</code>); <code>content</code> / <code>produce</code> /
+      <code>experiment</code> / <code>distribute</code> are resume delegators (parse
+      <code>--run=&lt;id&gt;</code>). No conductor logic is restated — they point at
+      <code>loop.md</code>.</p>
+    <p><span class="lbl">Verify</span> no command file contains a <code>mode:</code> brain
+      dispatch or <code>subagent_type=brain</code>; a one-step orchestrator smoke
+      (<code>plan</code> on a fresh run, as in Phase 6 T11) still returns the tracking step.
+      Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — Rewrite the off-loop commands; refresh <code>/brain</code></h3>
+    <p><span class="lbl">Files</span> <code>.claude/commands/{analyze,reflect,brain}.md</code>.</p>
+    <p><span class="lbl">Build</span> <code>reflect.md</code> → spawn <code>brain</code>
+      (<code>subagent_type=brain</code>) with a prompt instructing it to run the §B-step-2
+      Reflect procedure on the run in <code>$ARGUMENTS</code> (grade Hypotheses, promote
+      ≥2-confirmed to Learnings, write the Self-Critique). <code>analyze.md</code> → spawn
+      <code>brain</code> to summarise the analytics signal for the window in
+      <code>$ARGUMENTS</code>; note that experiment readout uses
+      <code>mcp__experiment__readout</code> when <code>--run</code> is given.
+      <code>brain.md</code> (command) → keep the verbatim-spawn shape; refresh the
+      <code>description</code> to drop "router" framing. None of these reference a
+      <code>mode:</code> string.</p>
+    <p><span class="lbl">Verify</span> no <code>mode:</code> dispatch remains in any command
+      file (grep across <code>.claude/commands/</code>). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — Final green; mark the roadmap complete</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+      <code>pnpm sync:agents:check</code> all green (regression guard — Phase 7 changes no
+      orchestrator code, so this must be unchanged). Mark Phase 7 <code>shipped</code> in
+      <code>index.html</code>; the 7-phase agentic rebuild is complete. Commit.</p>
+  </div>
+
+  <h2><span class="num">4.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>brain.md</code> has no §G and reads as a pure reasoner (§B/§C/§D/§F + hard rules);
+    ADR-020 is committed, sourced from both specs, retaining ADR-005's thin-adapter +
+    no-MCP-mesh + compliance-boundary doctrine; ADR-005 carries the one-line status note;
+    <code>ARCHITECTURE.md</code> exists and describes the system as built; <code>PLAN.md</code>
+    is archived and no runtime-surface reference points at its old path;
+    <code>/post-week</code> + <code>/targeting</code> are deleted; every granular command
+    drives the orchestrator (delegator or scoped <code>brain</code> spawn) with no
+    <code>mode:</code> dispatch; <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+    <code>pnpm sync:agents:check</code> all green; the roadmap marks all 7 phases shipped.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Review resolved — 2026-05-22</span>
+    <strong>(a) Command surface — Option C confirmed.</strong> Phase 7 rewrites the granular
+    commands as orchestrator drivers (T6–T8): loop-stage commands become conductor delegators,
+    off-loop commands become scoped <code>brain</code> spawns, <code>/post-week</code> +
+    <code>/posting-pack</code> are deleted.<br>
+    <strong>(b) <code>ARCHITECTURE.md</code> depth — navigational snapshot confirmed.</strong>
+    ~120–180 lines; doctrine delegated to the ADRs, not restated inline.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>
+    · Predecessor: <code>phase-6.html</code> (shipped). Final phase — on completion the 7-phase
+    agentic rebuild is done.
+  </div>
+
+</div>
+</body>
+</html>

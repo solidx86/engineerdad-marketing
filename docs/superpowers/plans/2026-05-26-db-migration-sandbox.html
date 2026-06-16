@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Migration Policy &amp; Branch Sandbox Isolation — Implementation Plan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .subtitle { font-size: 0.9rem; color: #555; margin-bottom: 0.5rem; }
+  .meta-block { background: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 1.2rem 0 2rem; font-size: 0.9rem; }
+  .meta-block p { margin-bottom: 0.3rem; }
+  .meta-block p:last-child { margin-bottom: 0; }
+  h2 { font-size: 1.2rem; font-weight: 700; margin: 2.5rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 1rem; font-weight: 700; margin: 2rem 0 0.5rem; color: #1a1a1a; }
+  .task { border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 2rem; overflow: hidden; }
+  .task-header { background: #f4f4f4; padding: 0.75rem 1.2rem; display: flex; align-items: baseline; gap: 0.75rem; border-bottom: 1px solid #e0e0e0; }
+  .task-num { font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .task-title { font-size: 1rem; font-weight: 700; }
+  .task-body { padding: 1rem 1.2rem; }
+  .files { background: #f9f9f9; border: 1px solid #eee; border-radius: 4px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-size: 0.85rem; }
+  .files strong { display: block; margin-bottom: 0.3rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #666; }
+  .files ul { margin: 0 0 0 1.1rem; }
+  .files li { margin-bottom: 0.15rem; }
+  .step { margin-bottom: 1.2rem; }
+  .step-label { display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .checkbox { width: 16px; height: 16px; min-width: 16px; border: 2px solid #bbb; border-radius: 3px; margin-top: 2px; }
+  .step-title { font-weight: 600; font-size: 0.9rem; }
+  p { margin-bottom: 0.75rem; }
+  ul, ol { margin: 0.4rem 0 0.75rem 1.4rem; }
+  li { margin-bottom: 0.3rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.83em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #1e1e2e; color: #cdd6f4; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.5rem 0 0.75rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.82em; line-height: 1.6; color: inherit; }
+  .expected { background: #f0faf0; border-left: 3px solid #4caf50; padding: 0.4rem 0.75rem; font-size: 0.85rem; margin: 0.4rem 0 0.75rem; border-radius: 0 4px 4px 0; }
+  .callout { border-left: 4px solid #07a; background: #f0f8ff; padding: 0.75rem 1rem; margin: 1rem 0 1.5rem; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.88rem; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>DB Migration Policy &amp; Branch Sandbox Isolation</h1>
+  <p class="subtitle">Implementation Plan</p>
+
+  <div class="banner">
+    <strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code> to implement this plan task-by-task.
+  </div>
+
+  <div class="meta-block">
+    <p><strong>Goal:</strong> Eliminate the live-DB footguns introduced by ADR-025 by adding a branch sandbox setup command, versioned migration commands, a <code>truncatePg()</code> safety guard, and operational rules in CLAUDE.md.</p>
+    <p><strong>Architecture:</strong> A <code>scripts/db-sandbox.mjs</code> script derives the sandbox DB name from the current git branch, creates it idempotently, pushes all three Drizzle schemas to it, and writes <code>DATABASE_URL</code> to <code>.env.local</code>. Per-package <code>drizzle/</code> folders hold generated SQL migrations committed alongside <code>schema.ts</code> changes. <code>truncatePg()</code> throws at module load if <code>DATABASE_URL</code> doesn't point at a safe DB.</p>
+    <p><strong>Tech Stack:</strong> Node.js ESM scripts, drizzle-kit CLI, postgres.js, Vitest, pnpm workspaces.</p>
+  </div>
+
+  <!-- TASK 1 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 1</span>
+      <span class="task-title">Add <code>truncatePg()</code> module-load safety guard</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Modify: <code>packages/shared/src/test-helpers/truncate-pg.ts</code></li>
+          <li>Create: <code>packages/shared/src/test-helpers/__tests__/truncate-pg-guard.test.ts</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Write the failing test</span></div>
+        <p>Create <code>packages/shared/src/test-helpers/__tests__/truncate-pg-guard.test.ts</code>:</p>
+        <pre><code>import { describe, it, expect, afterEach, vi } from "vitest";
+
+describe("truncatePg module-load guard", () => {
+  const originalUrl = process.env.DATABASE_URL;
+
+  afterEach(() => {
+    if (originalUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = originalUrl;
+    vi.resetModules();
+  });
+
+  it("throws when DATABASE_URL points at live DB", async () => {
+    process.env.DATABASE_URL = "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+    vi.resetModules();
+    await expect(import("../truncate-pg.js")).rejects.toThrow(
+      "truncatePg() refuses to run"
+    );
+  });
+
+  it("throws when DATABASE_URL is unset", async () => {
+    delete process.env.DATABASE_URL;
+    vi.resetModules();
+    await expect(import("../truncate-pg.js")).rejects.toThrow(
+      "truncatePg() refuses to run"
+    );
+  });
+
+  it("does not throw when DATABASE_URL ends with _test", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test";
+    vi.resetModules();
+    await expect(import("../truncate-pg.js")).resolves.toBeDefined();
+  });
+
+  it("does not throw when DATABASE_URL contains engineerdad_sb_", async () => {
+    process.env.DATABASE_URL =
+      "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_sb_my_branch";
+    vi.resetModules();
+    await expect(import("../truncate-pg.js")).resolves.toBeDefined();
+  });
+});</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Run test to verify it fails</span></div>
+        <pre><code>pnpm vitest run packages/shared/src/test-helpers/__tests__/truncate-pg-guard.test.ts</code></pre>
+        <div class="expected">Expected: the two "throws" cases FAIL (no guard exists yet). The two "does not throw" cases pass.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Add the module-load guard to <code>truncate-pg.ts</code></span></div>
+        <p>Insert these lines at the very top of <code>packages/shared/src/test-helpers/truncate-pg.ts</code>, before the <code>import</code> statements:</p>
+        <pre><code>const _dbUrl = process.env.DATABASE_URL ?? "";
+const _dbSafe = /_test$/.test(_dbUrl) || /engineerdad_sb_/.test(_dbUrl);
+if (!_dbSafe) {
+  throw new Error(
+    `truncatePg() refuses to run against '${_dbUrl || "(unset)"}'. ` +
+      `DATABASE_URL must end with _test or contain engineerdad_sb_. ` +
+      `Run \`pnpm db:sandbox\` to set up your branch sandbox.`,
+  );
+}</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 4: Run test to verify it passes</span></div>
+        <pre><code>pnpm vitest run packages/shared/src/test-helpers/__tests__/truncate-pg-guard.test.ts</code></pre>
+        <div class="expected">Expected: all 4 tests PASS.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 5: Verify full suite still passes</span></div>
+        <pre><code>pnpm test</code></pre>
+        <div class="expected">Expected: all tests pass. Vitest loads <code>.env</code> then <code>.env.local</code>; the <code>engineerdad_test</code> URL from <code>.env</code> is safe.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 6: Commit</span></div>
+        <pre><code>git add packages/shared/src/test-helpers/truncate-pg.ts \
+        packages/shared/src/test-helpers/__tests__/truncate-pg-guard.test.ts
+git commit -m "feat(shared): truncatePg() module-load guard — rejects non-sandbox DATABASE_URL"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 2 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 2</span>
+      <span class="task-title">Add explicit <code>out: "./drizzle"</code> to all three drizzle configs</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Modify: <code>packages/store/drizzle.config.ts</code></li>
+          <li>Modify: <code>packages/orchestrator/drizzle.config.ts</code></li>
+          <li>Modify: <code>packages/analytics/drizzle.config.ts</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Update <code>packages/store/drizzle.config.ts</code></span></div>
+        <pre><code>import { defineConfig } from "drizzle-kit";
+
+const DATABASE_URL = process.env.DATABASE_URL
+  ?? "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+
+export default defineConfig({
+  schema: "./src/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  dbCredentials: { url: DATABASE_URL },
+});</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Update <code>packages/orchestrator/drizzle.config.ts</code></span></div>
+        <pre><code>import { defineConfig } from "drizzle-kit";
+
+const DATABASE_URL = process.env.DATABASE_URL
+  ?? "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+
+export default defineConfig({
+  schema: "./src/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  schemaFilter: ["orchestrator"],
+  dbCredentials: { url: DATABASE_URL },
+});</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Update <code>packages/analytics/drizzle.config.ts</code></span></div>
+        <pre><code>import { defineConfig } from "drizzle-kit";
+
+const DATABASE_URL = process.env.DATABASE_URL
+  ?? "postgresql://engineerdad:engineerdad@localhost:5432/engineerdad";
+
+export default defineConfig({
+  schema: "./src/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  schemaFilter: ["analytics"],
+  dbCredentials: { url: DATABASE_URL },
+});</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 4: Commit</span></div>
+        <pre><code>git add packages/store/drizzle.config.ts \
+        packages/orchestrator/drizzle.config.ts \
+        packages/analytics/drizzle.config.ts
+git commit -m "chore(drizzle): explicit out: './drizzle' in all three configs"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 3 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 3</span>
+      <span class="task-title">Generate initial migration SQL for all three packages</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Create: <code>packages/store/drizzle/</code> (generated, committed)</li>
+          <li>Create: <code>packages/orchestrator/drizzle/</code> (generated, committed)</li>
+          <li>Create: <code>packages/analytics/drizzle/</code> (generated, committed)</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Generate migrations for store</span></div>
+        <pre><code>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad \
+  pnpm --filter @engineerdad/store exec drizzle-kit generate</code></pre>
+        <div class="expected">Expected: creates <code>packages/store/drizzle/&lt;timestamp&gt;_init.sql</code> and <code>packages/store/drizzle/meta/</code>.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Generate migrations for orchestrator</span></div>
+        <pre><code>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad \
+  pnpm --filter @engineerdad/orchestrator exec drizzle-kit generate</code></pre>
+        <div class="expected">Expected: creates <code>packages/orchestrator/drizzle/&lt;timestamp&gt;_init.sql</code> and <code>packages/orchestrator/drizzle/meta/</code>.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Generate migrations for analytics</span></div>
+        <pre><code>DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad \
+  pnpm --filter @engineerdad/analytics exec drizzle-kit generate</code></pre>
+        <div class="expected">Expected: creates <code>packages/analytics/drizzle/&lt;timestamp&gt;_init.sql</code> and <code>packages/analytics/drizzle/meta/</code>.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 4: Verify no drizzle/ entries in .gitignore</span></div>
+        <pre><code>grep -i drizzle .gitignore</code></pre>
+        <div class="expected">Expected: no output. Migration SQL and <code>drizzle/meta/</code> snapshots must all be committed.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 5: Commit all generated SQL</span></div>
+        <pre><code>git add packages/store/drizzle \
+        packages/orchestrator/drizzle \
+        packages/analytics/drizzle
+git commit -m "chore(migrations): initial drizzle-kit generate — baseline SQL for all three schemas"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 4 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 4</span>
+      <span class="task-title">Write <code>scripts/db-sandbox.mjs</code></span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Create: <code>scripts/db-sandbox.mjs</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Create the script</span></div>
+        <pre><code>#!/usr/bin/env node
+// Creates or updates a branch-scoped sandbox DB and writes DATABASE_URL to .env.local.
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+import postgres from "postgres";
+
+const ROOT = new URL("..", import.meta.url).pathname;
+
+function branchSlug() {
+  const branch = execSync("git symbolic-ref --short HEAD", { encoding: "utf8" }).trim();
+  return "engineerdad_sb_" + branch.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40);
+}
+
+async function createDbIfNeeded(dbName) {
+  const adminUrl = "postgresql://engineerdad:engineerdad@localhost:5432/postgres";
+  const sql = postgres(adminUrl, { max: 1 });
+  try {
+    const rows = await sql`SELECT 1 FROM pg_database WHERE datname = ${dbName}`;
+    if (rows.length === 0) {
+      await sql.unsafe(`CREATE DATABASE "${dbName}"`);
+      console.log(`Created database: ${dbName}`);
+    } else {
+      console.log(`Database already exists: ${dbName}`);
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+function pushSchemas(dbUrl) {
+  const env = { ...process.env, DATABASE_URL: dbUrl };
+  for (const pkg of ["@engineerdad/store", "@engineerdad/orchestrator", "@engineerdad/analytics"]) {
+    console.log(`Pushing schema for ${pkg}...`);
+    execSync(`pnpm --filter ${pkg} push`, { env, stdio: "inherit", cwd: ROOT });
+  }
+}
+
+function writeEnvLocal(dbUrl) {
+  const envLocalPath = resolve(ROOT, ".env.local");
+  let content = "";
+  if (existsSync(envLocalPath)) {
+    content = readFileSync(envLocalPath, "utf8");
+    if (/^DATABASE_URL=/m.test(content)) {
+      content = content.replace(/^DATABASE_URL=.*$/m, `DATABASE_URL=${dbUrl}`);
+    } else {
+      content += `\nDATABASE_URL=${dbUrl}\n`;
+    }
+  } else {
+    content = `DATABASE_URL=${dbUrl}\n`;
+  }
+  writeFileSync(envLocalPath, content);
+  console.log(`Wrote DATABASE_URL to .env.local → ${dbUrl}`);
+}
+
+const dbName = branchSlug();
+const dbUrl = `postgresql://engineerdad:engineerdad@localhost:5432/${dbName}`;
+
+await createDbIfNeeded(dbName);
+pushSchemas(dbUrl);
+writeEnvLocal(dbUrl);
+
+console.log(`\nSandbox ready: ${dbName}`);
+console.log(`DATABASE_URL written to .env.local — Vitest will pick this up automatically.`);</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Syntax check</span></div>
+        <pre><code>node --input-type=module --eval "import './scripts/db-sandbox.mjs'" 2>&1 | head -5</code></pre>
+        <div class="expected">Expected: no output (clean import, no syntax errors).</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Commit</span></div>
+        <pre><code>git add scripts/db-sandbox.mjs
+git commit -m "feat(scripts): db-sandbox — branch-scoped sandbox DB setup"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 5 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 5</span>
+      <span class="task-title">Write <code>scripts/db-sandbox-drop.mjs</code></span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Create: <code>scripts/db-sandbox-drop.mjs</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Create the script</span></div>
+        <pre><code>#!/usr/bin/env node
+// Lists and drops sandbox DBs whose git branch no longer exists locally.
+import { execSync } from "node:child_process";
+import { createInterface } from "node:readline";
+import postgres from "postgres";
+
+async function main() {
+  const adminUrl = "postgresql://engineerdad:engineerdad@localhost:5432/postgres";
+  const sql = postgres(adminUrl, { max: 1 });
+
+  let sandboxDbs;
+  try {
+    sandboxDbs = await sql`
+      SELECT datname FROM pg_database
+      WHERE datname LIKE 'engineerdad_sb_%'
+      ORDER BY datname
+    `;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+
+  if (sandboxDbs.length === 0) {
+    console.log("No sandbox DBs found.");
+    return;
+  }
+
+  const branches = execSync("git branch --format=%(refname:short)", { encoding: "utf8" })
+    .split("\n").filter(Boolean);
+
+  const branchSlugs = new Set(
+    branches.map(b =>
+      "engineerdad_sb_" + b.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 40)
+    )
+  );
+
+  const orphans = sandboxDbs.map(r => r.datname).filter(name => !branchSlugs.has(name));
+
+  if (orphans.length === 0) {
+    console.log("No orphaned sandbox DBs found.");
+    return;
+  }
+
+  console.log("Orphaned sandbox DBs (branch no longer exists locally):");
+  orphans.forEach(name => console.log(`  - ${name}`));
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise(resolve =>
+    rl.question("\nDrop all of the above? [y/N] ", resolve)
+  );
+  rl.close();
+
+  if (answer.toLowerCase() !== "y") {
+    console.log("Aborted.");
+    return;
+  }
+
+  const dropSql = postgres(adminUrl, { max: 1 });
+  try {
+    for (const name of orphans) {
+      await dropSql.unsafe(`DROP DATABASE IF EXISTS "${name}"`);
+      console.log(`Dropped: ${name}`);
+    }
+  } finally {
+    await dropSql.end({ timeout: 5 });
+  }
+}
+
+main().catch(err => { console.error(err); process.exit(1); });</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Syntax check</span></div>
+        <pre><code>node --input-type=module --eval "import './scripts/db-sandbox-drop.mjs'" 2>&1 | head -5</code></pre>
+        <div class="expected">Expected: no output.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Commit</span></div>
+        <pre><code>git add scripts/db-sandbox-drop.mjs
+git commit -m "feat(scripts): db-sandbox-drop — orphan sandbox DB cleanup"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 6 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 6</span>
+      <span class="task-title">Add <code>db:sandbox</code>, <code>db:generate</code>, <code>db:migrate</code>, <code>db:sandbox:drop</code>; retire <code>db:push</code></span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Modify: <code>package.json</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Update <code>package.json</code> scripts</span></div>
+        <p>Remove the <code>"db:push"</code> line and add the four new commands in its place:</p>
+        <pre><code>"db:sandbox": "node scripts/db-sandbox.mjs",
+"db:sandbox:drop": "node scripts/db-sandbox-drop.mjs",
+"db:generate": "pnpm --filter @engineerdad/store exec drizzle-kit generate && pnpm --filter @engineerdad/orchestrator exec drizzle-kit generate && pnpm --filter @engineerdad/analytics exec drizzle-kit generate",
+"db:migrate": "pnpm --filter @engineerdad/store exec drizzle-kit migrate && pnpm --filter @engineerdad/orchestrator exec drizzle-kit migrate && pnpm --filter @engineerdad/analytics exec drizzle-kit migrate",</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Verify pnpm parses the updated file</span></div>
+        <pre><code>pnpm run --list 2>&1 | grep db:</code></pre>
+        <div class="expected">Expected: <code>db:sandbox</code>, <code>db:sandbox:drop</code>, <code>db:generate</code>, <code>db:migrate</code> listed. <code>db:push</code> absent.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Commit</span></div>
+        <pre><code>git add package.json
+git commit -m "chore(scripts): add db:sandbox, db:generate, db:migrate; retire db:push"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 7 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 7</span>
+      <span class="task-title">Write <code>scripts/check-schema-migrations.mjs</code> (CI lint)</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Create: <code>scripts/check-schema-migrations.mjs</code></li>
+          <li>Modify: <code>package.json</code> (add <code>lint:migrations</code>)</li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Create the script</span></div>
+        <pre><code>#!/usr/bin/env node
+// CI lint: if any packages/*/src/schema.ts is changed in the last commit,
+// the corresponding packages/*/drizzle/ must also contain new/changed SQL files.
+import { execSync } from "node:child_process";
+
+const changed = execSync("git diff --name-only HEAD~1 HEAD", { encoding: "utf8" })
+  .split("\n").filter(Boolean);
+
+const PACKAGES = ["store", "orchestrator", "analytics"];
+let failed = false;
+
+for (const pkg of PACKAGES) {
+  const schemaChanged = changed.includes(`packages/${pkg}/src/schema.ts`);
+  if (!schemaChanged) continue;
+
+  const migrationChanged = changed.some(
+    f => f.startsWith(`packages/${pkg}/drizzle/`) && f.endsWith(".sql")
+  );
+
+  if (!migrationChanged) {
+    console.error(
+      `ERROR: packages/${pkg}/src/schema.ts was modified but no new SQL migration ` +
+      `found in packages/${pkg}/drizzle/.\n` +
+      `Run \`pnpm db:generate\` and commit the generated SQL alongside schema.ts.`
+    );
+    failed = true;
+  }
+}
+
+if (failed) process.exit(1);
+console.log("Migration check passed.");</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Add <code>lint:migrations</code> to <code>package.json</code></span></div>
+        <pre><code>"lint:migrations": "node scripts/check-schema-migrations.mjs",</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Verify it exits 0 on current commit</span></div>
+        <pre><code>pnpm lint:migrations</code></pre>
+        <div class="expected">Expected: <code>Migration check passed.</code></div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 4: Commit</span></div>
+        <pre><code>git add scripts/check-schema-migrations.mjs package.json
+git commit -m "feat(scripts): lint:migrations — enforce SQL commit alongside schema.ts changes"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 8 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 8</span>
+      <span class="task-title">Write ADR-027</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Create: <code>docs/decisions/027-db-migration-policy-and-sandbox-isolation.md</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Create the ADR</span></div>
+        <pre><code># ADR-027: DB migration policy and branch sandbox isolation
+
+**Date:** 2026-05-26
+**Status:** Accepted
+**Builds on:** ADR-025 (postgres-only substrate)
+**Tracker:** E-035
+
+## Context
+
+ADR-025 moved everything to Postgres but left three footguns unfixed:
+
+1. Root `db:push` ran `drizzle-kit push` against the live `engineerdad` DB with no
+   branch isolation.
+2. All branch dev work shared the live DB — schema divergence between branches was
+   invisible until conflict.
+3. `truncatePg()` had no DB safety check. With `DATABASE_URL` pointing at
+   `engineerdad`, every `beforeEach` in the test suite truncated the live DB.
+   This happened.
+
+## Decision
+
+**Branch sandboxes.** Each branch gets its own `engineerdad_sb_&lt;slug&gt;` database.
+`pnpm db:sandbox` creates it, pushes all three schemas, and writes `DATABASE_URL`
+to `.env.local`. Vitest picks up `.env.local` over `.env` automatically.
+
+**Versioned migrations.** Per-package `drizzle/` folders hold generated SQL.
+`drizzle-kit push` remains for sandbox dev (fast iteration). `pnpm db:generate`
+produces committed SQL. `pnpm db:migrate` applies migrations to the live DB
+post-merge. CI lint (`pnpm lint:migrations`) rejects commits that modify
+`schema.ts` without a corresponding SQL file.
+
+**`truncatePg()` guard.** Throws at module load if `DATABASE_URL` doesn't end
+with `_test` or contain `engineerdad_sb_`. Hard-stops the suite before any data
+is touched.
+
+**Root `db:push` retired.** Individual package `push` scripts remain as internal
+primitives called by `db:sandbox`.
+
+**CLAUDE.md** carries operational rules so Claude Code follows the policy without
+being told each session.
+
+## Consequences
+
+- Tests require `pnpm db:sandbox` on first branch use.
+- Schema changes require `db:sandbox` + `db:generate` before committing.
+- Post-merge: run `pnpm db:migrate` once against the live DB.
+- Two branches can run `/loop` simultaneously against their own sandboxes without
+  `run_id` collision.
+- Live DB recovery after a wipe: `pnpm db:migrate` on a fresh `engineerdad` DB,
+  then cold `/loop`.
+
+## See also
+
+- `docs/superpowers/specs/2026-05-26-db-migration-sandbox-design.html`
+- `docs/superpowers/plans/2026-05-26-db-migration-sandbox.html`</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Commit</span></div>
+        <pre><code>git add docs/decisions/027-db-migration-policy-and-sandbox-isolation.md
+git commit -m "docs(adr): ADR-027 — DB migration policy and branch sandbox isolation"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 9 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 9</span>
+      <span class="task-title">Update CLAUDE.md with database workflow rules</span>
+    </div>
+    <div class="task-body">
+      <div class="files">
+        <strong>Files</strong>
+        <ul>
+          <li>Modify: <code>CLAUDE.md</code></li>
+        </ul>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Add "Database workflow" section immediately after the build/dev commands section</span></div>
+        <pre><code>## Database workflow
+
+- **Never run the root `db:push` script** — it is retired. Do not re-add it.
+  It targeted the live DB directly.
+- **Before running tests**, ensure `DATABASE_URL` in `.env.local` points at an
+  `_test` or `engineerdad_sb_*` database. `truncatePg()` hard-stops the suite
+  if it doesn't — this is intentional.
+- **`pnpm db:sandbox`** — run once per branch, and again after any `schema.ts`
+  change during dev. Derives DB name from the current git branch, creates it if
+  needed, pushes all three schemas, writes `DATABASE_URL` to `.env.local`.
+- **Schema change on a branch** — edit `schema.ts`, run `pnpm db:sandbox` (apply
+  to sandbox), then `pnpm db:generate` (produce SQL). Commit `schema.ts` + the
+  generated files in `packages/*/drizzle/` together. `pnpm lint:migrations`
+  enforces this.
+- **After merging to main** — run `pnpm db:migrate` against the live `engineerdad`
+  DB once.
+- **`pnpm db:sandbox:drop`** — run occasionally to drop sandbox DBs whose branches
+  are gone.</code></pre>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Verify</span></div>
+        <pre><code>grep -A 15 "## Database workflow" CLAUDE.md</code></pre>
+        <div class="expected">Expected: the section is present with all six bullet points.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Commit</span></div>
+        <pre><code>git add CLAUDE.md
+git commit -m "docs(claude): database workflow rules for ADR-027"</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 10 -->
+  <div class="task">
+    <div class="task-header">
+      <span class="task-num">Task 10</span>
+      <span class="task-title">Smoke-test the full flow</span>
+    </div>
+    <div class="task-body">
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 1: Ensure Postgres is running</span></div>
+        <pre><code>pnpm store:up</code></pre>
+        <div class="expected">Expected: Docker container starts or is already running.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 2: Run <code>pnpm db:sandbox</code></span></div>
+        <pre><code>pnpm db:sandbox</code></pre>
+        <div class="expected">Expected output:<br>
+          <code>Created database: engineerdad_sb_main</code> (or your branch slug)<br>
+          <code>Pushing schema for @engineerdad/store...</code><br>
+          <code>Pushing schema for @engineerdad/orchestrator...</code><br>
+          <code>Pushing schema for @engineerdad/analytics...</code><br>
+          <code>Wrote DATABASE_URL to .env.local → postgresql://...engineerdad_sb_main</code><br>
+          <code>Sandbox ready: engineerdad_sb_main</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 3: Verify <code>.env.local</code></span></div>
+        <pre><code>cat .env.local</code></pre>
+        <div class="expected">Expected: contains <code>DATABASE_URL=postgresql://...engineerdad_sb_main</code>.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 4: Run full test suite</span></div>
+        <pre><code>pnpm test</code></pre>
+        <div class="expected">Expected: all tests pass, including the new <code>truncate-pg-guard</code> tests.</div>
+      </div>
+
+      <div class="step">
+        <div class="step-label"><div class="checkbox"></div><span class="step-title">Step 5: Run lint:migrations</span></div>
+        <pre><code>pnpm lint:migrations</code></pre>
+        <div class="expected">Expected: <code>Migration check passed.</code></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

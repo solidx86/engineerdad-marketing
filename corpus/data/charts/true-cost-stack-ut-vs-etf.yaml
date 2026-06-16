@@ -1,0 +1,35 @@
+# True cost stack — a Public Mutual global-equity UT vs a DIY US ETF, all-in, per year
+# Source: corpus/data/datasets/etf-cost-comparison.json (Invesco QQQ TER 0.18%; SSGA SPY gross
+# expense ratio 0.0945% + fund distribution yield 1.00%; IRS Pub 515 30% withholding,
+# no US-MY income-tax treaty; IRS 706-NA USD60,000 US-situs estate threshold, no US-MY
+# estate treaty; BNM 1700-session reference rate; Moomoo MY published 'Free' conversion
+# with bank-provided rate; UT side from owned a-fee-schedule.md + a-sales-charge-math.md).
+# Used by media-production when scene argues "fees are minimal", "ETF TER is basically
+# free", "the real cost of going direct", "I'll buy US stocks/ETFs direct for nearly free"
+# (objection myths d2-fees-vs-etf-ter, d2-buy-us-stocks-direct).
+
+id: true-cost-stack-ut-vs-etf
+title_en: "What each route really costs per year — UT all-in vs DIY US ETF all-in (10-year hold)"
+title_ms: "Kos sebenar setiap laluan setahun — semua-masuk UT vs ETF AS buat-sendiri (pegangan 10 tahun)"
+chart_type: bar
+x_label_en: "Cost component"
+x_label_ms: "Komponen kos"
+y_label_en: "Cost (% of invested value per year)"
+y_label_ms: "Kos (% daripada nilai pelaburan setahun)"
+labels:
+  - "Ongoing fund fee (AMF + trustee vs TER)"
+  - "Entry cost, amortised over 10 years"
+  - "US dividend withholding drag (30%, no treaty)"
+  - "All-in quantified per year"
+series:
+  - name_en: "Public Mutual global-equity UT (all-in cost)"
+    name_ms: "UT ekuiti global Public Mutual (kos semua-masuk)"
+    semantic_role: hero          # the honest big bar — own the number, then explain what it buys
+    values: [1.76, 0.48, 0, 2.24]
+  - name_en: "DIY US ETF — SPY via MY broker (all-in cost, excl. unpublished FX spread)"
+    name_ms: "ETF AS buat-sendiri — SPY melalui broker MY (kos semua-masuk, tidak termasuk spread FX yang tidak diterbitkan)"
+    semantic_role: comparison    # genuinely cheaper on every quantified line — concede it
+    values: [0.09, 0, 0.30, 0.39]
+caption_en: "The ETF's expense-ratio advantage is real and stays real: SPY charges 0.0945% a year (SSGA, as at 2026-06-10) and QQQ 0.18% (Invesco, fetched 2026-06-11), against 1.76% AMF + trustee for a Public Mutual global-equity fund plus a 5% sales charge that amortises to ~0.48%/yr over a 10-year hold — 2.24%/yr all-in versus 0.39%/yr. But the DIY stack is bigger than the TER alone: a Malaysian resident loses 30% of every distribution to US withholding with no treaty relief (IRS Pub 515; Malaysia is not on the US treaty list), the MYR-USD conversion cost is embedded in the broker's dealing rate and published by no Malaysian broker as a number (Moomoo MY: conversion 'free', rate set by its bank — excluded from this bar rather than guessed), and above USD60,000 of US-situs assets the estate faces a US estate-tax filing (Form 706-NA) with no US-Malaysia estate treaty — a tail exposure the MYR-denominated UT route does not carry. This is a cost-only comparison, not a suitability ranking: the routes differ in structure — trustee custody under Malaysian law, consultant service, Shariah-compliant options, and MYR denomination on one side; self-directed USD assets on the other. Which stack fits depends on the investor, not on this chart. Figures as at 2026-06-11; fees and yields change."
+caption_ms: "Kelebihan nisbah perbelanjaan ETF memang benar dan kekal benar: SPY mengenakan 0.0945% setahun (SSGA, setakat 2026-06-10) dan QQQ 0.18% (Invesco, diambil 2026-06-11), berbanding 1.76% fi pengurusan + pemegang amanah untuk dana ekuiti global Public Mutual ditambah caj jualan 5% yang terlunas kepada ~0.48%/tahun atas pegangan 10 tahun — 2.24%/tahun semua-masuk berbanding 0.39%/tahun. Tetapi timbunan kos buat-sendiri lebih besar daripada TER semata-mata: pemastautin Malaysia kehilangan 30% daripada setiap agihan kepada cukai pegangan AS tanpa pelepasan triti (IRS Pub 515; Malaysia tiada dalam senarai triti AS), kos penukaran MYR-USD terbenam dalam kadar urus niaga broker dan tidak diterbitkan sebagai angka oleh mana-mana broker Malaysia (Moomoo MY: penukaran 'percuma', kadar ditetapkan banknya — dikecualikan daripada bar ini, bukan diagak), dan melebihi USD60,000 aset bersitus AS, pusaka berdepan pemfailan cukai pusaka AS (Borang 706-NA) tanpa triti pusaka AS-Malaysia — dedahan hujung yang tidak ditanggung laluan UT berdenominasi MYR. Ini perbandingan kos sahaja, bukan penarafan kesesuaian: kedua-dua laluan berbeza struktur — penjagaan pemegang amanah di bawah undang-undang Malaysia, khidmat perunding, pilihan patuh Syariah dan denominasi MYR di satu pihak; aset USD urus-sendiri di pihak lagi satu. Timbunan mana yang sesuai bergantung pada pelabur, bukan pada carta ini. Angka setakat 2026-06-11; fi dan hasil agihan berubah."
+source_citation: "All rows from corpus/data/datasets/etf-cost-comparison.json (fetched 2026-06-11). ETF bar: SPY gross expense ratio 0.0945% (ssga.com SPY page, as at 2026-06-10; QQQ 0.18% per invesco.com is in the dataset); withholding drag = 30% statutory rate (IRS Pub 515; no US-Malaysia income-tax treaty per the IRS A-to-Z list) x SPY fund distribution yield 1.00% (SSGA, as at 2026-06-09/10) = 0.30%/yr; total 0.0945 + 0.30 = 0.39%/yr, excluding the unpublished MYR/USD retail conversion spread (Moomoo MY publishes 'Free' conversion at a bank-provided rate; BNM 1700-session reference 4.0695 on 2026-06-11 is a reference rate, not the investor-facing rate), per-trade commission (M+ Global: 0.10% min USD3), and the non-annualised US estate-tax exposure above USD60,000 US-situs (IRS Form 706-NA page; no US-MY estate treaty). UT bar: AMF 1.70%/yr (global equity, PWEF PHS 27 Feb 2026) + trustee 0.06%/yr = 1.76%/yr and sales charge 5/105 = 4.7619% of gross outlay amortised over a named 10-year hold = 0.48%/yr (owned corpus/knowledge/a-fee-schedule.md, a-sales-charge-math.md; Master Prospectus pp. 150-157); total 2.24%/yr. 10-year holding period is a named assumption — shorter holds raise the UT's amortised entry cost and longer holds lower it. Cost-only comparison; structures differ; not a suitability ranking or advice."

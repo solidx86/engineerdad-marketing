@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ADR-024 — Orchestrator-staged worker input (plan)</title>
+<style>
+  :root { --ink:#1c2230; --muted:#5b6577; --line:#e2e6ee; --accent:#4f46e5; --accent-soft:#eef0fe; --code-bg:#f5f6f9; --ok-bg:#ecf7ef; --ok-line:#9ed0ac; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); line-height: 1.62; margin: 0; background: #fafbfc; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 36px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 14px; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13.5px; }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 { font-size: 19px; margin: 38px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15px; margin: 22px 0 6px; }
+  p { margin: 9px 0; }
+  code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.6px; background: var(--code-bg); padding: 1.5px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 12.4px; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.4px; }
+  th, td { border: 1px solid var(--line); padding: 8px 11px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); font-weight: 600; }
+  ul.check { list-style: none; padding-left: 0; }
+  ul.check li { margin: 6px 0; padding-left: 22px; position: relative; }
+  ul.check li::before { content: "☐"; position: absolute; left: 0; color: var(--muted); }
+  ul.check ul.check { padding-left: 18px; margin: 4px 0; }
+  .phase-pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent); margin-right: 6px; }
+  footer.doc { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>ADR-024 — Orchestrator-staged worker input (plan)</h1>
+  <p class="subtitle">Seven phases, agent-executable. Closes the third transmission cap surface (orchestrator → conductor input direction). Mirrors ADR-022's claim-check for worker-INPUT data; builds on ADR-023's eager-execute path.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-25</dd>
+    <dt>Branch</dt><dd><code>feat/adr-024-spawnprompt-refs</code> (off <code>main</code> at <code>703f908</code>)</dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-25-adr-024-orchestrator-staged-input.html</code></dd>
+    <dt>ADR</dt><dd><code>docs/decisions/024-orchestrator-staged-input.md</code></dd>
+    <dt>Companion md</dt><dd><code>docs/superpowers/plans/2026-05-25-adr-024-orchestrator-staged-input.md</code></dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Phase map</h2>
+
+<table>
+<tr><th>Phase</th><th>What lands</th><th>Tests grow</th><th>Commit pattern</th></tr>
+<tr><td><span class="phase-pill">0</span></td><td>ADR + plan + status notes on ADR-022/023. No code.</td><td>0</td><td><code>docs(adr-024): foundation</code></td></tr>
+<tr><td><span class="phase-pill">A</span></td><td>Schema delta: <code>payload_kind</code> column + partial unique index on <code>step_results</code>.</td><td>0 (migration)</td><td><code>feat(orchestrator-schema): payload_kind + idempotency idx</code></td></tr>
+<tr><td><span class="phase-pill">B</span></td><td><code>writeStepResult</code> gains <code>payloadKind</code> param + idempotency via <code>ON CONFLICT</code>. Unit tests.</td><td>+3</td><td><code>feat(orchestrator): writeStepResult idempotencyKey</code></td></tr>
+<tr><td><span class="phase-pill">C</span></td><td><code>StepSpec.build</code> async + <code>BuildContext</code>; <code>engine.plan</code> async; every stage's build signature updated. Fixture-stage staging test.</td><td>+5</td><td><code>feat(orchestrator): StepSpec.build async + BuildContext</code></td></tr>
+<tr><td><span class="phase-pill">D</span></td><td>P1-fanout refactored to use <code>ctx.stageInput</code>; <code>creative-director.md</code> updated; sync:agents.</td><td>+2</td><td><code>feat(produce): P1-fanout stages hook banks</code></td></tr>
+<tr><td><span class="phase-pill">E</span></td><td>P2-render audit; refactor only if needed.</td><td>+0 or +1</td><td><code>feat(produce): P2-render audited [+ refactored if needed]</code></td></tr>
+<tr><td><span class="phase-pill">F</span></td><td>Live cold-start walk; HG3 reached; verification scoreboard met; snapshot committed.</td><td>(live walk)</td><td><code>chore(adr-024): cold-start walk verification snapshot at HG3</code></td></tr>
+<tr><td><span class="phase-pill">G</span></td><td>ADR-024 flipped Accepted; E-034 closed; PR + squash to main.</td><td>0 (docs)</td><td><code>docs(adr-024): Accepted; close E-034</code></td></tr>
+</table>
+
+<h2><span class="num">2.</span> Phase 0 — Foundation</h2>
+<ul class="check">
+  <li><strong>0.1</strong> Confirm <code>docs/decisions/024-orchestrator-staged-input.md</code> exists with <code>Status: Proposed (2026-05-25)</code>.</li>
+  <li><strong>0.2</strong> Append status notes on <code>022-claim-check-worker-output.md</code> + <code>023-orchestrator-resident-execution.md</code> pointing at ADR-024 as the closing piece.</li>
+  <li><strong>0.3</strong> Commit <code>docs(adr-024): foundation — ADR + plan + status notes on 022/023</code>.</li>
+</ul>
+
+<h2><span class="num">3.</span> Phase A — Schema delta</h2>
+<ul class="check">
+  <li><strong>A.1</strong> Create <code>packages/orchestrator/src/migrations/postgres/002_input_refs.sql</code>:
+    <pre>ALTER TABLE orchestrator.step_results
+  ADD COLUMN IF NOT EXISTS payload_kind TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS step_results_input_idempotency_idx
+  ON orchestrator.step_results (run_id, step_id, unit_index, payload_kind)
+  WHERE payload_kind IS NOT NULL;</pre>
+    Partial index leaves legacy untyped rows untouched.
+  </li>
+  <li><strong>A.2</strong> Update <code>packages/orchestrator/package.json</code> <code>db:push</code> if needed to apply 002 alongside 001.</li>
+  <li><strong>A.3</strong> Apply to both <code>engineerdad</code> and <code>engineerdad_test</code>; verify column + index appear.</li>
+  <li><strong>A.4</strong> Commit <code>feat(orchestrator-schema): step_results payload_kind + input-idempotency index (ADR-024 Phase A)</code>.</li>
+</ul>
+
+<h2><span class="num">4.</span> Phase B — <code>writeStepResult</code> idempotency</h2>
+<ul class="check">
+  <li><strong>B.1</strong> Extend <code>WriteStepResultArgs</code> in <code>packages/orchestrator/src/postgres.ts</code> with optional <code>payloadKind</code>.</li>
+  <li><strong>B.2</strong> When <code>payloadKind</code> is set, INSERT with <code>ON CONFLICT (run_id, step_id, unit_index, payload_kind) DO NOTHING RETURNING id</code>; fall back to SELECT on conflict. When unset, keep ADR-022 behaviour (fresh ULID).</li>
+  <li><strong>B.3</strong> Failing tests in <code>postgres.test.ts</code>:
+    <ul class="check">
+      <li>Round-trip with <code>payloadKind: "input"</code>: insert returns id; repeat returns same id; payload unchanged.</li>
+      <li>Without <code>payloadKind</code>: behaviour unchanged (fresh ULID per call).</li>
+      <li>Re-write with same key but different payload: existing row's payload wins (idempotency over upsert).</li>
+    </ul>
+  </li>
+  <li><strong>B.4</strong> <code>pnpm --filter @engineerdad/orchestrator test</code> all green.</li>
+  <li><strong>B.5</strong> Commit <code>feat(orchestrator): writeStepResult idempotencyKey via payload_kind tag (ADR-024 Phase B)</code>.</li>
+</ul>
+
+<h2><span class="num">5.</span> Phase C — <code>StepSpec.build</code> async</h2>
+<ul class="check">
+  <li><strong>C.1</strong> Extend <code>types.ts</code> with <code>BuildContext</code> interface and widened <code>build</code> signature (<code>Promise&lt;Step&gt; | Step</code>).</li>
+  <li><strong>C.2</strong> Add <code>packages/orchestrator/src/build-context.ts</code> with <code>createBuildContext(runId, stepId)</code> factory wrapping <code>writeStepResult</code> with <code>payloadKind: "input"</code>.</li>
+  <li><strong>C.3</strong> Engine signature change in <code>engine.ts</code>: <code>plan()</code> becomes async; awaits <code>spec.build(run, ctx)</code> via <code>await Promise.resolve(...)</code> so sync returns still work.</li>
+  <li><strong>C.4</strong> Add the new <code>_ctx</code> parameter (ignored) to every existing stage's <code>build</code>:
+    <ul class="check">
+      <li><code>tracking.ts</code>, <code>analytics.ts</code>, <code>synthesize.ts</code>, <code>brief.ts</code>, <code>content.ts</code>, <code>produce.ts</code>, <code>schedule.ts</code>, <code>experiment.ts</code>, <code>distribute.ts</code>, <code>fixture.ts</code>.</li>
+    </ul>
+  </li>
+  <li><strong>C.5</strong> Update <code>mcp-servers/orchestrator/src/eager.ts</code> + <code>index.ts</code> — <code>engine.plan</code> is now async, await it.</li>
+  <li><strong>C.6</strong> Update test fixtures + integration tests across the workspace that call <code>plan(...)</code> directly. Each becomes <code>await plan(...)</code>.</li>
+  <li><strong>C.7</strong> Add fixture-stage test exercising the staging path: a fanout whose <code>build</code> is async and uses <code>ctx.stageInput</code>. Assert step_results row written with <code>payload_kind = 'input'</code>; spawnPrompt contains the ref; re-plan returns same ref.</li>
+  <li><strong>C.8</strong> Build green across orchestrator + mcp-orchestrator.</li>
+  <li><strong>C.9</strong> Commit <code>feat(orchestrator): StepSpec.build async + BuildContext.stageInput (ADR-024 Phase C)</code>.</li>
+</ul>
+
+<h2><span class="num">6.</span> Phase D — Refactor P1-fanout</h2>
+<ul class="check">
+  <li><strong>D.1</strong> Locate hook-bank inlining in <code>packages/orchestrator/src/stages/produce.ts</code> P1-fanout.</li>
+  <li><strong>D.2</strong> Refactor P1's <code>build</code> to <code>async</code> using <code>ctx.stageInput</code>:
+    <pre>build: async (run, ctx): Promise&lt;Step&gt; =&gt; {
+  const scripts = approvedScriptsFor(run);
+  const units = await Promise.all(scripts.map(async (script, i) =&gt; {
+    const hookBank = hookBankForBrief(run, script.briefId);
+    const inputRef = await ctx.stageInput(i, {
+      scriptId: script.id, briefId: script.briefId, hookBank,
+    });
+    return { spawnPrompt: thinPromptWithRef(run.runId, inputRef) };
+  }));
+  return { kind: "fanout", stepId: "P1-fanout", worker: "creative-director", units };
+}</pre>
+  </li>
+  <li><strong>D.3</strong> Update <code>.claude/agents/creative-director.md</code>: §1 First Action becomes <code>mcp__orchestrator__read_step_result({ stepResultId })</code> to fetch staged input. The bulk hook bank is in the staged payload, not the prompt.</li>
+  <li><strong>D.4</strong> If <code>packages/shared/src/prompts/creative-director.md</code> has a fragment, update it too; run <code>pnpm sync:agents</code> to propagate.</li>
+  <li><strong>D.5</strong> Test deltas in <code>stages/produce.test.ts</code>:
+    <ul class="check">
+      <li>Each spawnPrompt contains a <code>sr_</code>-prefixed ref and not the full hook bank inline.</li>
+      <li>Per-unit spawnPrompt size &lt; 600 bytes.</li>
+      <li>After build, <code>step_results</code> has N rows with <code>payload_kind = 'input'</code> for stepId <code>P1-fanout</code>.</li>
+    </ul>
+  </li>
+  <li><strong>D.6</strong> <code>pnpm --filter @engineerdad/orchestrator test</code> + <code>pnpm sync:agents:check</code> green.</li>
+  <li><strong>D.7</strong> Commit <code>feat(produce): P1-fanout stages hook banks via ctx.stageInput (ADR-024 Phase D)</code>.</li>
+</ul>
+
+<h2><span class="num">7.</span> Phase E — Audit P2-render</h2>
+<ul class="check">
+  <li><strong>E.1</strong> Read current P2-render <code>build</code>; estimate per-unit spawnPrompt size.</li>
+  <li><strong>E.2</strong> Decision rule: refactor only if per-unit &gt; 1 KB OR fanout &gt; 12 units; otherwise add a comment noting the assessment.</li>
+  <li><strong>E.3</strong> If refactored: update <code>.claude/agents/render-worker.md</code> with read-on-entry contract.</li>
+  <li><strong>E.4</strong> Build green.</li>
+  <li><strong>E.5</strong> Commit <code>feat(produce): P2-render audited [+ refactored if needed] (ADR-024 Phase E)</code>.</li>
+</ul>
+
+<h2><span class="num">8.</span> Phase F — Live cold-start walk</h2>
+<ul class="check">
+  <li><strong>F.1</strong> Restart Claude Code so MCP picks up rebuilt code.</li>
+  <li><strong>F.2</strong> Wipe state: <code>pnpm store:wipe &amp;&amp; pnpm store:up &amp;&amp; pnpm store:push &amp;&amp; pnpm orchestrator:push</code>; remove <code>data/engineerdad.sqlite*</code>.</li>
+  <li><strong>F.3</strong> Cold-mint a run via <code>mcp__orchestrator__plan</code> (no args). Walk tracking → analytics → synthesize → brief → HG1 auto-approve (4 of N) → C1-fanout → C2-articles → HG2 auto-approve → <strong>P1-fanout</strong> → P2-render → HG3.</li>
+  <li><strong>F.4</strong> Acceptance checks at HG3:
+    <ul class="check">
+      <li>P1-fanout's <code>plan()</code> response &lt; 5 KB total.</li>
+      <li>Each unit's spawnPrompt &lt; 400 bytes.</li>
+      <li>Every creative-director worker called <code>read_step_result</code> first; staged input arrived intact.</li>
+      <li><code>orchestrator.step_results</code> has N input rows + N output rows for P1.</li>
+      <li>Run reached HG3 with conductor tool calls ≤ 30.</li>
+      <li>No <code>result exceeds maximum allowed tokens</code> events.</li>
+    </ul>
+  </li>
+  <li><strong>F.5</strong> Snapshot to <code>data/snapshots/hg3-adr-024-verification/</code> (pg_dump + sqlite copy).</li>
+  <li><strong>F.6</strong> Commit <code>chore(adr-024): cold-start walk verification snapshot at HG3 (ADR-024 Phase F)</code>.</li>
+</ul>
+
+<h2><span class="num">9.</span> Phase G — Status flip, PR, merge</h2>
+<ul class="check">
+  <li><strong>G.1</strong> Flip <code>docs/decisions/024-orchestrator-staged-input.md</code> status <code>Proposed</code> → <code>Accepted</code> with a 2026-05-25 status note quoting the cold-walk artefact.</li>
+  <li><strong>G.2</strong> Mark E-034 resolved in TASKS.md (move to DONE.md if convention requires).</li>
+  <li><strong>G.3</strong> Commit <code>docs(adr-024): Accepted; close E-034</code>.</li>
+  <li><strong>G.4</strong> Push + open PR <code>feat(adr-024): orchestrator-staged worker input via step_result refs</code>.</li>
+  <li><strong>G.5</strong> Squash-merge to <code>main</code> on review approval.</li>
+</ul>
+
+<h2><span class="num">10.</span> Verification scoreboard (Phase F gate)</h2>
+<table>
+<tr><th>Metric</th><th>Today</th><th>After ADR-024 (acceptance)</th></tr>
+<tr><td>P1-fanout <code>plan()</code> response size</td><td>83,795 bytes (cap-blown)</td><td>&lt; 5 KB</td></tr>
+<tr><td>Per-unit P1 spawnPrompt size</td><td>~7,200 bytes</td><td>&lt; 400 bytes</td></tr>
+<tr><td>Cold-start cycle reaches HG3</td><td>blocked at P1-fanout</td><td>HG3 reached, no cap events</td></tr>
+<tr><td>Conductor tool calls (4-brief flow, cold start to HG3)</td><td>N/A (blocked)</td><td>≤ 30</td></tr>
+<tr><td><code>step_results</code> rows per fanout</td><td>N (output only)</td><td>2N (input + output), input rows idempotent</td></tr>
+<tr><td>Re-plan duplicate writes</td><td>(N/A)</td><td>0 (idempotency key + DB unique index)</td></tr>
+<tr><td>Tests</td><td>~555 passing</td><td>~565+ passing</td></tr>
+</table>
+
+<h2><span class="num">11.</span> Out of scope</h2>
+<ul>
+  <li>TTL / cleanup job for input-kind <code>step_results</code> rows — filed alongside ADR-022's TTL task.</li>
+  <li>Cross-run input refs — out of scope; needs its own ADR.</li>
+  <li>Worker → worker direct refs — out of scope.</li>
+  <li>Encryption-at-rest — same posture as entity rows; no change.</li>
+</ul>
+
+<footer class="doc">
+  ADR-024 plan · 2026-05-25 · Closes the trilogy that began with E-031 / ADR-022 and continued through ADR-023.
+</footer>
+
+</div>
+</body>
+</html>

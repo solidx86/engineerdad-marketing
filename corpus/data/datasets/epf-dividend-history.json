@@ -1,0 +1,19 @@
+{
+  "verified_at": "2026-05-21",
+  "verification_status": "verified",
+  "source": "KWSP/EPF annual dividend declarations 2015-2025 (kwsp.gov.my dividend resource centre; cross-checked against EPF media releases and StashAway/RinggitPlus historical tables). Simpanan Shariah launched 2016, first dividend year 2017.",
+  "notes": "Per-year EPF declared dividend rates (%). conventional_pct = Simpanan Konvensional; shariah_pct = Simpanan Shariah (null before 2017 — the scheme did not exist). These are historical declared rates, not a forecast; EPF declares each year's dividend annually and rates vary year to year.",
+  "dividends": [
+    { "year": 2015, "conventional_pct": 6.40, "shariah_pct": null },
+    { "year": 2016, "conventional_pct": 5.70, "shariah_pct": null },
+    { "year": 2017, "conventional_pct": 6.90, "shariah_pct": 6.40 },
+    { "year": 2018, "conventional_pct": 6.15, "shariah_pct": 5.90 },
+    { "year": 2019, "conventional_pct": 5.45, "shariah_pct": 5.00 },
+    { "year": 2020, "conventional_pct": 5.20, "shariah_pct": 4.90 },
+    { "year": 2021, "conventional_pct": 6.10, "shariah_pct": 5.65 },
+    { "year": 2022, "conventional_pct": 5.35, "shariah_pct": 4.75 },
+    { "year": 2023, "conventional_pct": 5.50, "shariah_pct": 5.40 },
+    { "year": 2024, "conventional_pct": 6.30, "shariah_pct": 6.30 },
+    { "year": 2025, "conventional_pct": 6.15, "shariah_pct": 6.15 }
+  ]
+}

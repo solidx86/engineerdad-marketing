@@ -1,0 +1,38 @@
+# Panic-sell vs Hold — what realising the loss at the bottom actually costs
+# Source: corpus/courses/content-recipes.md Bug Series Part 1 ("Volatility ≠ realised
+# loss. Marriage analogy: a market dip is an argument; panic-selling is a financial
+# divorce") + Children Fund 101 Module 2.4 ("panic-selling at the bottom is a
+# 'financial divorce' — the only way to lock in a permanent loss") + the PCSF 2007
+# case study (case studies block in content-recipes.md).
+# Used by media-production when scene argues "volatility is the price of return, not
+# the punishment for it", "the marriage/divorce analogy", "what panic-selling actually
+# costs", any drawdown-and-recovery hook, or "just DCA, you can't beat the market"
+# (objection myth d2-just-dca-the-index).
+
+id: panic-sell-vs-hold
+title_en: "Same crash, two responses — held through vs panic-sold at the bottom"
+title_ms: "Kejatuhan yang sama, dua respons — bertahan vs jual panik pada dasar"
+chart_type: line
+x_label_en: "Year"
+x_label_ms: "Tahun"
+y_label_en: "Portfolio value (indexed, year 0 = 100)"
+y_label_ms: "Nilai portfolio (diindeks, tahun 0 = 100)"
+labels:
+  - "Year 0 (entry)"
+  - "Year 1"
+  - "Year 2 (bottom)"
+  - "Year 3"
+  - "Year 4"
+  - "Year 5"
+series:
+  - name_en: "Held through (kept DCA-ing)"
+    name_ms: "Bertahan (terus DCA)"
+    semantic_role: hero          # the path that earned the recovery
+    values: [100, 70, 50, 75, 100, 130]
+  - name_en: "Panic-sold at bottom (year 2)"
+    name_ms: "Jual panik pada dasar (tahun ke-2)"
+    semantic_role: floor          # the realised, locked, can't-come-back line
+    values: [100, 70, 50, 50, 50, 50]
+caption_en: "Both investors hit the same crash. One held, kept DCA-ing through the bottom, and ended up at 130 — above where they started. The other sold at the bottom, realised the 50% loss in cash, and missed the recovery entirely. A dip is volatility — temporary, mechanical, not yours yet. Panic-selling is the moment volatility becomes a permanent loss. The 18-year horizon is the structural advantage that lets you wait it out."
+caption_ms: "Kedua-dua pelabur menghadapi kejatuhan yang sama. Seorang bertahan, terus DCA menempuh dasar, dan berakhir pada 130 — atas titik permulaan. Seorang lagi menjual pada dasar, merealisasikan kerugian 50% dalam tunai, dan terlepas pemulihan sepenuhnya. Kejatuhan ialah kemeruapan — sementara, mekanikal, belum lagi milik anda. Jual panik ialah saat kemeruapan menjadi kerugian kekal. Jangka 18 tahun ialah kelebihan struktural yang membenarkan anda menunggunya."
+source_citation: "Illustrative drawdown-and-recovery shape (5-year window, 50% peak-to-trough drawdown, full recovery by year 4, +30% by year 5). Not a forecast and not tied to a specific historical fund. Anchored to the brand's stated frame in corpus/courses/content-recipes.md and corpus/courses/children-fund-101.md Module 2.4. The PCSF 2007 case study (referenced separately in content-recipes.md) is the real-world version of this shape. Past market behaviour does not predict future market behaviour."

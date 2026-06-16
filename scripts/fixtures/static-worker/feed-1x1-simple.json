@@ -1,0 +1,19 @@
+{
+  "scriptId": "test_script_001",
+  "format": "Feed",
+  "aspect": "1:1",
+  "width": 1080,
+  "height": 1080,
+  "language": "en",
+  "scenes": [
+    {
+      "scene": 1,
+      "headline": "RM300/month for 30 years",
+      "headline_source": "hook",
+      "body": "Same RM300 a month. Compounded at 8% annually for 30 years. Final value: roughly RM580,000. The math is the magic.",
+      "shotNotes": "static, hero composition",
+      "chartRef": null
+    }
+  ],
+  "thumbnailBrief": "Celebratory growth tone. Hero number 'RM580,000' as the focal point — large, bold, in orange. Navy background. Sub-line below in lighter weight explaining the compounding mechanic. Logo bottom-right per brand contract."
+}

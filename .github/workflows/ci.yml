@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test
+  REVIEW_UI_URL: http://localhost:3030
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: engineerdad
+          POSTGRES_PASSWORD: engineerdad
+          POSTGRES_DB: engineerdad_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U engineerdad"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # lint:migrations diffs HEAD~1..HEAD
+          fetch-depth: 2
+
+      - name: Enable corepack (pnpm from packageManager field)
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Sequential on purpose — the parallel form races on @engineerdad/shared.
+      - name: Build (sequential)
+        run: pnpm -r build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Agent prompt fragments in sync
+        run: pnpm sync:agents:check
+
+      - name: Schema/migration drift check
+        run: pnpm lint:migrations
+
+      - name: Install Chromium (static-renderer tests)
+        run: pnpm --filter @engineerdad/mcp-static-renderer exec playwright install --with-deps chromium
+
+      - name: Apply migrations to test DB
+        run: pnpm db:migrate
+
+      - name: Tests
+        run: pnpm test

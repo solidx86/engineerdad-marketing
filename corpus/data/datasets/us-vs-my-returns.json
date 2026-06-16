@@ -1,0 +1,89 @@
+{
+  "verified_at": "2026-06-11",
+  "verification_status": "verified",
+  "volatility": "variable",
+  "source": "Per-row citations below. External figures fetched 2026-06-11: Invesco QQQ annualised NAV returns as of 2026-05-31 (https://www.invesco.com/qqq-etf/en/performance.html, 'Annualized returns as of 05/31/2026' table, Invesco QQQ NAV row, read verbatim via headless browser — JS-rendered page); SPDR SPY annualised NAV returns as of 2026-05-31 (https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy); FTSE Bursa Malaysia KLCI factsheet, data as at 2026-05-29 (https://research.ftserussell.com/Analytics/FactSheets/Home/DownloadSingleIssue?issueName=FBMKLCI&IsManual=false, 'Performance and Volatility - Capital Return' table); BNM USD/MYR exchange rates, 1700-session middle rates (BNM Open API, https://api.bnm.gov.my/public/exchange-rate/USD/date/{date}?session=1700&quote=rm — bnm.gov.my itself returns HTTP 403 to non-browser fetches; the Open API at api.bnm.gov.my is BNM's official machine-readable publication of the same published rates).",
+  "notes": "Factsheet-published standard periods only (5y and 10y annualised, NAV-based, exactly as published; SC App.1 SH2 — no custom windows). Windows: 5y = 2021-05-31 to 2026-05-31; 10y = 2016-05-31 to 2026-05-31, both ending at the funds' published as-at date of 2026-05-31. FX endpoints use BNM 1700-session middle rates on the window boundary dates; 2026-05-31 was a Sunday with no BNM publication, so the window-end rate is the last published trading day 2026-05-29 (3.9680) — a 2-day mismatch versus the fund as-at date, flagged here rather than interpolated. Worked MYR-adjustment arithmetic: MYR-per-USD factor over both windows = end/start = 3.9680/4.1290 = 0.961008 (the ringgit STRENGTHENED ~3.90% against the USD over each window; both windows happen to start at the same published rate of 4.1290). Annualised currency effect = 0.961008^(1/n) - 1: 5y = -0.79%/yr, 10y = -0.40%/yr. MYR-adjusted annualised return = (1 + USD return) x (1 + annualised currency effect) - 1, e.g. QQQ 5y: 1.1792 x 0.992077 - 1 = 16.99%/yr; cross-check in cumulative terms: QQQ 5y cumulative USD = 1.1792^5 - 1 = 128.0% (matches Invesco's own published +127.98% cumulative), in MYR = 2.280 x 0.961008 - 1 = 119.1%, re-annualised = 16.99%/yr. The adjustment direction is window-dependent: over these windows MYR strengthened so the MYR-adjusted return is LOWER than the headline USD return, but a window in which MYR weakens raises it — the point is that the forex variable exists, not that it always cuts one way. KNOWN GAPS (flagged, not estimated): (1) FTSE Russell's freely published KLCI factsheet carries CAPITAL (price) return only — KLCI total return including dividends is not published there, so the KLCI comparator understates what a KLCI-tracking investor earned (the factsheet's point-in-time dividend yield is 3.97% as at 2026-05-29, illustrating the size of the omission; no total-return series was fetched, so none is stated); (2) the factsheet publishes no 10y return at all, so the 10y KLCI row carries null. Both gaps must be restated by any consumer of the KLCI rows.",
+  "data": [
+    {
+      "id": "qqq-5y",
+      "fund": "Invesco QQQ (Nasdaq-100 ETF)",
+      "period": "5y",
+      "window": "2021-05-31 to 2026-05-31",
+      "usd_return_pa_pct": 17.92,
+      "fx_start_myr_per_usd": 4.129,
+      "fx_end_myr_per_usd": 3.968,
+      "currency_effect_pa_pct": -0.79,
+      "myr_adjusted_return_pa_pct": 16.99,
+      "volatility": "variable",
+      "as_at": "2026-05-31 (fund); FX end 2026-05-29 (last BNM publication before window end)",
+      "source": "USD return: Invesco QQQ performance page, Annualized returns as of 05/31/2026, NAV row, 5 year +17.92% (https://www.invesco.com/qqq-etf/en/performance.html, fetched 2026-06-11). FX: BNM 1700-session middle rates 2021-05-31 = 4.1290 and 2026-05-29 = 3.9680 (api.bnm.gov.my). Derived: 1.1792 x (3.9680/4.1290)^(1/5) = 1.1792 x 0.992077 -> 16.99%/yr"
+    },
+    {
+      "id": "qqq-10y",
+      "fund": "Invesco QQQ (Nasdaq-100 ETF)",
+      "period": "10y",
+      "window": "2016-05-31 to 2026-05-31",
+      "usd_return_pa_pct": 21.8,
+      "fx_start_myr_per_usd": 4.129,
+      "fx_end_myr_per_usd": 3.968,
+      "currency_effect_pa_pct": -0.4,
+      "myr_adjusted_return_pa_pct": 21.32,
+      "volatility": "variable",
+      "as_at": "2026-05-31 (fund); FX end 2026-05-29",
+      "source": "USD return: Invesco QQQ performance page, Annualized returns as of 05/31/2026, NAV row, 10 year +21.80% (https://www.invesco.com/qqq-etf/en/performance.html, fetched 2026-06-11). FX: BNM 1700-session middle rates 2016-05-31 = 4.1290 and 2026-05-29 = 3.9680 (api.bnm.gov.my). Derived: 1.2180 x (3.9680/4.1290)^(1/10) = 1.2180 x 0.996031 -> 21.32%/yr"
+    },
+    {
+      "id": "spy-5y",
+      "fund": "SPDR S&P 500 ETF Trust (SPY)",
+      "period": "5y",
+      "window": "2021-05-31 to 2026-05-31",
+      "usd_return_pa_pct": 14.0,
+      "fx_start_myr_per_usd": 4.129,
+      "fx_end_myr_per_usd": 3.968,
+      "currency_effect_pa_pct": -0.79,
+      "myr_adjusted_return_pa_pct": 13.1,
+      "volatility": "variable",
+      "as_at": "2026-05-31 (fund); FX end 2026-05-29",
+      "source": "USD return: SSGA SPY fund page, annualised NAV performance as of 2026-05-31, 5 year 14.00% (https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy, fetched 2026-06-11). FX: BNM 1700-session middle rates 2021-05-31 = 4.1290 and 2026-05-29 = 3.9680 (api.bnm.gov.my). Derived: 1.1400 x 0.992077 -> 13.10%/yr"
+    },
+    {
+      "id": "spy-10y",
+      "fund": "SPDR S&P 500 ETF Trust (SPY)",
+      "period": "10y",
+      "window": "2016-05-31 to 2026-05-31",
+      "usd_return_pa_pct": 15.49,
+      "fx_start_myr_per_usd": 4.129,
+      "fx_end_myr_per_usd": 3.968,
+      "currency_effect_pa_pct": -0.4,
+      "myr_adjusted_return_pa_pct": 15.03,
+      "volatility": "variable",
+      "as_at": "2026-05-31 (fund); FX end 2026-05-29",
+      "source": "USD return: SSGA SPY fund page, annualised NAV performance as of 2026-05-31, 10 year 15.49% (https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy, fetched 2026-06-11). FX: BNM 1700-session middle rates 2016-05-31 = 4.1290 and 2026-05-29 = 3.9680 (api.bnm.gov.my). Derived: 1.1549 x 0.996031 -> 15.03%/yr"
+    },
+    {
+      "id": "klci-5y",
+      "fund": "FTSE Bursa Malaysia KLCI (MYR, capital return — dividends NOT included)",
+      "period": "5y",
+      "window": "to 2026-05-29 (factsheet as-at)",
+      "myr_return_pa_pct": 1.2,
+      "return_basis": "capital_return_only",
+      "volatility": "variable",
+      "as_at": "2026-05-29",
+      "source": "FTSE Russell FBM KLCI factsheet, data as at 29 May 2026, 'Performance and Volatility - Capital Return' table: Return pa 5YR 1.2% (3YR 6.7%; cumulative 5YR 6.3%, 12M 11.6%) (https://research.ftserussell.com/Analytics/FactSheets/Home/DownloadSingleIssue?issueName=FBMKLCI&IsManual=false, fetched 2026-06-11)",
+      "gap": "Capital (price) return only — the factsheet publishes no total-return table, so this row excludes dividends and understates a KLCI investor's total return; the same factsheet lists the index's dividend yield at 3.97% as at 2026-05-29 (point-in-time characteristic, not a return series). Flag this basis difference wherever this row is shown next to the ETFs' NAV total returns"
+    },
+    {
+      "id": "klci-10y",
+      "fund": "FTSE Bursa Malaysia KLCI (MYR)",
+      "period": "10y",
+      "window": "to 2026-05-29 (factsheet as-at)",
+      "myr_return_pa_pct": null,
+      "return_basis": "not_published",
+      "volatility": "variable",
+      "as_at": "2026-05-29",
+      "source": "FTSE Russell FBM KLCI factsheet, data as at 29 May 2026 — the published performance table stops at 5YR; no 10-year return (capital or total) is published (https://research.ftserussell.com/Analytics/FactSheets/Home/DownloadSingleIssue?issueName=FBMKLCI&IsManual=false, fetched 2026-06-11)",
+      "gap": "No 10y KLCI return is published in the freely available factsheet; left null rather than computed from third-party price archives. Escalated for sourcing (e.g. licensed index data or a Bursa publication) before any 10y KLCI comparison is drawn"
+    }
+  ]
+}

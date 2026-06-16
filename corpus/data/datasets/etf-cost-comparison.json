@@ -1,0 +1,114 @@
+{
+  "verified_at": "2026-06-11",
+  "verification_status": "verified",
+  "volatility": "variable",
+  "source": "Per-row citations below. External figures fetched 2026-06-11: Invesco QQQ performance page (https://www.invesco.com/qqq-etf/en/performance.html, verbatim: 'Invesco QQQ's total expense ratio is 0.18%.'; cross-checked on https://www.invesco.com/us/financial-products/etfs/product-detail?audienceType=Investor&ticker=QQQ); SSGA SPY fund page (https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy); IRS Publication 515 (https://www.irs.gov/publications/p515); IRS income-tax-treaty A-to-Z list (https://www.irs.gov/businesses/international-businesses/united-states-income-tax-treaties-a-to-z); IRS nonresident estate-tax page (https://www.irs.gov/individuals/international-taxpayers/some-nonresidents-with-us-assets-must-file-estate-tax-returns); IRS estate & gift tax treaties list (https://www.irs.gov/businesses/small-businesses-self-employed/estate-gift-tax-treaties-international); BNM Open API exchange rate (https://api.bnm.gov.my/public/exchange-rate/USD?session=1700&quote=rm — bnm.gov.my itself returns HTTP 403 to non-browser fetches; the Open API at api.bnm.gov.my is BNM's official machine-readable publication of the same rates); Moomoo MY help centre currency-exchange page (https://www.moomoo.com/my/support/topic9_33); M+ Global pricing page (https://mplusonline.com/pricing). UT-side figures from owned entries corpus/knowledge/a-fee-schedule.md and corpus/knowledge/a-sales-charge-math.md (Public Mutual Master Prospectus dated 28 Aug 2023 with 1st Supplemental dated 3 Dec 2025, pp. 150-157; PWEF PHS dated 27 Feb 2026).",
+  "notes": "Cost components of two routes to broad-market equity exposure for a Malaysian retail investor: DIY US-listed ETF (QQQ/SPY via a Malaysian broker) vs a Public Mutual global-equity unit trust. COST-ONLY comparison, not a suitability ranking — the two routes differ in structure (UT: MYR-denominated, trustee custody under Malaysian law, consultant service, Shariah-compliant options, no US estate-tax exposure; DIY ETF: USD-denominated, US-situs assets, self-directed). The ETF's expense-ratio advantage is genuine and large; the point of this dataset is that TER is not the whole stack. KNOWN GAP (flagged, not estimated): no Malaysian retail broker among Rakuten Trade, Moomoo MY, M+ Global publishes a numeric MYR-to-USD conversion markup in its fee schedule — Moomoo MY publishes conversion commission 'Free' with the rate 'provided by the upstream bank', i.e. the retail FX cost is embedded in the dealing rate and is not quantifiable from published schedules; the fx row therefore carries a null value and the chart excludes it from the DIY bar. Never present the BNM reference rate as the investor-facing conversion cost. Derived arithmetic used by the chart (10-year holding assumption, named): UT entry cost = 5/105 = 4.7619% of gross outlay (prospectus formula), simple-amortised over 10 years = 0.4762%/yr ~ 0.48%/yr; UT ongoing = AMF 1.70%/yr + trustee 0.06%/yr = 1.76%/yr; UT all-in quantified = 2.24%/yr. DIY ETF (SPY): TER 0.0945%/yr + dividend-withholding drag 30% x 1.00% fund distribution yield = 0.30%/yr; all-in quantified = 0.39%/yr, EXCLUDING the unpublished FX conversion spread, per-trade brokerage commission, and the non-annualised US estate-tax exposure. Fund-level foreign withholding suffered inside a unit trust's NAV on its own foreign holdings is not separately published and is therefore not shown for the UT route either — the 0% withholding cell on the UT side means 'no separate withholding visible to the investor on distributions', not 'no tax anywhere in the chain'. All variable-volatility figures fetched 2026-06-11; re-verify before reuse after 2027-06-11.",
+  "data": [
+    {
+      "id": "etf-ter-qqq",
+      "route": "diy_etf",
+      "label": "Invesco QQQ total expense ratio",
+      "value_pct_per_year": 0.18,
+      "volatility": "variable",
+      "as_at": "page performance data as of 2026-05-31; fetched 2026-06-11",
+      "source": "Invesco QQQ performance page, verbatim on-page text: 'Invesco QQQ's total expense ratio is 0.18%.' (https://www.invesco.com/qqq-etf/en/performance.html); cross-checked on the Invesco product-detail page (https://www.invesco.com/us/financial-products/etfs/product-detail?audienceType=Investor&ticker=QQQ, stated as of 2026-03-31)"
+    },
+    {
+      "id": "etf-ter-spy",
+      "route": "diy_etf",
+      "label": "SPDR S&P 500 ETF Trust (SPY) gross expense ratio",
+      "value_pct_per_year": 0.0945,
+      "volatility": "variable",
+      "as_at": "2026-06-10; fetched 2026-06-11",
+      "source": "SSGA SPY fund page: gross expense ratio 0.0945% (https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy)"
+    },
+    {
+      "id": "us-dividend-withholding-rate",
+      "route": "diy_etf",
+      "label": "US withholding tax on ETF distributions to a Malaysian resident",
+      "value_pct_of_distributions": 30,
+      "volatility": "stable",
+      "as_at": "statutory; fetched 2026-06-11",
+      "source": "IRS Publication 515: 'Most types of U.S. source income received by a foreign person are subject to U.S. tax of 30%' — the statutory default withholding on US-source dividends/FDAP income paid to foreign persons (https://www.irs.gov/publications/p515). Malaysia has NO US income-tax treaty reducing this rate: the IRS United States income tax treaties A-to-Z list has no Malaysia entry (the list runs Malta -> Mexico -> Moldova) (https://www.irs.gov/businesses/international-businesses/united-states-income-tax-treaties-a-to-z)"
+    },
+    {
+      "id": "withholding-drag-spy",
+      "route": "diy_etf",
+      "label": "Dividend-withholding drag on SPY, annualised (derived)",
+      "value_pct_per_year": 0.3,
+      "volatility": "variable",
+      "as_at": "yield as of 2026-06-09/10; fetched 2026-06-11",
+      "source": "Derived: 30% statutory withholding (IRS Pub 515, row us-dividend-withholding-rate) x SPY fund distribution yield 1.00% (SSGA SPY fund page, as of 2026-06-09/10; 30-day SEC yield 0.97%, index dividend yield 1.11% published alongside) = 0.30%/yr of invested value. Varies with the fund's actual distributions; QQQ's distribution yield is not restated here (not published on the pages fetched), but QQQ distributes less, so its drag is smaller"
+    },
+    {
+      "id": "fx-conversion-cost",
+      "route": "diy_etf",
+      "label": "MYR-to-USD conversion cost (retail markup over BNM reference rate)",
+      "value_pct_per_conversion": null,
+      "volatility": "variable",
+      "as_at": "2026-06-11",
+      "source": "BNM reference rate (NOT the investor-facing cost): USD/MYR middle rate 4.0695 at the 1700 session, 2026-06-11, buying 4.0670 / selling 4.0720 (BNM Open API, https://api.bnm.gov.my/public/exchange-rate/USD?session=1700&quote=rm). Named broker's published conversion fee: Moomoo MY help centre — currency-exchange fee 'Free', exchange rate 'Real-time exchange rates provided by the upstream bank' (https://www.moomoo.com/my/support/topic9_33, fetched 2026-06-11). Rakuten Trade and M+ Global publish no numeric FX spread either (https://www.rakutentrade.my/faqs/trading-foreign-equity, https://mplusonline.com/pricing, both fetched 2026-06-11)",
+      "gap": "No numeric retail markup is published in any of the three brokers' fee schedules — the cost is embedded in the dealing rate offered at conversion time. Left unquantified rather than estimated; the chart excludes it from the DIY bar and says so. The conversion cost is paid twice (in and out)."
+    },
+    {
+      "id": "broker-commission-us",
+      "route": "diy_etf",
+      "label": "Brokerage commission per US trade (named broker)",
+      "value_pct_per_trade": 0.1,
+      "minimum_usd": 3,
+      "volatility": "variable",
+      "as_at": "2026-06-11",
+      "source": "M+ Global (Malacca Securities) published pricing: US market brokerage 'As low as 0.10% * Trade Value', minimum 'As low as US$3.00' per transaction (https://mplusonline.com/pricing, fetched 2026-06-11). Per-trade one-off, not annualised; for a buy-and-hold investor this is the smallest component of the stack"
+    },
+    {
+      "id": "us-estate-tax-exposure",
+      "route": "diy_etf",
+      "label": "US estate-tax exposure on US-situs assets above USD 60,000 (non-annualised risk)",
+      "value_pct_per_year": null,
+      "threshold_usd": 60000,
+      "volatility": "stable",
+      "as_at": "fetched 2026-06-11",
+      "source": "IRS: 'An executor for a nonresident, not a citizen of the U.S. must file an estate tax return, Form 706-NA ... if the fair market value at death of the decedent's U.S.-situated assets exceeds $60,000.' US-situs assets explicitly include 'Stock of corporations organized in or under U.S. law, even if the nonresident held the certificates abroad' — which covers US-listed ETFs like QQQ/SPY (https://www.irs.gov/individuals/international-taxpayers/some-nonresidents-with-us-assets-must-file-estate-tax-returns). Malaysia is NOT among the 15 countries with a US estate/gift-tax treaty (Australia, Austria, Canada, Denmark, Finland, France, Germany, Greece, Ireland, Italy, Japan, Netherlands, South Africa, Switzerland, United Kingdom) (https://www.irs.gov/businesses/small-businesses-self-employed/estate-gift-tax-treaties-international)",
+      "notes": "Non-annualised tail exposure, not an annual fee: a Malaysian resident's estate holding more than USD 60,000 of US-listed ETFs at death (~RM244,000 at the BNM 1700-session middle rate of 4.0695 on 2026-06-11 — derived: 60,000 x 4.0695 = RM244,170) faces a US estate-tax filing obligation (Form 706-NA) with no treaty relief. A Malaysian-domiciled unit trust is not a US-situs asset, so the UT route does not carry this exposure"
+    },
+    {
+      "id": "ut-sales-charge",
+      "route": "ut",
+      "label": "Public Mutual sales charge — equity funds (one-off, at entry)",
+      "value_pct_of_nav": 5.0,
+      "value_pct_of_gross_outlay": 4.7619,
+      "amortised_10y_pct_per_year": 0.4762,
+      "volatility": "variable",
+      "as_at": "owned entry verified 2026-05-31",
+      "source": "Owned: corpus/knowledge/a-fee-schedule.md ('Up to 5.0% of NAV per unit' for equity/mixed/balanced funds — Master Prospectus p. 150) and corpus/knowledge/a-sales-charge-math.md (prospectus p. 157 formula: charge = amount x 5/105 = 4.7619% of the gross outlay, i.e. RM476.19 on RM10,000). Amortisation is simple division over a named 10-year holding period: 4.7619/10 = 0.4762%/yr. Rates can vary by distributor and campaign period (see owned entry)"
+    },
+    {
+      "id": "ut-amf-trustee",
+      "route": "ut",
+      "label": "Public Mutual annual management fee + trustee fee — global equity class (ongoing, inside NAV)",
+      "value_pct_per_year": 1.76,
+      "volatility": "variable",
+      "as_at": "owned entry verified 2026-05-31",
+      "source": "Owned: corpus/knowledge/a-fee-schedule.md — AMF 1.70%/yr for global/worldwide equity funds (PWEF PHS dated 27 Feb 2026; Master Prospectus p. 153; the closest structural comparator to a US broad-market ETF) + trustee fee 0.06%/yr (Master Prospectus p. 153). 1.70 + 0.06 = 1.76%/yr. AMF across the equity universe ranges 1.25-1.80%/yr; domestic equity is 1.50%/yr"
+    },
+    {
+      "id": "ut-all-in-quantified",
+      "route": "ut",
+      "label": "UT all-in quantified annual cost, 10-year hold (derived)",
+      "value_pct_per_year": 2.24,
+      "volatility": "variable",
+      "as_at": "2026-06-11",
+      "source": "Derived from rows ut-amf-trustee and ut-sales-charge: 1.76 + 0.4762 = 2.2362 ~ 2.24%/yr over a named 10-year holding period. No FX conversion, no US withholding visible to the investor, no US estate-tax exposure on this route (fund-level foreign tax inside NAV is not separately published — see dataset notes)"
+    },
+    {
+      "id": "etf-all-in-quantified",
+      "route": "diy_etf",
+      "label": "DIY ETF (SPY) all-in quantified annual cost, 10-year hold (derived; excludes unpublished FX markup)",
+      "value_pct_per_year": 0.39,
+      "volatility": "variable",
+      "as_at": "2026-06-11",
+      "source": "Derived from rows etf-ter-spy and withholding-drag-spy: 0.0945 + 0.30 = 0.3945 ~ 0.39%/yr. EXCLUDES the MYR/USD conversion cost (not published as a number — row fx-conversion-cost), the per-trade commission (row broker-commission-us), and the non-annualised estate-tax exposure (row us-estate-tax-exposure)"
+    }
+  ]
+}

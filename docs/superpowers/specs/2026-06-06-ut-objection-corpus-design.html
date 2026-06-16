@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UT Objection &amp; Myth Corpus — Design Spec (2026-06-06)</title>
+<style>
+  body { font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1a1a1a; max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 6rem; }
+  h1 { font-size: 1.9rem; line-height: 1.2; border-bottom: 3px solid #1a4d8f; padding-bottom: .4rem; }
+  h2 { font-size: 1.35rem; margin-top: 2.4rem; color: #1a4d8f; border-bottom: 1px solid #d8d8d8; padding-bottom: .25rem; }
+  h3 { font-size: 1.08rem; margin-top: 1.6rem; color: #333; }
+  code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .88em; background: #f0f2f5; padding: .1em .35em; border-radius: 4px; }
+  pre { background: #1e2530; color: #e6edf3; padding: 1rem 1.1rem; border-radius: 8px; overflow-x: auto; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: .82rem; line-height: 1.45; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .9rem; }
+  th, td { border: 1px solid #d0d4da; padding: .5rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #eef2f7; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .owned { color: #0a7a3d; font-weight: 600; }
+  .missing { color: #b3261e; font-weight: 600; }
+  .pill { display: inline-block; font-size: .72rem; font-weight: 600; padding: .12em .5em; border-radius: 999px; vertical-align: middle; }
+  .t0 { background: #e8f0fe; color: #1a4d8f; }
+  .t1 { background: #fff0e0; color: #9a5a00; }
+  .t2 { background: #fde8ec; color: #9a1633; }
+  blockquote { border-left: 4px solid #1a4d8f; margin: 1.2rem 0; padding: .5rem 1rem; background: #f6f8fb; color: #333; }
+  .meta { color: #666; font-size: .85rem; }
+  ul.tight li { margin: .2rem 0; }
+  .note { background: #fff8e6; border: 1px solid #f0d98a; padding: .75rem 1rem; border-radius: 6px; margin: 1rem 0; }
+</style>
+</head>
+<body>
+
+<h1>UT Objection &amp; Myth Corpus — Design Spec</h1>
+<p class="meta"><strong>Date:</strong> 2026-06-06 &nbsp;·&nbsp; <strong>Status:</strong> Approved design, pre-implementation &nbsp;·&nbsp; <strong>Owner:</strong> EngineerDad (Shoo Kyuk Wei) &nbsp;·&nbsp; <strong>Schema:</strong> ADR-029 knowledge entries</p>
+
+<blockquote>
+<strong>Purpose.</strong> A grounded, brand-safe corpus family that answers the objections and myths which keep broad-base Malaysians from investing through Public Mutual unit trusts (UT) and PRS. Built for content generation, not as advice. Thesis: <em>investment is a necessity</em>. Every figure must be factual and cited — no numbers from model memory.
+</blockquote>
+
+<h2>1. Audience &amp; thesis</h2>
+<p>The audience is <strong>broad-base Malaysians</strong> — young earners, the self-employed, EPF members, fence-sitters — not parents alone. Throughout this corpus, "the saver" means whichever Malaysian the entry is converting. The underlying conviction is that investing is a necessity rather than a luxury, and the content's job is to dismantle the beliefs that prevent it.</p>
+
+<h2>2. Posture — steelman, then segment</h2>
+<p>Every myth entry concedes the part of the objection that is genuinely true, then introduces the variable the objection ignores, then names the saver-type for whom the answer actually changes. This is the only posture compatible with a data-driven brand: it earns trust by admitting where the alternative wins before carving out where UT/PRS legitimately fits. The three honest carve-outs that recur are <strong>(a) the tax-relief wrapper (PRS RM3,000)</strong>, <strong>(b) Shariah depth</strong>, and <strong>(c) the behaviour gap</strong> for savers who will not self-manage.</p>
+
+<h2>3. The three-tier funnel (the spine)</h2>
+<p>Myths sort into three tiers by what they block. This maps onto a marketing funnel (TOFU&rarr;MOFU&rarr;BOFU) and onto the corpus <code>funnel_tier</code> frontmatter field.</p>
+
+<table>
+<tr><th>Tier</th><th>Question it answers</th><th>Who it converts</th><th>Reach</th></tr>
+<tr><td><span class="pill t0">Necessity</span></td><td>Why invest at all?</td><td>The non-investor</td><td>Broadest (TOFU)</td></tr>
+<tr><td><span class="pill t1">Avoidance</span></td><td>Why is UT specifically safe / legit / accessible?</td><td>The UT-hesitant</td><td>Mid (MOFU)</td></tr>
+<tr><td><span class="pill t2">Substitution</span></td><td>Why not just DIY ETF / robo / i-Invest / direct stocks?</td><td>The already-investing DIY-er</td><td>Narrowest, most sophisticated (BOFU)</td></tr>
+</table>
+
+<h2>4. The myth set</h2>
+
+<h3><span class="pill t0">Tier 0 — Necessity</span> (why invest at all)</h3>
+<table>
+<tr><th>#</th><th>Myth</th><th>The turn</th><th>Fact status</th></tr>
+<tr><td>11</td><td>"I don't earn enough to invest"</td><td>Entry is RM100; the cost of not starting compounds against you</td><td class="owned">✓ RM100 min + compounding-table.json</td></tr>
+<tr><td>12</td><td>"I'll start later / when I'm settled"</td><td>Latency penalty — the delayed-start gap is quantifiable and brutal</td><td class="owned">✓ epf-shortfall-cases.md (latency framing)</td></tr>
+<tr><td>13</td><td>"Saving / FD is enough — investing is optional"</td><td>Inflation is the silent loss; cash guarantees erosion</td><td class="missing">✗ MY CPI series</td></tr>
+<tr><td>14</td><td>"Investing is for rich people / not for someone like me"</td><td>The necessity reframe — EPF alone won't carry retirement</td><td class="owned">✓ epf-shortfall-cases.md</td></tr>
+<tr><td>15</td><td>"EPF / government will take care of me"</td><td>Documented shortfall; EPF is a floor, not a plan</td><td class="owned">✓ epf-shortfall-cases.md</td></tr>
+</table>
+
+<h3><span class="pill t1">Tier 1 — Avoidance</span> (why UT is safe / legit / accessible)</h3>
+<table>
+<tr><th>#</th><th>Myth</th><th>The turn</th><th>Fact status</th></tr>
+<tr><td>1</td><td>"Agents just churn you to earn commission"</td><td>Switching rules + the double-charge trap are knowable and auditable</td><td class="owned">✓ a-switching-matrix.md, a-scenario-double-charged.md</td></tr>
+<tr><td>2</td><td>"UT is basically a scam / like forex-MLM schemes"</td><td>FIMM-licensed, SC-regulated, trustee-custodied — money sits with a trustee, not the agent</td><td class="missing">✗ FIMM/SC/trustee structure</td></tr>
+<tr><td>3</td><td>"You can lose everything — it's gambling"</td><td>Diversified fund ≠ single stock/crypto; risk is tiered (FVC) and disclosed</td><td class="owned">✓ c-risk-metric-glossary.md, FVC levels <span class="missing">(+ PIDM-not-covered ✗)</span></td></tr>
+<tr><td>4</td><td>"Sales charge means I start down 5% — guaranteed loss"</td><td>One-time front cost amortized over the holding period; channel cuts it sharply</td><td class="owned">✓ a-sales-charge-math.md <span class="missing">(+ i-Invest cap ✗)</span></td></tr>
+<tr><td>5</td><td>"UT can't even beat FD / ASB / EPF"</td><td><strong>Category-error correction, not a bake-off:</strong> these are different risk tiers — match the instrument to the goal/horizon. Concede FD/ASB/EPF suit capital-stable goals; <strong>acknowledge EPF's guaranteed minimum dividend (EPF Act §27)</strong>. Never imply UT is "safer than" or "beats" them.</td><td class="owned">✓ fund-universe-stats-snapshot.md, epf-dividend-history.json <span class="missing">(ASB series ✗)</span></td></tr>
+<tr><td>6</td><td>"My money gets locked in / hard to withdraw"</td><td>Open-ended funds redeem any business day; standard 7-day settlement, faster tiers exist — liquid, just T+</td><td class="owned">✓ a-nav-cutoff-settlement.md</td></tr>
+<tr><td>7</td><td>"You need a lot of money to start"</td><td>e-Series from RM100; regular savings from RM100/month</td><td class="owned">✓ fund-public-regularsavings.md</td></tr>
+<tr><td>8</td><td>"Past performance means nothing — so it's all luck"</td><td>Process, mandate, risk tier, manager tenure are forward-looking signals the caveat doesn't erase</td><td class="missing">✗ framing only</td></tr>
+<tr><td>9</td><td>"EPF already invests for me — why double up?"</td><td>EPF shortfall is documented; UT/PRS is the top-up, plus PRS adds relief EPF doesn't</td><td class="owned">✓ epf-shortfall-cases.md, b-relief-stacking.md</td></tr>
+<tr><td>10</td><td>"It's too complicated — I won't understand it"</td><td>A factsheet has ~6 fields that matter; reading them is teachable</td><td class="owned">✓ c-reading-a-factsheet.md</td></tr>
+<tr><td>11</td><td>"Shariah funds are just marketing / underperform"</td><td>Shariah screening is a defined mandate; conventional/Shariah trade-offs are knowable</td><td class="owned">✓ c-shariah-vs-conventional.md</td></tr>
+</table>
+
+<h3><span class="pill t2">Tier 2 — Substitution</span> (why not just DIY)</h3>
+<table>
+<tr><th>#</th><th>Myth</th><th>The concession (steelman)</th><th>The turn</th><th>Fact status</th></tr>
+<tr><td>1</td><td>"UT fees are high — ETF TER is 0.03–0.2%"</td><td>True; PMB AMF + sales charge dwarf an ETF's TER</td><td>Total cost ≠ TER: forex spread per MYR→USD conversion, US 30% dividend withholding (no MY–US treaty relief), and whether the load was negotiated</td><td class="owned">✓ fee schedule <span class="missing">(+ ETF TER, withholding ✗)</span></td></tr>
+<tr><td>2</td><td>"Just DCA the index — you can't beat the market"</td><td>True for most active managers (SPIVA)</td><td>DCA is a behaviour, not a product — it works inside a UT too; the real failure is not executing / panic-selling</td><td class="missing">✗ SPIVA, behaviour gap</td></tr>
+<tr><td>3</td><td>"QQQ/SPY crush Malaysian funds"</td><td>US large-cap has outrun KLCI over the last decade</td><td>Returns quoted in USD; MYR-based saver eats bidirectional forex; liabilities are in MYR</td><td class="missing">✗ ETF + KLCI series, MYR/USD</td></tr>
+<tr><td>4</td><td>"5–5.5% sales charge is daylight robbery"</td><td>The entry load is real and front-loaded</td><td>Channel matters: EPF i-Invest caps the charge far lower; online/direct tiers differ</td><td class="owned">✓ a-sales-charge-math.md <span class="missing">(+ i-Invest cap ✗)</span></td></tr>
+<tr><td>5</td><td>"Robo-advisors do the same thing cheaper"</td><td>Lower fees, auto-rebalance, clean UX</td><td>Different engine (global ETF portfolios); no PRS relief wrapper; different Shariah/tax surface</td><td class="missing">✗ robo fees + engine</td></tr>
+<tr><td>6</td><td>"If I want funds I'll use EPF i-Invest — same funds, lower charge"</td><td>Genuinely cheaper access to the same PMB funds</td><td>Caps on EPF moved, eligibility, fund eligibility list, opportunity cost vs EPF's own dividend</td><td class="owned">✓ epf-dividend-history.json <span class="missing">(+ i-Invest caps ✗)</span></td></tr>
+<tr><td>7</td><td>"I can buy US stocks/ETFs direct for almost nothing"</td><td>Brokerage is near-zero; access is real</td><td>Withholding tax, US-situs estate-tax exposure &gt;$60k, forex, self-rebalancing discipline, no tax wrapper</td><td class="missing">✗ brokerage fees, estate tax</td></tr>
+<tr><td>8</td><td>"Fund managers underperform — why pay for active?"</td><td>Mostly true vs benchmark, net of fees</td><td>Some PMB funds clear a weighted-alpha screen; selection + the tax wrapper, not average active, is the case</td><td class="owned">✓ fund-universe-stats-snapshot.md <span class="missing">(+ SPIVA ✗)</span></td></tr>
+</table>
+
+<h2>5. Corpus categorization &amp; file layout</h2>
+<p>Files stay <strong>flat</strong> in <code>corpus/knowledge/</code>, continuing the existing letter-prefix convention (<code>a-</code>=mechanics, <code>b-</code>=tax/PRS, <code>c-</code>=portfolio, <code>fund-</code>=factsheets). This family takes the <code>d-</code> prefix with a tier digit, so a directory listing sorts in funnel order.</p>
+
+<pre>corpus/knowledge/
+├── a-*.md            (existing — mechanics)
+├── b-*.md            (existing — tax/PRS)
+├── c-*.md            (existing — portfolio)
+├── fund-*.md         (existing — factsheets)
+│
+└── d-*  ← NEW family · cluster: objection
+    │
+    ├── TIER 0 — Necessity   (funnel_tier: necessity)
+    │   ├── d0-cant-afford-to-start.md
+    │   ├── d0-start-later.md
+    │   ├── d0-saving-is-enough.md
+    │   ├── d0-investing-is-for-the-rich.md
+    │   └── d0-epf-will-cover-me.md
+    │
+    ├── TIER 1 — Avoidance    (funnel_tier: avoidance)
+    │   ├── d1-agents-just-churn.md
+    │   ├── d1-ut-is-a-scam.md
+    │   ├── d1-can-lose-everything.md
+    │   ├── d1-sales-charge-instant-loss.md
+    │   ├── d1-cant-beat-fd-asb-epf.md
+    │   ├── d1-money-locked-in.md
+    │   ├── d1-need-a-lot-to-start.md
+    │   ├── d1-past-performance-meaningless.md
+    │   ├── d1-epf-already-invests.md
+    │   ├── d1-too-complicated.md
+    │   └── d1-shariah-just-marketing.md
+    │
+    └── TIER 2 — Substitution (funnel_tier: substitution)
+        ├── d2-fees-vs-etf-ter.md
+        ├── d2-just-dca-the-index.md
+        ├── d2-qqq-spy-crush-my-funds.md
+        ├── d2-sales-charge-robbery.md
+        ├── d2-robo-does-it-cheaper.md
+        ├── d2-just-use-epf-iinvest.md
+        ├── d2-buy-us-stocks-direct.md
+        └── d2-active-underperforms.md</pre>
+
+<p><strong>Rationale.</strong></p>
+<ul class="tight">
+<li><strong>Flat, not nested.</strong> The indexer (<code>packages/corpus/src/reindex.ts</code>) recurses and derives scope from the <em>top-level</em> dir only, so a subfolder would index fine — but a lone <code>objections/</code> directory would break parity with the 4 existing flat families. Flat keeps one mental model for humans and the indexer alike.</li>
+<li><strong>Tier digit in the filename.</strong> <code>d0/d1/d2</code> makes <code>ls corpus/knowledge/d*</code> print TOFU&rarr;BOFU, mirroring <code>funnel_tier</code> in frontmatter for redundancy.</li>
+<li><strong>cluster: objection.</strong> A new cluster value (current enum: <code>mechanics | tax | portfolio | primitive</code>) is the machine-readable join brief-writer uses for proof selection; the filename stays human-scannable.</li>
+<li><strong>Lean on owned proof via <code>related:</code>.</strong> Each <code>d-</code> entry links "down" to the grounded mechanics/proof entry it rests on, rather than duplicating facts.</li>
+</ul>
+
+<h2>6. Entry template (ADR-029)</h2>
+<p>One myth = one entry. Frontmatter adds one new field, <code>funnel_tier</code>; everything else is the existing schema.</p>
+<pre>---
+cluster: objection
+funnel_tier: necessity | avoidance | substitution
+granularity: concept            # or "scenario" for a worked numeric walk-through
+source_type: public | synthesized
+source_ref: "&lt;citation(s) for every figure used&gt;"
+verified_at: YYYY-MM-DD
+lang_status: en_only            # BM pass later, per doctrine
+related: [&lt;owned-proof-entry&gt;, ...]
+---
+
+# &lt;Myth, stated as the saver would say it&gt;
+
+## English
+### The myth
+### The true part            (steelman concession)
+### The variable it ignores   (the turn — every figure cited)
+### Who it changes the answer for   (segment)
+</pre>
+<p>Bilingual EN/BM is doctrine, but entries draft EN-first and carry <code>lang_status: en_only</code> until the BM pass — identical to the existing PMB entries.</p>
+
+<h2>7. Verified-facts checklist (grounding manifest)</h2>
+<p>Every <span class="missing">✗</span> figure is a placeholder until a later <strong>grounding pass</strong> fills it with a citation. No entry ships with an unsourced number.</p>
+<table>
+<tr><th>Fact needed</th><th>For myths</th><th>Required source</th></tr>
+<tr><td>QQQ/SPY TER + long-run CAGR</td><td>T2-1, T2-3</td><td>Invesco / State Street official factsheets</td></tr>
+<tr><td>US 30% dividend withholding; no MY–US tax treaty</td><td>T2-1, T2-7</td><td>IRS + US treaty table</td></tr>
+<tr><td>US estate tax on US-situs assets &gt;$60k (non-resident alien)</td><td>T2-7</td><td>IRS</td></tr>
+<tr><td>KLCI / MY-market return series</td><td>T2-3</td><td>Bursa / index provider</td></tr>
+<tr><td>MYR–USD historical series</td><td>T2-3</td><td>BNM</td></tr>
+<tr><td>SPIVA active-vs-index (MY / regional)</td><td>T2-2, T2-8</td><td>S&amp;P SPIVA report</td></tr>
+<tr><td>Robo fee tiers + portfolio engine</td><td>T2-5</td><td>StashAway / Versa pricing + docs</td></tr>
+<tr><td>Brokerage fees (IBKR / Moomoo MY)</td><td>T2-7</td><td>Broker pricing pages</td></tr>
+<tr><td>EPF i-Invest sales-charge cap + eligibility / withdrawal caps</td><td>T1-4, T2-4, T2-6</td><td>KWSP i-Invest</td></tr>
+<tr><td>FIMM / SC licensing + trustee custody structure</td><td>T1-2</td><td>FIMM / SC</td></tr>
+<tr><td>PIDM does <strong>not</strong> cover UT</td><td>T1-3</td><td>PIDM</td></tr>
+<tr><td>Malaysian CPI / inflation series</td><td>T0-13</td><td>DOSM</td></tr>
+<tr><td>ASB / ASNB historical returns (foil, not scorecard)</td><td>T1-5</td><td>ASNB</td></tr>
+<tr><td>Behaviour / return-gap evidence</td><td>T2-2, Tier 0</td><td>DALBAR-type, cite-with-caveat</td></tr>
+<tr><td>Current-year PRS RM3,000 relief confirm</td><td>T2-5, T2-8</td><td>LHDN (annual re-verify)</td></tr>
+</table>
+
+<p><strong>Owned — no sourcing needed</strong> (reuse via <code>related:</code>): <span class="owned">a-fee-schedule, a-sales-charge-math, a-switching-matrix, a-scenario-double-charged, a-nav-cutoff-settlement, c-risk-metric-glossary, c-reading-a-factsheet, c-shariah-vs-conventional, fund-universe-stats-snapshot, epf-dividend-history, epf-shortfall-cases, b-relief-stacking, compounding-table, RM100 minimum.</span></p>
+
+<h2>8. Dataset &amp; chart propagation (claims binding)</h2>
+<p>Each grounded fact ships not only as prose but as a reusable <strong>dataset + chart</strong> so future content generation has a claim already bound to data. The binding follows the existing pattern in <code>corpus/data/charts/*.yaml</code>: a header <code>Source:</code> line pointing to the dataset, and a header <code>Used by … when scene argues "&lt;hook&gt;"</code> line that is the binding the generator reads.</p>
+
+<h3>Binding = 3 artifacts per claim</h3>
+<ul class="tight">
+<li><strong>Dataset JSON</strong> (<code>corpus/data/*.json</code>) — verified, with <code>source</code> / <code>verified_at</code>; no model-memory numbers.</li>
+<li><strong>Chart YAML</strong> (<code>corpus/data/charts/*.yaml</code>) — header <code>Source:</code> → its dataset; header <code>Used by … "&lt;myth hook&gt;"</code> → the binding; bilingual <code>caption_en/ms</code> + <code>source_citation</code>; <code>semantic_role</code> per series (hero / comparison / floor).</li>
+<li><strong><code>proof-asset-index.md</code> row</strong> — maps the asset to the claims it backs; each <code>d-</code> myth entry cites the chart <code>id</code> in its body and <code>related:</code>.</li>
+</ul>
+
+<h3>Reuse existing charts (annotate their <code>Used by</code> line)</h3>
+<p>Most myths already have a fitting chart. For these, the new objection-hook phrase is appended to the existing chart's <code>Used by</code> comment so content-gen discovers it for the new myth — redundant by design with the <code>proof-asset-index</code> row.</p>
+<table>
+<tr><th>Myth</th><th>Existing chart to bind</th></tr>
+<tr><td>T0-11 can't afford / T1-7 need a lot</td><td><code>coffee-to-compound</code>, <code>compounding-30y</code></td></tr>
+<tr><td>T0-12 start later</td><td><code>start-age-penalty</code></td></tr>
+<tr><td>T0-13 saving is enough</td><td><code>inflation-vs-savings-real-value</code> <span class="missing">(re-ground 5% assumption with DOSM CPI)</span></td></tr>
+<tr><td>T0-14 for the rich</td><td><code>coffee-to-compound</code>, <code>target-by-budget</code></td></tr>
+<tr><td>T0-15 / T1-9 EPF covers me</td><td><code>epf-savings-by-age</code> (new, sourced — KWSP RIA age-18-60 schedule) + <code>epf-baseline-tiers</code></td></tr>
+<tr><td>T2-2 just DCA</td><td><code>dca-vs-lump</code>, <code>panic-sell-vs-hold</code></td></tr>
+<tr><td>T2-3 home bias (partial)</td><td><code>single-country-vs-global</code></td></tr>
+<tr><td>T2-8 / T1-5 active alpha (partial)</td><td><code>alpha-vs-return</code></td></tr>
+</table>
+
+<h3>New dataset + chart pairs (gated on the facts checklist)</h3>
+<p>These cannot be built until their checklist rows (&sect;7) are sourced — no chart from unsourced data.</p>
+<table>
+<tr><th>New dataset</th><th>New chart</th><th>Serves</th><th>Depends on</th></tr>
+<tr><td><code>etf-cost-comparison.json</code></td><td><code>true-cost-stack-ut-vs-etf.yaml</code></td><td>T2-1, T2-7</td><td>ETF TER, US 30% withholding, forex spread, US estate tax</td></tr>
+<tr><td><code>us-vs-my-returns.json</code></td><td><code>usd-return-vs-myr-adjusted.yaml</code></td><td>T2-3</td><td>QQQ/SPY + KLCI CAGR, MYR/USD series</td></tr>
+<tr><td><code>sales-charge-by-channel.json</code></td><td><code>sales-charge-by-channel.yaml</code></td><td>T2-4, T2-6</td><td>EPF i-Invest charge cap</td></tr>
+<tr><td><code>robo-fee-tiers.json</code></td><td><code>robo-vs-ut-cost-feature.yaml</code></td><td>T2-5</td><td>StashAway / Versa fee tiers</td></tr>
+<tr><td><code>asb-asnb-returns.json</code></td><td><code>risk-return-positioning.yaml</code> <span class="missing">(positioning, not a winner-bar)</span></td><td>T1-5</td><td>ASB / ASNB series</td></tr>
+</table>
+
+<h3>Optional — buildable from owned data (defer unless wanted in v1)</h3>
+<ul class="tight">
+<li><code>shariah-vs-conventional-alpha.yaml</code> — from <code>funds-apr2026.json</code> (serves T1-11).</li>
+<li><code>risk-tier-ladder.yaml</code> — from FVC levels (serves T1-3).</li>
+<li><code>switching-cost.yaml</code> — from <code>a-switching-matrix.md</code> (serves T1-1).</li>
+</ul>
+
+<div class="note"><strong>Charts without a quantitative basis</strong> bind to knowledge only, no chart: T1-2 (regulatory/trustee structure — a flow, not a series), T1-8 (past-performance framing), T1-10 (annotated factsheet, not a data chart).</div>
+
+<div class="note"><strong>EPF / ASB / FD comparison guardrail (FIMM/SC).</strong> Verified against <code>corpus/compliance/sc-malaysia.md:118-133</code> + <code>banned-phrases.yaml</code> (H-section). Comparing UT against EPF/ASB/FD is permitted <em>only</em> as a balanced category-error correction — never a returns bake-off. (a) Never claim/imply UT is "safer than" or "beats" EPF; <strong>always acknowledge EPF's guaranteed minimum dividend (EPF Act 1991 §27)</strong>. (b) ASB is principal-stable/near-guaranteed — a returns head-to-head fails SC App.1 §I1a "sufficiently similar features." The <code>risk-return-positioning</code> chart is positioning (risk×return), <strong>not</strong> a bar where UT towers (§I1b undue prominence). Applies to <code>d1-cant-beat-fd-asb-epf</code>, <code>d1-epf-already-invests</code>, <code>d2-just-use-epf-iinvest</code>. Enforced downstream by <code>get_compliance_block</code>, but entries must be compliant at source.</div>
+
+<h2>9. How brain &amp; brief consume this corpus</h2>
+<p>The family is built to be self-serving to the closed loop. Three hooks do the work: <code>funnel_tier</code> maps 1:1 onto the Brief's funnel stage, <code>cluster: objection</code> makes the angle findable, and <code>related:</code> + the <code>proof-asset-index</code> row pre-bind the proof.</p>
+<pre>  AUTHORED CORPUS (this build)                 THE CLOSED LOOP (runtime)
+ ┌──────────────────────────────┐
+ │ d0/d1/d2-*.md                │   tracking → analytics → synthesize → brief → [HG1] → content → …
+ │   cluster: objection         │                          │           │                 │
+ │   funnel_tier: nec/avoid/sub │                          ▼           ▼                 ▼
+ │   related: [proof, chart]    │     ┌────────┐    ┌────────────┐   ┌──────────────┐
+ │ datasets *.json (cited)      │     │ BRAIN  │    │BRIEF-WRITER│   │CONTENT-WRITER│
+ │ charts *.yaml (Used by …)    │     │(synth.)│    │ (12 Briefs)│   │ hooks/scripts│
+ │ proof-asset-index.md  ◄──────┼─────┴───┬────┴────────┬─┴─────────────────┬──────────┘
+ └──────────────────────────────┘         │             │                   │
+   corpus MCP:                             │             │                   │
+   search(cluster, funnel_tier) ───────────┤             │                   │
+   list_proof (proof-asset-index)          │             │                   │
+   get_compliance_block ───────────────────┼─────────────┼───────────────────┤
+                                           │             │                   │
+   BRAIN: pulls a whole tier as an angle pool (funnel_tier=necessity → TOFU) → Decision Memo + Hypotheses
+   BRIEF-WRITER: per Brief picks persona + promise + PROOF TYPE + funnel stage
+       • funnel stage ← funnel_tier   (TOFU=necessity, MOFU=avoidance, BOFU=substitution)
+       • proof type   ← related:/proof-asset-index row → dataset+chart pre-attached to the claim
+   CONTENT-WRITER: writes hook/script grounded in the d-entry; get_compliance_block
+       → banned-phrases.yaml gates EPF/ASB wording          ← (compliance bites HERE)
+   CREATIVE-DIRECTOR / media-production:
+       selects the chart by its  "Used by … &lt;myth hook&gt;"  line  (← why Task 9 annotates reuse charts)</pre>
+
+<h2>10. Out of scope (YAGNI / compliance)</h2>
+<ul class="tight">
+<li><strong>No personalised allocation advice.</strong> Entries describe mechanics &amp; trade-offs, never "you should buy X." Phrasing governed by <code>compliance-claim-phrasebank.md</code> (FIMM/SC line).</li>
+<li><strong>No fabricated or model-memory numbers.</strong> Any <span class="missing">✗</span> stays a placeholder until the grounding pass cites it.</li>
+<li><strong>No full ASB / FD / crypto head-to-heads.</strong> They appear only as foils to rebut, not as scored alternatives.</li>
+<li><strong>No live ETF price quoting.</strong> Use dated factsheet figures with the snapshot caveat, like the fund entries.</li>
+</ul>
+
+<h2>11. Deliverable summary</h2>
+<ul class="tight">
+<li><strong>24 entries</strong> across 3 tiers (5 necessity + 11 avoidance + 8 substitution), all <code>cluster: objection</code>, flat under <code>corpus/knowledge/d*</code>.</li>
+<li><strong>1 new frontmatter field</strong> (<code>funnel_tier</code>) and <strong>1 new cluster value</strong> (<code>objection</code>).</li>
+<li><strong>15-row facts checklist</strong> resolved in a dedicated grounding pass before any entry ships; 14 owned facts reused via <code>related:</code>.</li>
+<li><strong>5 new dataset + chart pairs</strong> (gated on the checklist), <strong>8 existing charts annotated</strong> for reuse, and <strong>3 optional</strong> owned-data charts; all bound to claims via the chart <code>Used by</code> line + <code>proof-asset-index.md</code>.</li>
+<li><strong>Next step:</strong> writing-plans skill to produce the implementation plan, sequenced: <em>grounding pass → datasets + charts → entry authoring</em> (each entry written only after its facts and chart exist).</li>
+</ul>
+
+</body>
+</html>

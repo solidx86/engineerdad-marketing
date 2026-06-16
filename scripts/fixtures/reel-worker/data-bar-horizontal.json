@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_bar_h",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "A fee that sounds small is a large, silent withdrawal once it compounds over thirty years.", "onScreenText": "The fee you don't feel", "chartRef": "fee-drag-30y", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "rank how much each annual fee level removes over 30 years; the labels are long so a horizontal/ranked bar reads best" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

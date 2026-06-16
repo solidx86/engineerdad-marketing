@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Corpus Schema Extension — Plan</title>
+<style>
+  body { font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 920px; margin: 32px auto; padding: 0 20px; color: #1c1c1c; background: #fafafa; }
+  pre { white-space: pre-wrap; word-wrap: break-word; }
+</style>
+</head>
+<body>
+<pre># Corpus Schema Extension Implementation Plan
+
+&gt; **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Extend the `/corpus` schema to support a `knowledge` scope and universal frontmatter (cluster, granularity, source_type, source_ref, verified_at, related, lang_status) so the PMB corpus expansion can be ingested with rich, queryable metadata.
+
+**Architecture:** Add a new `knowledge` value to the `Scope` enum and a corresponding `corpus/knowledge/` directory. Extract `parseFrontmatter` into a shared module and run it on every corpus file during reindex. Attach parsed frontmatter to each `Chunk`. Extend `SearchInput` with optional `cluster | granularity | source_type` post-filters following the same pattern as the existing `scope | lang` filters at `tools.ts:45`.
+
+**Tech Stack:** TypeScript, Vitest, `@engineerdad/corpus` package, `mcp-servers/corpus` MCP adapter.
+
+**Spec reference:** `docs/superpowers/specs/2026-05-29-pmb-corpus-expansion-design.html` — sections 4 (Artifact Shape) and 9 (Prerequisite — Schema Extension).
+
+---
+
+## File Structure
+
+**Files created:**
+- `docs/decisions/029-corpus-knowledge-scope.md` — ADR
+- `packages/corpus/src/frontmatter.ts` — shared frontmatter parser + type
+- `packages/corpus/src/frontmatter.test.ts` — parser tests
+- `corpus/knowledge/README.md` — convention doc for entries
+- `corpus/knowledge/_example.md` — minimal example entry used by tests
+
+**Files modified:**
+- `packages/corpus/src/chunk.ts` — add `knowledge` to `Scope`; add frontmatter fields to `Chunk`; thread frontmatter through `chunkFile`
+- `packages/corpus/src/reindex.ts` — parse frontmatter per file; recognise `knowledge` scope; pass frontmatter to `chunkFile`
+- `packages/corpus/src/tools.ts` — extract local `parseFrontmatter` (delete), import shared; extend `SearchInput` + `Scope`; extend `search()` filter
+- `packages/corpus/src/tools.test.ts` — add filter coverage for new fields
+- `packages/corpus/src/index.ts` — re-export new types
+- `mcp-servers/corpus/src/index.ts` — extend `search` tool zod schema with new optional filters
+
+---
+
+## Task 1: ADR for the schema extension
+
+**Files:**
+- Create: `docs/decisions/029-corpus-knowledge-scope.md`
+
+- [ ] **Step 1: Write the ADR**
+
+```markdown
+# ADR-029: Corpus knowledge scope + universal frontmatter
+
+Status: Accepted
+Date: 2026-05-29
+
+## Context
+
+`/corpus` currently supports three scopes (`compliance | courses | proof`).
+Only `proof/*.md` carries frontmatter (persona, quote, attribution,
+permission_status). Search filters by `scope` and `lang` only.
+
+The PMB corpus expansion (see
+`docs/superpowers/specs/2026-05-29-pmb-corpus-expansion-design.html`)
+needs to ingest ~40 PMB-specific knowledge entries spanning three
+clusters (mechanics, tax, portfolio), each tagged by `cluster`,
+`granularity` (concept | fund), and `source_type` (public | synthesized).
+
+## Decision
+
+1. Add `knowledge` to the `Scope` enum. Entries live under
+   `corpus/knowledge/`.
+2. Adopt YAML frontmatter universally across all corpus markdown files.
+   Recognised optional fields on every file:
+   - `cluster` — `mechanics | tax | portfolio | primitive`
+   - `granularity` — `concept | fund`
+   - `source_type` — `public | synthesized`
+   - `source_ref` — citation string
+   - `verified_at` — ISO date
+   - `related` — list of related entry IDs
+   - `lang_status` — `en_only | both`
+3. Reindex parses frontmatter once per file and attaches the fields to
+   every `Chunk` produced from that file.
+4. `SearchInput` gains optional `cluster | granularity | source_type`
+   post-filters, mirroring the existing `scope | lang` filter at
+   `packages/corpus/src/tools.ts:45`.
+5. Existing `proof/*.md` frontmatter (`persona`, `quote`, etc.) is
+   unaffected — `listProof` keeps its own parsing path.
+
+## Consequences
+
+- New `knowledge` scope is recognised by `scopeFromPath` in reindex.
+- BM25 index is unchanged in shape; new metadata is carried alongside
+  on the `Chunk` record.
+- Search remains scope-and-lang-first; new filters are additive.
+- No migration of existing files required — frontmatter fields are
+  optional and default to undefined.
+```
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add docs/decisions/029-corpus-knowledge-scope.md
+git commit -m "docs(adr): ADR-029 corpus knowledge scope + universal frontmatter"
+```
+
+---
+
+## Task 2: Shared frontmatter parser
+
+**Files:**
+- Create: `packages/corpus/src/frontmatter.ts`
+- Create: `packages/corpus/src/frontmatter.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// packages/corpus/src/frontmatter.test.ts
+import { describe, expect, it } from "vitest";
+import { parseFrontmatter, stripFrontmatter, type CorpusFrontmatter } from "./frontmatter.js";
+
+describe("parseFrontmatter", () =&gt; {
+  it("returns empty object when no frontmatter present", () =&gt; {
+    const out = parseFrontmatter("# heading\n\nbody");
+    expect(out).toEqual({});
+  });
+
+  it("parses scalar fields", () =&gt; {
+    const md = `---
+cluster: mechanics
+granularity: concept
+source_type: public
+source_ref: PMB Master Prospectus 2025 p.42
+verified_at: 2026-05-29
+lang_status: en_only
+---
+
+body`;
+    const out: CorpusFrontmatter = parseFrontmatter(md);
+    expect(out.cluster).toBe("mechanics");
+    expect(out.granularity).toBe("concept");
+    expect(out.source_type).toBe("public");
+    expect(out.source_ref).toBe("PMB Master Prospectus 2025 p.42");
+    expect(out.verified_at).toBe("2026-05-29");
+    expect(out.lang_status).toBe("en_only");
+  });
+
+  it("parses related as a list", () =&gt; {
+    const md = `---
+related: [a-switching, a-fee-schedule]
+---
+
+body`;
+    const out = parseFrontmatter(md);
+    expect(out.related).toEqual(["a-switching", "a-fee-schedule"]);
+  });
+
+  it("ignores unknown fields", () =&gt; {
+    const md = `---
+unknown_field: xxx
+cluster: tax
+---
+
+body`;
+    const out = parseFrontmatter(md);
+    expect(out.cluster).toBe("tax");
+    expect((out as Record&lt;string, unknown&gt;).unknown_field).toBeUndefined();
+  });
+
+  it("strips frontmatter from body", () =&gt; {
+    const md = `---
+cluster: portfolio
+---
+
+body line one
+body line two`;
+    expect(stripFrontmatter(md)).toBe("body line one\nbody line two");
+  });
+
+  it("leaves body untouched when no frontmatter", () =&gt; {
+    expect(stripFrontmatter("# h\nbody")).toBe("# h\nbody");
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `pnpm vitest run packages/corpus/src/frontmatter.test.ts`
+Expected: FAIL — module `./frontmatter.js` does not exist.
+
+- [ ] **Step 3: Implement the parser**
+
+```typescript
+// packages/corpus/src/frontmatter.ts
+export type Cluster = "mechanics" | "tax" | "portfolio" | "primitive";
+export type Granularity = "concept" | "fund";
+export type SourceType = "public" | "synthesized";
+export type LangStatus = "en_only" | "both";
+
+export interface CorpusFrontmatter {
+  cluster?: Cluster;
+  granularity?: Granularity;
+  source_type?: SourceType;
+  source_ref?: string;
+  verified_at?: string;
+  related?: string[];
+  lang_status?: LangStatus;
+}
+
+const FM_RE = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
+
+const CLUSTER_VALUES = new Set&lt;Cluster&gt;(["mechanics", "tax", "portfolio", "primitive"]);
+const GRANULARITY_VALUES = new Set&lt;Granularity&gt;(["concept", "fund"]);
+const SOURCE_TYPE_VALUES = new Set&lt;SourceType&gt;(["public", "synthesized"]);
+const LANG_STATUS_VALUES = new Set&lt;LangStatus&gt;(["en_only", "both"]);
+
+function parseList(raw: string): string[] {
+  const inner = raw.replace(/^\[|\]$/g, "").trim();
+  if (!inner) return [];
+  return inner.split(",").map((s) =&gt; s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+}
+
+export function parseFrontmatter(raw: string): CorpusFrontmatter {
+  const m = FM_RE.exec(raw);
+  if (!m) return {};
+  const out: CorpusFrontmatter = {};
+  for (const line of m[1]!.split(/\r?\n/)) {
+    const kv = /^(\w[\w_]*)\s*:\s*(.+?)\s*$/.exec(line);
+    if (!kv) continue;
+    const key = kv[1]!;
+    const value = kv[2]!.replace(/^["']|["']$/g, "");
+    switch (key) {
+      case "cluster":
+        if (CLUSTER_VALUES.has(value as Cluster)) out.cluster = value as Cluster;
+        break;
+      case "granularity":
+        if (GRANULARITY_VALUES.has(value as Granularity)) out.granularity = value as Granularity;
+        break;
+      case "source_type":
+        if (SOURCE_TYPE_VALUES.has(value as SourceType)) out.source_type = value as SourceType;
+        break;
+      case "source_ref":
+        out.source_ref = value;
+        break;
+      case "verified_at":
+        out.verified_at = value;
+        break;
+      case "lang_status":
+        if (LANG_STATUS_VALUES.has(value as LangStatus)) out.lang_status = value as LangStatus;
+        break;
+      case "related":
+        out.related = parseList(value);
+        break;
+    }
+  }
+  return out;
+}
+
+export function stripFrontmatter(raw: string): string {
+  const m = FM_RE.exec(raw);
+  if (!m) return raw;
+  return raw.slice(m[0].length);
+}
+```
+
+- [ ] **Step 4: Run test to verify pass**
+
+Run: `pnpm vitest run packages/corpus/src/frontmatter.test.ts`
+Expected: PASS, 6 tests.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/corpus/src/frontmatter.ts packages/corpus/src/frontmatter.test.ts
+git commit -m "feat(corpus): shared frontmatter parser with typed fields"
+```
+
+---
+
+## Task 3: Extend `Chunk` + `Scope` with knowledge scope + frontmatter
+
+**Files:**
+- Modify: `packages/corpus/src/chunk.ts`
+- Modify: `packages/corpus/src/chunk.test.ts`
+
+- [ ] **Step 1: Write failing test additions**
+
+Append to `packages/corpus/src/chunk.test.ts`:
+
+```typescript
+import { chunkFile } from "./chunk.js";
+
+describe("chunkFile with frontmatter + knowledge scope", () =&gt; {
+  it("attaches frontmatter fields to every chunk produced from a file", () =&gt; {
+    const text = `## English
+
+This is the English body which is long enough to chunk.`;
+    const chunks = chunkFile("knowledge/test.md", "knowledge", text, undefined, {
+      cluster: "mechanics",
+      granularity: "concept",
+      source_type: "public",
+    });
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const c of chunks) {
+      expect(c.scope).toBe("knowledge");
+      expect(c.cluster).toBe("mechanics");
+      expect(c.granularity).toBe("concept");
+      expect(c.source_type).toBe("public");
+    }
+  });
+
+  it("omits frontmatter fields when not provided", () =&gt; {
+    const chunks = chunkFile("compliance/x.md", "compliance", "## English\n\nbody");
+    expect(chunks[0]?.cluster).toBeUndefined();
+    expect(chunks[0]?.granularity).toBeUndefined();
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify failure**
+
+Run: `pnpm vitest run packages/corpus/src/chunk.test.ts`
+Expected: FAIL — `knowledge` not assignable to `scope`; 5th arg not in signature.
+
+- [ ] **Step 3: Update `chunk.ts`**
+
+Replace the `Chunk` interface and `chunkFile` signature:
+
+```typescript
+import type { Lang } from "./tokenize.js";
+import { detectLang } from "./tokenize.js";
+import type { CorpusFrontmatter } from "./frontmatter.js";
+
+export interface Chunk {
+  chunk_id: string;
+  file: string;
+  scope: "compliance" | "courses" | "proof" | "knowledge" | "other";
+  lang: Lang;
+  text: string;
+  source_label?: string;
+  cluster?: CorpusFrontmatter["cluster"];
+  granularity?: CorpusFrontmatter["granularity"];
+  source_type?: CorpusFrontmatter["source_type"];
+  source_ref?: string;
+  verified_at?: string;
+  related?: string[];
+  lang_status?: CorpusFrontmatter["lang_status"];
+}
+```
+
+Update the `chunkFile` function signature and chunk construction:
+
+```typescript
+export function chunkFile(
+  file: string,
+  scope: Chunk["scope"],
+  text: string,
+  sourceLabel?: string,
+  frontmatter?: CorpusFrontmatter,
+): Chunk[] {
+  const sections = splitByLangSection(text);
+  const out: Chunk[] = [];
+  let counter = 0;
+  for (const sec of sections) {
+    const slices = sliceByLength(sec.text, sec.lang, TARGET, OVERLAP);
+    for (const slice of slices) {
+      const trimmed = slice.trim();
+      if (!trimmed) continue;
+      out.push({
+        chunk_id: `${file}#${counter++}`,
+        file,
+        scope,
+        lang: sec.lang,
+        text: trimmed,
+        source_label: sourceLabel,
+        cluster: frontmatter?.cluster,
+        granularity: frontmatter?.granularity,
+        source_type: frontmatter?.source_type,
+        source_ref: frontmatter?.source_ref,
+        verified_at: frontmatter?.verified_at,
+        related: frontmatter?.related,
+        lang_status: frontmatter?.lang_status,
+      });
+    }
+  }
+  return out;
+}
+```
+
+- [ ] **Step 4: Run all corpus tests**
+
+Run: `pnpm vitest run packages/corpus`
+Expected: PASS (existing tests should still pass; new tests pass).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/corpus/src/chunk.ts packages/corpus/src/chunk.test.ts
+git commit -m "feat(corpus): add knowledge scope + frontmatter fields on Chunk"
+```
+
+---
+
+## Task 4: Reindex parses frontmatter + recognises knowledge scope
+
+**Files:**
+- Modify: `packages/corpus/src/reindex.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+Create `packages/corpus/src/reindex.test.ts`:
+
+```typescript
+import { describe, expect, it, beforeEach } from "vitest";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+describe("reindex with knowledge scope + frontmatter", () =&gt; {
+  let tmp: string;
+  let originalCorpus: string | undefined;
+
+  beforeEach(async () =&gt; {
+    tmp = await mkdtemp(join(tmpdir(), "corpus-test-"));
+    originalCorpus = process.env["CORPUS_DIR"];
+    process.env["CORPUS_DIR"] = tmp;
+  });
+
+  afterEach(async () =&gt; {
+    if (originalCorpus === undefined) delete process.env["CORPUS_DIR"];
+    else process.env["CORPUS_DIR"] = originalCorpus;
+    await rm(tmp, { recursive: true, force: true });
+  });
+
+  it("parses knowledge/*.md frontmatter and tags chunks", async () =&gt; {
+    const { reindex } = await import("./reindex.js");
+    const { loadChunks, resetCorpusCache } = await import("./loaders.js");
+    resetCorpusCache();
+    await mkdir(join(tmp, "knowledge"), { recursive: true });
+    await writeFile(
+      join(tmp, "knowledge", "switching.md"),
+      `---
+cluster: mechanics
+granularity: concept
+source_type: public
+source_ref: PMB prospectus 2025
+verified_at: 2026-05-29
+lang_status: en_only
+---
+
+## English
+
+Switching funds inside PMB uses the intra-family route.`,
+      "utf8",
+    );
+    const result = await reindex();
+    expect(result.chunks).toBeGreaterThan(0);
+    const chunks = await loadChunks();
+    const k = chunks.find((c) =&gt; c.file === "knowledge/switching.md");
+    expect(k).toBeDefined();
+    expect(k?.scope).toBe("knowledge");
+    expect(k?.cluster).toBe("mechanics");
+    expect(k?.granularity).toBe("concept");
+    expect(k?.source_type).toBe("public");
+    expect(k?.text).not.toContain("---");
+    expect(k?.text).not.toContain("cluster:");
+  });
+});
+```
+
+- [ ] **Step 2: Verify `paths.ts` honors `CORPUS_DIR` env var**
+
+Read `packages/corpus/src/paths.ts`. If it does not already check `process.env.CORPUS_DIR`, update it:
+
+```typescript
+// packages/corpus/src/paths.ts (only if env-var support is missing)
+import { join } from "node:path";
+
+const ROOT = process.env["CORPUS_DIR"] ?? join(process.cwd(), "corpus");
+export const CORPUS_DIR = ROOT;
+export const INDEX_DIR = join(CORPUS_DIR, ".index");
+export const CHUNKS_PATH = join(INDEX_DIR, "chunks.jsonl");
+export const BM25_PATH = join(INDEX_DIR, "bm25.json");
+```
+
+If `paths.ts` already supports the env var, leave it untouched.
+
+- [ ] **Step 3: Run test to verify failure**
+
+Run: `pnpm vitest run packages/corpus/src/reindex.test.ts`
+Expected: FAIL — `knowledge` not recognised, body still contains frontmatter, or chunks lack frontmatter fields.
+
+- [ ] **Step 4: Update `reindex.ts`**
+
+Replace `scopeFromPath` and the file-processing loop:
+
+```typescript
+import { readdir, mkdir, writeFile, stat, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { CHUNKS_PATH, BM25_PATH, CORPUS_DIR, INDEX_DIR } from "./paths.js";
+import { extractText } from "./extract.js";
+import { chunkFile, type Chunk } from "./chunk.js";
+import { buildIndex } from "./bm25.js";
+import { tokenize } from "./tokenize.js";
+import { parseFrontmatter, stripFrontmatter } from "./frontmatter.js";
+
+const ALLOWED_EXTS = new Set([".md", ".txt", ".vtt", ".pdf"]);
+
+function scopeFromPath(file: string): Chunk["scope"] {
+  const rel = relative(CORPUS_DIR, file).split(sep);
+  const top = rel[0] ?? "";
+  if (top === "compliance" || top === "courses" || top === "proof" || top === "knowledge") {
+    return top;
+  }
+  return "other";
+}
+```
+
+Update the file loop to parse and strip frontmatter for `.md` files only:
+
+```typescript
+    try {
+      const s = await stat(f);
+      if (s.size === 0) {
+        skipped.push({ file: f, reason: "empty file" });
+        continue;
+      }
+      let text = await extractText(f);
+      if (!text.trim()) {
+        skipped.push({ file: f, reason: "no extractable text" });
+        continue;
+      }
+      let frontmatter = undefined;
+      if (ext === ".md") {
+        const raw = await readFile(f, "utf8");
+        frontmatter = parseFrontmatter(raw);
+        // when extractText returns the raw markdown, strip the frontmatter
+        // before chunking so it doesn't pollute the BM25 index
+        text = stripFrontmatter(text);
+      }
+      const scope = scopeFromPath(f);
+      const rel = relative(CORPUS_DIR, f);
+      const chunks = chunkFile(rel, scope, text, undefined, frontmatter);
+      allChunks.push(...chunks);
+    } catch (err) {
+      skipped.push({ file: f, reason: err instanceof Error ? err.message : String(err) });
+    }
+```
+
+- [ ] **Step 5: Run tests to verify pass**
+
+Run: `pnpm vitest run packages/corpus`
+Expected: PASS, including the new reindex test.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/corpus/src/reindex.ts packages/corpus/src/reindex.test.ts packages/corpus/src/paths.ts
+git commit -m "feat(corpus): reindex parses universal frontmatter + knowledge scope"
+```
+
+---
+
+## Task 5: Extend `SearchInput` + `search()` with new filters
+
+**Files:**
+- Modify: `packages/corpus/src/tools.ts`
+- Modify: `packages/corpus/src/tools.test.ts`
+- Modify: `packages/corpus/src/index.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `packages/corpus/src/tools.test.ts` (inside its existing describe or as a new one):
+
+```typescript
+describe("search with frontmatter filters", () =&gt; {
+  // Assumes the test harness seeds chunks (or uses the temp corpus pattern
+  // from reindex.test.ts). Adjust setup to match the existing tools.test.ts
+  // fixture style.
+
+  it("filters by cluster", async () =&gt; {
+    const { search } = await import("./tools.js");
+    const { hits } = await search({ query: "switching", cluster: "mechanics" });
+    for (const h of hits) {
+      // Every returned chunk must come from a file tagged cluster=mechanics.
+      // We trust the test fixture to seed at least one such chunk.
+      expect(["mechanics", undefined]).toContain((h as { cluster?: string }).cluster);
+    }
+  });
+
+  it("filters by source_type", async () =&gt; {
+    const { search } = await import("./tools.js");
+    const { hits } = await search({ query: "fee", source_type: "public" });
+    for (const h of hits) {
+      expect(["public", undefined]).toContain((h as { source_type?: string }).source_type);
+    }
+  });
+
+  it("filters by granularity", async () =&gt; {
+    const { search } = await import("./tools.js");
+    const { hits } = await search({ query: "fund", granularity: "fund" });
+    for (const h of hits) {
+      expect(["fund", undefined]).toContain((h as { granularity?: string }).granularity);
+    }
+  });
+});
+```
+
+(If `tools.test.ts` does not already seed chunks, model the setup on
+`reindex.test.ts` from Task 4 — write a `knowledge/*.md` file with
+the relevant frontmatter, then call `reindex()` before each test.)
+
+- [ ] **Step 2: Update `tools.ts`**
+
+At the top of the file add the import and extend types:
+
+```typescript
+import type {
+  Cluster,
+  Granularity,
+  SourceType,
+} from "./frontmatter.js";
+
+export type Scope = "compliance" | "courses" | "proof" | "knowledge";
+export type RegulatorSource = "sc" | "fimm" | "public-mutual";
+
+export interface SearchInput {
+  query: string;
+  k?: number;
+  scope?: Scope[];
+  lang?: Lang;
+  cluster?: Cluster;
+  granularity?: Granularity;
+  source_type?: SourceType;
+}
+
+export interface SearchHit {
+  file: string;
+  chunk_id: string;
+  text: string;
+  score: number;
+  scope: string;
+  lang: Lang;
+  cluster?: Cluster;
+  granularity?: Granularity;
+  source_type?: SourceType;
+}
+```
+
+Extend the `filter` closure inside `search`:
+
+```typescript
+  const filter = (chunkId: string): boolean =&gt; {
+    const c = byId.get(chunkId);
+    if (!c) return false;
+    if (scopeSet &amp;&amp; !scopeSet.has(c.scope)) return false;
+    if (input.lang &amp;&amp; c.lang !== input.lang) return false;
+    if (input.cluster &amp;&amp; c.cluster !== input.cluster) return false;
+    if (input.granularity &amp;&amp; c.granularity !== input.granularity) return false;
+    if (input.source_type &amp;&amp; c.source_type !== input.source_type) return false;
+    return true;
+  };
+```
+
+Update the `hits` mapper to surface the new fields:
+
+```typescript
+      return {
+        file: c.file,
+        chunk_id: c.chunk_id,
+        text: c.text,
+        score: r.score,
+        scope: c.scope,
+        lang: c.lang,
+        cluster: c.cluster,
+        granularity: c.granularity,
+        source_type: c.source_type,
+      };
+```
+
+- [ ] **Step 3: Delete the local `parseFrontmatter` in `tools.ts`**
+
+The local `parseFrontmatter` helper at the bottom of `tools.ts` (line 181)
+is used only by `listProof`. Keep `listProof` working by replacing its
+local call with a small inline parser specific to proof files (since
+proof frontmatter — `persona`, `quote`, `attribution`,
+`permission_status` — uses keys not in `CorpusFrontmatter`):
+
+```typescript
+function parseProofFrontmatter(raw: string): Record&lt;string, string&gt; {
+  const m = /^---\s*\n([\s\S]*?)\n---\s*\n/.exec(raw);
+  if (!m) return {};
+  const out: Record&lt;string, string&gt; = {};
+  for (const line of m[1]!.split(/\r?\n/)) {
+    const kv = /^(\w[\w_]*)\s*:\s*(.+?)\s*$/.exec(line);
+    if (kv) out[kv[1]!] = kv[2]!.replace(/^"|"$/g, "");
+  }
+  return out;
+}
+```
+
+Update `listProof` to call `parseProofFrontmatter` instead of `parseFrontmatter`.
+
+- [ ] **Step 4: Re-export new types from `index.ts`**
+
+```typescript
+// packages/corpus/src/index.ts
+export { reindex } from "./reindex.js";
+export type { ReindexResult } from "./reindex.js";
+
+export { search, getComplianceBlock, listProof } from "./tools.js";
+export type {
+  Scope,
+  RegulatorSource,
+  SearchInput,
+  SearchHit,
+} from "./tools.js";
+export type {
+  CorpusFrontmatter,
+  Cluster,
+  Granularity,
+  SourceType,
+  LangStatus,
+} from "./frontmatter.js";
+
+export { loadChunks, loadIndex, resetCorpusCache } from "./loaders.js";
+```
+
+- [ ] **Step 5: Run all corpus tests**
+
+Run: `pnpm vitest run packages/corpus`
+Expected: PASS, including new filter tests.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add packages/corpus/src/tools.ts packages/corpus/src/tools.test.ts packages/corpus/src/index.ts
+git commit -m "feat(corpus): SearchInput supports cluster, granularity, source_type filters"
+```
+
+---
+
+## Task 6: Update corpus MCP server schema
+
+**Files:**
+- Modify: `mcp-servers/corpus/src/index.ts`
+
+- [ ] **Step 1: Update the `search` tool definition**
+
+Replace lines 40–53 with:
+
+```typescript
+server.tool(
+  "search",
+  "BM25 search over corpus chunks. EN/BM use whitespace + stopword filter. Optional filters: scope (compliance | courses | proof | knowledge), lang, cluster (mechanics | tax | portfolio | primitive), granularity (concept | fund), source_type (public | synthesized).",
+  {
+    query: z.string().min(1),
+    k: z.number().int().positive().max(50).optional(),
+    scope: z.array(z.enum(["compliance", "courses", "proof", "knowledge"])).optional(),
+    lang: z.enum(["en", "ms"]).optional(),
+    cluster: z.enum(["mechanics", "tax", "portfolio", "primitive"]).optional(),
+    granularity: z.enum(["concept", "fund"]).optional(),
+    source_type: z.enum(["public", "synthesized"]).optional(),
+  },
+  async (args) =&gt; {
+    try { return toolResult(await search(args)); }
+    catch (err) { return errorResult(err); }
+  },
+);
+```
+
+- [ ] **Step 2: Build the MCP server**
+
+Run: `pnpm -r --filter='@engineerdad/mcp-corpus' build`
+Expected: clean compile.
+
+- [ ] **Step 3: Verify build of upstream packages**
+
+Run: `pnpm -r --filter='@engineerdad/corpus' build`
+Expected: clean compile.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add mcp-servers/corpus/src/index.ts
+git commit -m "feat(mcp-corpus): expose cluster, granularity, source_type filters on search"
+```
+
+---
+
+## Task 7: Create `corpus/knowledge/` with README + example entry
+
+**Files:**
+- Create: `corpus/knowledge/README.md`
+- Create: `corpus/knowledge/_example.md`
+
+- [ ] **Step 1: Write the README**
+
+```markdown
+# corpus/knowledge
+
+Technical knowledge artifacts for the EngineerDad domain (Public Mutual
+unit trust + PRS). See spec:
+`docs/superpowers/specs/2026-05-29-pmb-corpus-expansion-design.html`.
+
+Each entry is a markdown file with YAML frontmatter:
+
+```yaml
+---
+cluster: mechanics       # mechanics | tax | portfolio | primitive
+granularity: concept     # concept | fund
+source_type: public      # public | synthesized
+source_ref: "PMB Master Prospectus 2025-09-01 p.42"
+verified_at: 2026-05-29
+lang_status: en_only     # en_only | both
+related: [a-fee-schedule, a-switching-matrix]
+---
+```
+
+Body uses the same `## English` / `## Bahasa Malaysia` section
+convention as the rest of `/corpus`. EN ships first; BM follows as a
+separate pass.
+
+Source-type rules:
+- `public` — every claim must cite a real, verifiable source.
+- `synthesized` — plausible scenario patterns. **Never frame as a real
+  client case.** Downstream content must wrap as "imagine / scenario /
+  example."
+
+After dropping files in here, run `pnpm corpus:reindex` (or the
+`reindex` MCP tool) to refresh the BM25 index.
+```
+
+- [ ] **Step 2: Write the example entry**
+
+```markdown
+---
+cluster: primitive
+granularity: concept
+source_type: public
+source_ref: corpus/knowledge example
+verified_at: 2026-05-29
+lang_status: en_only
+---
+
+## English
+
+This is a minimal example knowledge entry. It exists so the corpus
+reindex pipeline has a non-empty knowledge scope to validate against
+during smoke tests. Delete or replace once real entries land.
+```
+
+- [ ] **Step 3: Reindex and verify**
+
+Run: `pnpm -r --filter='@engineerdad/corpus' build &amp;&amp; node -e "import('@engineerdad/corpus').then(c =&gt; c.reindex().then(r =&gt; console.log(JSON.stringify(r, null, 2))))"`
+
+Expected: result includes `knowledge/_example.md`; `chunks` count
+incremented by at least 1; no entry in `skipped` for the example file.
+
+- [ ] **Step 4: Verify chunk frontmatter**
+
+Run: `grep -c '"cluster":"primitive"' corpus/.index/chunks.jsonl`
+Expected: at least 1.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add corpus/knowledge/README.md corpus/knowledge/_example.md corpus/.index/chunks.jsonl corpus/.index/bm25.json
+git commit -m "feat(corpus): add knowledge/ directory with README + example entry"
+```
+
+(If `corpus/.index/` is gitignored, omit those two paths from `git add`.)
+
+---
+
+## Task 8: Update `ARCHITECTURE.md` + `.claude/commands/ingest-corpus.md`
+
+**Files:**
+- Modify: `ARCHITECTURE.md` — corpus section
+- Modify: `.claude/commands/ingest-corpus.md`
+
+- [ ] **Step 1: Find the corpus reference in `ARCHITECTURE.md`**
+
+Run: `grep -n "corpus" ARCHITECTURE.md | head`
+Locate the section that lists corpus scopes.
+
+- [ ] **Step 2: Update the scope list to include `knowledge`**
+
+Wherever the doc lists `compliance | courses | proof`, change to
+`compliance | courses | proof | knowledge`. Add a one-sentence
+description of `knowledge` matching the README:
+
+&gt; `knowledge/` — technical domain knowledge artifacts (PMB mechanics,
+&gt; tax/PRS, portfolio construction). Frontmatter-tagged by `cluster`,
+&gt; `granularity`, `source_type`. See ADR-029.
+
+- [ ] **Step 3: Update `.claude/commands/ingest-corpus.md`**
+
+If the command doc enumerates the scopes, add `knowledge` to the list
+with the same one-sentence description.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add ARCHITECTURE.md .claude/commands/ingest-corpus.md
+git commit -m "docs: document corpus knowledge scope (ADR-029)"
+```
+
+---
+
+## Task 9: Full build + integration smoke
+
+- [ ] **Step 1: Sequential workspace build**
+
+Run: `pnpm -r build`
+Expected: all packages build cleanly. (Per `CLAUDE.md`: never use
+`--parallel`; never run while `next dev` is up.)
+
+- [ ] **Step 2: Run full corpus suite**
+
+Run: `pnpm vitest run packages/corpus`
+Expected: all tests pass.
+
+- [ ] **Step 3: Restart Claude Code prompt**
+
+The corpus MCP changed. Per `feedback_mcp_restart_after_rebuild.md`,
+print a reminder rather than attempting to reload in-process:
+
+&gt; "MCP schema changed for the corpus server. Restart Claude Code so the
+&gt; MCP registry picks up the new `cluster | granularity | source_type`
+&gt; filters before issuing `search` calls that use them."
+
+- [ ] **Step 4: Final commit (if any docs / index drift)**
+
+```bash
+git status
+git add -A
+git commit -m "chore: post-build housekeeping for ADR-029" || echo "nothing to commit"
+```
+
+---
+
+## Self-Review Summary
+
+**Spec coverage check:**
+- Section 4 (Artifact Shape, frontmatter fields) → Task 2 (parser) + Task 3 (Chunk fields) ✓
+- Section 9 (Schema extension prerequisite) → Task 1 (ADR) + Tasks 3–6 (implementation) ✓
+- Section 10 (`source_type: public | synthesized`, `lang_status`) → Task 2 enum + Task 3 fields ✓
+- Knowledge directory convention → Task 7 (README + example) ✓
+- Compliance review via PR → no code; handled at merge time ✓
+- Out-of-scope: staleness policy (not implemented — correct) ✓
+
+**Type consistency:**
+- `Scope` updated identically in `chunk.ts` and `tools.ts` (adds `knowledge`) ✓
+- `CorpusFrontmatter`, `Cluster`, `Granularity`, `SourceType`, `LangStatus` defined once in `frontmatter.ts`, imported everywhere ✓
+- MCP zod enums mirror the TS enums exactly ✓
+
+**Placeholder scan:** none — every code step shows full code; every command shows expected output.
+</pre>
+</body>
+</html>

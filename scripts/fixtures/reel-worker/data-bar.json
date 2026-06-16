@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_bar",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "Same monthly amount, same return — the only difference is when you start, and the gap is brutal.", "onScreenText": "Every year of delay costs", "chartRef": "start-age-penalty", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "compare portfolio value by starting age: the opportunity cost of waiting" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

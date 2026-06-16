@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_bar_grouped",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "An all-Malaysia portfolio looks safe because it's home, but it's a single point of failure — the load-balanced shape spreads the same money across three regions.", "onScreenText": "Home isn't the same as safe", "chartRef": "single-country-vs-global", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "compare the two portfolio shapes side by side across the three regions as grouped bars" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

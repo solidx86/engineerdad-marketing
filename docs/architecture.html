@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EngineerDad Marketing OS — Architecture</title>
+<meta name="description" content="Visual architecture of the EngineerDad Marketing OS — a closed-loop, human-gated agentic marketing platform built on Claude Code + MCP + Postgres.">
+<style>
+  :root{
+    --paper:#0b1118;
+    --paper-2:#0e1620;
+    --ink:#d7e3ee;
+    --ink-dim:#7d8fa0;
+    --ink-faint:#48586a;
+    --line:#1d2a38;
+    --line-2:#27374a;
+    --cyan:#5fd4c4;
+    --amber:#f2b450;
+    --amber-dim:rgba(242,180,80,.14);
+    --red:#e2705f;
+    --mono:"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(95,212,196,.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 30%, rgba(242,180,80,.04), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0 31px, rgba(125,143,160,.05) 31px 32px),
+      repeating-linear-gradient(90deg, transparent 0 31px, rgba(125,143,160,.05) 31px 32px),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--serif);
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sheet{max-width:1060px;margin:0 auto;padding:0 28px 120px}
+
+  /* ---------- reveal choreography ---------- */
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .rise{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+  .d1{animation-delay:.05s}.d2{animation-delay:.15s}.d3{animation-delay:.25s}.d4{animation-delay:.35s}
+  @media (prefers-reduced-motion:reduce){.rise{animation:none}}
+
+  /* ---------- masthead ---------- */
+  header{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+  .stamp{
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-dim);display:flex;gap:18px;flex-wrap:wrap;margin-bottom:26px;
+  }
+  .stamp b{color:var(--cyan);font-weight:500}
+  h1{
+    font-size:clamp(34px,5.4vw,58px);line-height:1.04;font-weight:600;letter-spacing:-.015em;
+  }
+  h1 em{font-style:italic;color:var(--cyan)}
+  .sub{
+    margin-top:18px;max-width:62ch;color:var(--ink-dim);font-size:18px;
+  }
+  .sub strong{color:var(--ink);font-weight:600}
+  .links{margin-top:26px;display:flex;gap:10px;flex-wrap:wrap}
+  .links a{
+    font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-decoration:none;
+    color:var(--ink);border:1px solid var(--line-2);padding:7px 13px;border-radius:3px;
+    transition:border-color .2s,color .2s,background .2s;
+  }
+  .links a:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(95,212,196,.06)}
+
+  /* ---------- section scaffold ---------- */
+  section{padding:58px 0 8px}
+  .kicker{
+    font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--cyan);margin-bottom:10px;
+  }
+  .kicker::before{content:"";display:inline-block;width:26px;height:1px;background:var(--cyan);
+    vertical-align:middle;margin-right:10px;opacity:.7}
+  h2{font-size:clamp(24px,3.2vw,32px);font-weight:600;letter-spacing:-.01em;margin-bottom:10px}
+  .lede{color:var(--ink-dim);max-width:68ch;margin-bottom:30px}
+  .lede a{color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(95,212,196,.35)}
+  .lede code, p code{font-family:var(--mono);font-size:.82em;color:var(--cyan);background:rgba(95,212,196,.07);
+    padding:1px 5px;border-radius:3px}
+
+  /* ---------- the loop ---------- */
+  .loop{
+    border:1px solid var(--line-2);border-radius:6px;background:linear-gradient(180deg,var(--paper-2),rgba(14,22,32,.4));
+    padding:34px 26px 22px;position:relative;overflow:hidden;
+  }
+  .loop::after{ /* corner annotation */
+    content:"FIG. 01 — ONE RUN, NINE STAGES, THREE GATES";
+    position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.14em;color:var(--ink-faint);
+  }
+  .rail{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;row-gap:22px;margin-top:8px}
+  .stage{
+    flex:1 1 96px;min-width:96px;border:1px solid var(--line-2);border-radius:4px;
+    background:var(--paper);padding:10px 10px 9px;position:relative;
+    transition:border-color .2s,transform .2s;
+  }
+  .stage:hover{border-color:var(--cyan);transform:translateY(-2px)}
+  .stage .n{font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.1em}
+  .stage .t{font-family:var(--mono);font-size:13px;color:var(--ink);margin:2px 0 4px;font-weight:600}
+  .stage .k{font-size:12.5px;color:var(--ink-dim);line-height:1.45}
+  .stage.agentic{border-left:3px solid var(--cyan)}
+  .stage.agentic .t{color:var(--cyan)}
+  .arrow{align-self:center;color:var(--ink-faint);font-family:var(--mono);font-size:13px;flex:0 0 auto;padding:0 1px}
+  .gate{
+    flex:0 0 auto;align-self:center;text-align:center;
+    border:1px dashed var(--amber);border-radius:4px;background:var(--amber-dim);
+    padding:8px 9px;min-width:74px;
+  }
+  .gate .g{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--amber);letter-spacing:.08em}
+  .gate .gl{display:block;font-size:10.5px;color:var(--amber);opacity:.85;font-family:var(--mono);letter-spacing:.04em}
+  .gate .stop{display:block;font-size:9px;font-family:var(--mono);letter-spacing:.2em;color:var(--amber);
+    opacity:.6;margin-top:2px}
+  .reflect{
+    margin-top:24px;border-top:1px dashed var(--line-2);padding-top:14px;
+    display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);
+  }
+  .reflect b{color:var(--cyan);font-weight:600}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .sw{width:14px;height:10px;border-radius:2px;display:inline-block}
+  .sw.c{background:rgba(95,212,196,.25);border-left:3px solid var(--cyan)}
+  .sw.a{background:var(--amber-dim);border:1px dashed var(--amber)}
+  .sw.d{background:var(--paper);border:1px solid var(--line-2)}
+
+  /* ---------- layers ---------- */
+  .layers{display:grid;grid-template-columns:1fr;gap:0;margin-top:6px}
+  .layer{
+    border:1px solid var(--line-2);background:var(--paper-2);border-radius:6px;
+    padding:22px 24px;display:grid;grid-template-columns:190px 1fr;gap:20px;align-items:start;
+  }
+  .layer + .flow-down{
+    text-align:center;font-family:var(--mono);font-size:12px;color:var(--ink-faint);
+    padding:6px 0;letter-spacing:.1em;
+  }
+  .layer h3{font-family:var(--mono);font-size:13px;letter-spacing:.1em;color:var(--cyan);font-weight:600}
+  .layer h3 small{display:block;color:var(--ink-faint);letter-spacing:.06em;margin-top:4px;font-weight:400}
+  .layer p{color:var(--ink-dim);font-size:15px}
+  .layer p b{color:var(--ink)}
+  @media (max-width:680px){.layer{grid-template-columns:1fr}}
+
+  /* ---------- cells ---------- */
+  .cells{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .cell{
+    border:1px solid var(--line-2);border-radius:6px;background:var(--paper-2);padding:18px 18px 16px;
+    position:relative;transition:border-color .2s;
+  }
+  .cell:hover{border-color:var(--cyan)}
+  .cell::before{content:attr(data-stage);position:absolute;top:-9px;left:12px;background:var(--paper);
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--ink-faint);padding:0 7px}
+  .cell h4{font-family:var(--mono);font-size:15px;color:var(--cyan);font-weight:600;margin-bottom:6px}
+  .cell p{font-size:13.5px;color:var(--ink-dim);line-height:1.5}
+  .litmus{
+    margin-top:22px;border-left:3px solid var(--cyan);padding:10px 16px;
+    color:var(--ink-dim);font-style:italic;font-size:15.5px;background:rgba(95,212,196,.04);
+  }
+  .litmus b{color:var(--ink);font-style:normal}
+
+  /* ---------- mcp grid ---------- */
+  .mcp-groups{display:grid;gap:18px}
+  .mcp-group h5{
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-dim);margin-bottom:9px;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    font-family:var(--mono);font-size:12.5px;color:var(--ink);
+    border:1px solid var(--line-2);border-radius:3px;background:var(--paper-2);
+    padding:6px 11px;transition:border-color .2s,color .2s;
+  }
+  .chip:hover{border-color:var(--cyan);color:var(--cyan)}
+  .chip small{color:var(--ink-faint);font-size:10.5px;margin-left:6px}
+  .chip.safety small{color:var(--amber)}
+  .mcp-note{margin-top:18px;font-size:14px;color:var(--ink-dim);max-width:70ch}
+  .mcp-note b{color:var(--ink)}
+
+  /* ---------- storage ---------- */
+  .store{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:680px){.store{grid-template-columns:1fr}}
+  .vault{border:1px solid var(--line-2);border-radius:6px;background:var(--paper-2);padding:20px 22px}
+  .vault h4{font-family:var(--mono);font-size:13px;letter-spacing:.08em;color:var(--ink);margin-bottom:12px}
+  .vault h4 i{color:var(--cyan);font-style:normal}
+  .vault ul{list-style:none}
+  .vault li{
+    padding:7px 0;border-top:1px solid var(--line);font-size:14px;color:var(--ink-dim);
+    display:grid;grid-template-columns:128px 1fr;gap:12px;
+  }
+  .vault li code{font-family:var(--mono);font-size:12px;color:var(--cyan);background:none;padding:0}
+
+  /* ---------- safety ---------- */
+  .safety{border:1px solid rgba(242,180,80,.4);border-radius:6px;background:
+    linear-gradient(180deg, rgba(242,180,80,.06), transparent 70%), var(--paper-2);
+    padding:26px 26px 20px;position:relative}
+  .safety::after{content:"FIG. 02 — TRUST BOUNDARY";position:absolute;top:12px;right:14px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:rgba(242,180,80,.5)}
+  .safety h3{font-size:20px;margin-bottom:14px}
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+  .rule{border-top:2px solid var(--amber);padding:12px 2px 0}
+  .rule b{font-family:var(--mono);font-size:12.5px;color:var(--amber);letter-spacing:.04em;display:block;margin-bottom:5px}
+  .rule p{font-size:13.5px;color:var(--ink-dim)}
+
+  /* ---------- doctrine ---------- */
+  .adrs{columns:2;column-gap:34px;font-size:14px}
+  @media (max-width:680px){.adrs{columns:1}}
+  .adrs li{
+    break-inside:avoid;list-style:none;padding:8px 0;border-top:1px solid var(--line);color:var(--ink-dim);
+  }
+  .adrs li code{font-family:var(--mono);font-size:12px;color:var(--cyan);background:none;padding:0;margin-right:8px}
+
+  footer{
+    margin-top:80px;border-top:1px solid var(--line);padding-top:22px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);letter-spacing:.06em;
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  }
+  footer a{color:var(--ink-dim);text-decoration:none;border-bottom:1px solid var(--line-2)}
+  footer a:hover{color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="rise d1">
+    <div class="stamp">
+      <span>DOC <b>ARCH-01</b></span>
+      <span>SYSTEM <b>ENGINEERDAD MARKETING OS</b></span>
+      <span>STATUS <b>IN ACTIVE USE</b></span>
+      <span>SHEET 1 / 1</span>
+    </div>
+    <h1>A marketing department,<br>drawn as a <em>state machine</em>.</h1>
+    <p class="sub">
+      The EngineerDad Marketing OS is a <strong>closed-loop marketing driver</strong>: each cycle it reads live
+      ad-performance signals, reasons about what worked, writes its own briefs, scripts and renders bilingual
+      creatives, designs the next experiment, and ships — with a human approving at every gate and a regulatory
+      compliance scanner on every write. Built on Claude Code subagents, 15 custom MCP servers, and Postgres.
+    </p>
+    <div class="links">
+      <a href="https://github.com/solidx86/engineerdad-marketing">REPOSITORY ↗</a>
+      <a href="https://github.com/solidx86/engineerdad-marketing/blob/main/ARCHITECTURE.md">ARCHITECTURE.md ↗</a>
+      <a href="https://github.com/solidx86/engineerdad-marketing/tree/main/docs/decisions">30 ADRs ↗</a>
+      <a href="https://engineerdad.my">ENGINEERDAD.MY ↗</a>
+    </div>
+  </header>
+
+  <section class="rise d2">
+    <div class="kicker">01 · The closed loop</div>
+    <h2>Nine stages. Three human gates. Then it reflects.</h2>
+    <p class="lede">
+      One run walks the stages in fixed order, driven by a typed, resumable orchestrator
+      (<code>plan → verify → advance</code>). Cyan stages spawn an agent with genuine decision space;
+      everything else is deterministic code. At each amber gate the loop <em>stops</em> until a human
+      approves in the review webapp.
+    </p>
+    <div class="loop">
+      <div class="rail">
+        <div class="stage"><div class="n">S1</div><div class="t">tracking</div><div class="k">Validate the Meta CAPI path — synthetic canary lead</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">S2</div><div class="t">analytics</div><div class="k">Pull insights; rank creatives, cost-per-angle, decay</div></div>
+        <div class="arrow">→</div>
+        <div class="stage agentic"><div class="n">S3</div><div class="t">synthesize</div><div class="k"><b>brain</b> — 9-step scaffold → Decision Memo + hypotheses</div></div>
+        <div class="arrow">→</div>
+        <div class="stage agentic"><div class="n">S4</div><div class="t">brief</div><div class="k"><b>brief-writer</b> — 12 message-based briefs</div></div>
+        <div class="arrow">→</div>
+        <div class="gate"><span class="g">HG1</span><span class="gl">briefs</span><span class="stop">■ STOP</span></div>
+        <div class="arrow">→</div>
+        <div class="stage agentic"><div class="n">S5</div><div class="t">content</div><div class="k"><b>content-writer</b> — hooks, scripts, authority articles</div></div>
+        <div class="arrow">→</div>
+        <div class="gate"><span class="g">HG2</span><span class="gl">scripts</span><span class="stop">■ STOP</span></div>
+        <div class="arrow">→</div>
+        <div class="stage agentic"><div class="n">S6</div><div class="t">produce</div><div class="k"><b>creative-director</b> + render workers → creative variants</div></div>
+        <div class="arrow">→</div>
+        <div class="gate"><span class="g">HG3</span><span class="gl">creatives</span><span class="stop">■ STOP</span></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">S7</div><div class="t">schedule</div><div class="k">Organic slots + paid flight windows</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">S8</div><div class="t">experiment</div><div class="k">Factorial design; 70 / 20 / 10 allocation</div></div>
+        <div class="arrow">→</div>
+        <div class="stage"><div class="n">S9</div><div class="t">distribute</div><div class="k">YouTube unlisted · site drafts · Meta posting pack</div></div>
+      </div>
+      <div class="reflect">
+        <span>↩ then <b>/reflect</b> grades the cycle's hypotheses — Confirmed | Refuted | Inconclusive — and promotes confirmed ones to <b>Learnings</b>, which feed the next run's synthesize stage. The system compounds.</span>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw c"></i> agentic cell (LLM, open decision space)</span>
+      <span><i class="sw d"></i> deterministic code</span>
+      <span><i class="sw a"></i> human gate — loop stops</span>
+    </div>
+  </section>
+
+  <section class="rise d3">
+    <div class="kicker">02 · Three layers, one direction</div>
+    <h2>Agents decide. Code does everything else.</h2>
+    <p class="lede">
+      Dependency flows strictly downward. The conductor talks to exactly two surfaces — the orchestrator MCP
+      and Claude Code's task spawner — and no MCP server ever opens a client to another MCP server.
+    </p>
+    <div class="layers">
+      <div class="layer">
+        <h3>COMMANDS<small>.claude/commands/</small></h3>
+        <p><b>The runtime entry points.</b> <code>/loop</code> is the domain-agnostic conductor; scoped delegators
+        (<code>/brief</code>, <code>/content</code>, <code>/produce</code>, <code>/distribute</code>…) resume a run at a stage.
+        The conductor reasons; it never executes domain logic itself.</p>
+      </div>
+      <div class="flow-down">▼</div>
+      <div class="layer">
+        <h3>AGENTIC CELLS<small>.claude/agents/</small></h3>
+        <p><b>Four subagents, each spawned by one stage</b> — brain, brief-writer, content-writer, creative-director.
+        Each has genuine open decision space. Nothing else in the system is an agent.</p>
+      </div>
+      <div class="flow-down">▼</div>
+      <div class="layer">
+        <h3>DETERMINISTIC SUBSTRATE<small>packages/ + mcp-servers/</small></h3>
+        <p><b>Pure typed logic in <code>packages/</code>; thin stdio MCP adapters over it.</b> The orchestrator
+        state machine, the compliance scanner, analytics + bandit math, BM25 corpus search, renderers and
+        platform adapters — all testable without a model in the loop.</p>
+      </div>
+    </div>
+    <div class="litmus">
+      The agentic litmus test (ADR-020): <b>a step is an agent only if a verifier could not make its judgement.</b>
+      Everything else is code.
+    </div>
+  </section>
+
+  <section class="rise d3">
+    <div class="kicker">03 · The four agentic cells</div>
+    <h2>Small surface, real judgement.</h2>
+    <div class="cells" style="margin-top:26px">
+      <div class="cell" data-stage="SYNTHESIZE">
+        <h4>brain</h4>
+        <p>Runs a 9-step reasoning scaffold over the cycle's analytics → a Decision Memo with falsifiable
+        hypotheses and budget allocation. Also runs the post-cycle Reflect grading.</p>
+      </div>
+      <div class="cell" data-stage="BRIEF">
+        <h4>brief-writer</h4>
+        <p>Turns the Memo's angles into 12 message-based briefs — persona, promise, proof type, funnel stage,
+        budget bucket. Angles, not audiences: creative-as-targeting doctrine.</p>
+      </div>
+      <div class="cell" data-stage="CONTENT">
+        <h4>content-writer</h4>
+        <p>Approved briefs → hook banks (≥30 hooks, 6 emotional registers), scripts with data-bound claims,
+        and AEO/GEO authority articles. Grounded on the BM25 corpus; 80% proof rule enforced.</p>
+      </div>
+      <div class="cell" data-stage="PRODUCE">
+        <h4>creative-director</h4>
+        <p>The taste layer — decomposes each script into storyboards, hook rotation, thumbnail briefs and
+        chart selection. Returns a plan; never writes, never renders. Mechanical spec derivation is code.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="rise d3">
+    <div class="kicker">04 · The MCP fleet</div>
+    <h2>Fifteen custom stdio servers, no mesh.</h2>
+    <p class="lede">
+      Each server is a thin adapter over a sibling package library. Cross-server sequencing goes through the
+      orchestrator hub; inside the workspace, library imports beat stdio calls (ADR-023).
+    </p>
+    <div class="mcp-groups">
+      <div class="mcp-group">
+        <h5>Spine</h5>
+        <div class="chips">
+          <span class="chip">orchestrator<small>typed run-state machine</small></span>
+          <span class="chip">store<small>8 entities · compliance scan at write</small></span>
+          <span class="chip">analytics<small>insights · bandit · decay</small></span>
+          <span class="chip">corpus<small>BM25 search · compliance blocks</small></span>
+          <span class="chip">experiment<small>factorial design + readout</small></span>
+        </div>
+      </div>
+      <div class="mcp-group">
+        <h5>Media production</h5>
+        <div class="chips">
+          <span class="chip">static-renderer<small>HTML → PNG (Chromium)</small></span>
+          <span class="chip">heygen<small>AI-avatar multi-scene reels</small></span>
+          <span class="chip">asset-store<small>R2 CDN upload</small></span>
+          <span class="chip">media-providers-gemini<small>image gen</small></span>
+          <span class="chip">media-providers-kie-ai<small>dormant</small></span>
+        </div>
+      </div>
+      <div class="mcp-group">
+        <h5>Distribution — every write fails safe</h5>
+        <div class="chips">
+          <span class="chip safety">meta-ads<small>hard-wired PAUSED</small></span>
+          <span class="chip safety">meta-organic<small>schedule-only</small></span>
+          <span class="chip safety">youtube<small>unlisted-only</small></span>
+          <span class="chip">distribute<small>manual posting packs</small></span>
+          <span class="chip">engineerdad_site<small>draft-branch handoff</small></span>
+        </div>
+      </div>
+    </div>
+    <p class="mcp-note">
+      <b>Grounding without a vector DB:</b> all generation is grounded on a local, committed BM25 index over the
+      compliance / courses / proof / knowledge corpus. Quantitative claims are bound to vetted datasets at
+      authoring time (ADR-030) and enforced by verifiers — a chart ships only if a source-of-record dataset
+      depicts it.
+    </p>
+  </section>
+
+  <section class="rise d4">
+    <div class="kicker">05 · Storage</div>
+    <h2>One Postgres. Three schemas. One choke point.</h2>
+    <div class="store" style="margin-top:26px">
+      <div class="vault">
+        <h4><i>postgres://</i>engineerdad — Drizzle ORM, journaled migrations</h4>
+        <ul>
+          <li><code>public</code><span>8 entity tables — briefs → learnings; the content lifecycle</span></li>
+          <li><code>orchestrator</code><span>runs, steps, claim-check step results (JSONB + size audit)</span></li>
+          <li><code>analytics</code><span>events audit trail, Meta insights, bandit signals</span></li>
+        </ul>
+      </div>
+      <div class="vault">
+        <h4><i>corpus/</i> — committed grounding material</h4>
+        <ul>
+          <li><code>compliance/</code><span>SC Malaysia · FIMM · Public Mutual rules + banned phrases</span></li>
+          <li><code>courses/ proof/</code><span>brand doctrine, frameworks, persona-keyed proof</span></li>
+          <li><code>data/</code><span>datasets (source-of-record) → charts (derived, cited)</span></li>
+          <li><code>.index/</code><span>BM25 index — travels with the clone</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="mcp-note" style="margin-top:16px">
+      The compliance scanner fires at the store-package write boundary — one auditable choke point that both
+      MCP writes and webapp server-action writes must pass through. Layer-aware, not transport-aware.
+    </p>
+  </section>
+
+  <section class="rise d4">
+    <div class="kicker">06 · Trust boundary</div>
+    <h2>Autonomy inside, hard rails at the edge.</h2>
+    <div class="safety" style="margin-top:26px">
+      <h3>This system markets a licensed financial-advisory practice. The rails are not optional.</h3>
+      <div class="rules">
+        <div class="rule"><b>HUMAN-GATED WRITES</b><p>Every external write passes a human gate in the review webapp. Ad activation is human-only — the OS never sets a Meta ad to ACTIVE.</p></div>
+        <div class="rule"><b>FAIL-SAFE ADAPTERS</b><p>meta-ads creates PAUSED, youtube uploads unlisted, meta-organic schedules only. Safety is hard-wired into the adapter, not the prompt.</p></div>
+        <div class="rule"><b>COMPLIANCE SCANNER</b><p>SC-Malaysia / FIMM rules from the corpus run against the four content entities at the single write boundary. Non-compliant content cannot persist.</p></div>
+        <div class="rule"><b>DATA-BOUND CLAIMS</b><p>Numbers in creatives must trace to vetted datasets; concept visuals may carry no digits. Verifiers enforce both — refusal is mechanical, not behavioural.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="rise d4">
+    <div class="kicker">07 · Doctrine</div>
+    <h2>Thirty ADRs carry the why.</h2>
+    <p class="lede">The load-bearing ones, if you read only a few:</p>
+    <ul class="adrs">
+      <li><code>ADR-005</code>MCP thin-adapter doctrine — and no MCP-to-MCP mesh, ever</li>
+      <li><code>ADR-010</code>Bilingual EN / Bahasa Malaysia on every artifact</li>
+      <li><code>ADR-015</code>Write-API safety — PAUSED / unlisted hard-wired</li>
+      <li><code>ADR-020</code>The agentic litmus test + orchestrator state machine</li>
+      <li><code>ADR-022</code>Claim-check messaging — workers pass references, not payloads</li>
+      <li><code>ADR-023</code>Orchestrator-resident execution — the conductor reasons, code transmits</li>
+      <li><code>ADR-028</code>HeyGen-native multi-scene reel assembly — no local stitching</li>
+      <li><code>ADR-030</code>Data-first claim binding — quantitative claims bind to vetted data</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>ENGINEERDAD MARKETING OS — ARCHITECTURE SHEET · BUILT WITH CLAUDE CODE</span>
+    <span><a href="https://github.com/solidx86/engineerdad-marketing">github.com/solidx86/engineerdad-marketing</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

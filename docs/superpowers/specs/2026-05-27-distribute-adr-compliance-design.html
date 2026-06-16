@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distribute stage — ADR-22/23/24 compliance + Distributions entity — Design Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .meta { font-size: 0.85rem; color: #666; margin-bottom: 2.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #333; }
+  h4 { font-size: 0.88rem; font-weight: 700; margin: 1rem 0 0.4rem; color: #555; }
+  p { margin-bottom: 0.9rem; }
+  ul, ol { margin: 0.5rem 0 0.9rem 1.4rem; }
+  li { margin-bottom: 0.35rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.75rem 0 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.83em; line-height: 1.55; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1rem; font-size: 0.88rem; }
+  th { text-align: left; background: #f4f4f4; padding: 0.45rem 0.7rem; border: 1px solid #ddd; font-weight: 600; }
+  td { padding: 0.4rem 0.7rem; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .callout { border-left: 4px solid #e05; background: #fff5f5; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .callout.info { border-color: #07a; background: #f0f8ff; }
+  .callout.warn { border-color: #f90; background: #fffaf0; }
+  .tag { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1em 0.5em; border-radius: 3px; margin-right: 0.3rem; }
+  .tag.accepted { background: #d4edda; color: #155724; }
+  hr { border: none; border-top: 1px solid #e8e8e8; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Distribute stage — ADR-22/23/24 compliance + Distributions entity</h1>
+<div class="meta">
+  <span><strong>Date:</strong> 2026-05-27</span>
+  <span><strong>Branch:</strong> feat/brain-experiment-params</span>
+  <span><span class="tag accepted">accepted</span></span>
+</div>
+
+<h2>1. Context</h2>
+
+<p>The distribute stage has three coupled problems surfaced while walking <code>run_1779779169</code> through HG4:</p>
+
+<ol>
+  <li><strong>Bug.</strong> <code>plan()</code> crashes with <code>Cannot read properties of undefined (reading 'includes')</code> inside <code>planDistribution()</code>. Root cause: <code>D1-query</code> calls <code>mcp__store__query</code> without a <code>fields:</code> projection, so the store returns only <code>{id, title}</code> per row. <code>d2Route.build</code> casts those skinny rows to <code>DistVariant[]</code> and the planner immediately dereferences <code>v.channels.includes(META)</code> on an undefined field.</li>
+  <li><strong>ADR-024 non-compliance.</strong> <code>d2Route</code> is a <code>kind: "spawn"</code> step that embeds the entire <code>DistributionPlan</code> JSON directly into its <code>spawnPrompt</code> via <code>distributePrompt(plan)</code>. With the bug fixed, that plan acquires real content (campaign + N adsets + per-row tool sequences + backfills) and the spawnPrompt approaches the conductor's 50 KB cap. ADR-024 mandates per-unit bulk worker-input go through <code>ctx.stageInput()</code> with the prompt carrying only an <code>sr_…</code> ref.</li>
+  <li><strong>No operational audit trail.</strong> Today's distribute stage produces no externally visible record of what was attempted, what landed, what was skipped, or why. <code>D3-confirm</code> re-queries the store and emits a pass/fail verdict against <code>verifyDistribute</code>, but the granular outcome is lost. The webapp has review pages for Briefs/Scripts/CreativeVariants but nothing for distribution attempts.</li>
+</ol>
+
+<p>This spec ships the three together because they're mechanically interlocked: fixing the bug exposes the ADR-024 gap; the per-unit worker contract introduced for ADR-024 is the natural write point for the Distributions audit log; the audit log's row shape constrains what each step's worker reports.</p>
+
+<h2>2. Goals &amp; non-goals</h2>
+
+<h3>Goals</h3>
+<ul>
+  <li>The distribute stage runs to completion on real store rows without dereference errors.</li>
+  <li><code>D2-route</code> conforms to ADR-024: spawnPrompts carry refs, not bulk; <code>build()</code> uses <code>ctx.stageInput()</code> for per-unit input.</li>
+  <li>Every distribution attempt and its ground-truth verification produces a queryable row in a new <code>Distributions</code> entity, surfaced in the review UI.</li>
+  <li>D3-confirm remains the trust-of-record: a D2b worker's self-report is the per-attempt row, but D3's ground-truth re-query writes the row that drives HG4.</li>
+  <li>The IG manual-posting boundary (B-005) is preserved unchanged.</li>
+</ul>
+
+<h3>Non-goals</h3>
+<ul>
+  <li>Automating IG organic distribution. Stays manual via <code>/posting-pack</code> until E-024 (always-on scheduler) lands.</li>
+  <li>Retrying failed distribution attempts automatically. The Distributions log makes retries trivially auditable but the retry mechanism itself is a follow-up (handled by re-running <code>/distribute</code>; D2a/D2b idempotency keys already guard against duplicates).</li>
+  <li>Cross-run analytics on Distributions data (rollups, dashboards). The list page in §5 is per-run; aggregation is its own concern.</li>
+  <li>Migrating historical run data into the new Distributions table. The entity is forward-looking.</li>
+</ul>
+
+<h2>3. Approach</h2>
+
+<p>Three coordinated changes, in the order they get implemented:</p>
+
+<ol>
+  <li><strong>D1-query field projection &amp; row → DistVariant projection</strong> — add explicit <code>fields:</code> to D1's three queries; add a <code>projectVariant(row, cells)</code> / <code>projectArticle(row)</code> layer that translates raw store columns into the <code>DistVariant</code> / <code>DistArticle</code> shapes the planner expects.</li>
+  <li><strong>Decompose <code>planDistribution</code> into per-channel emitters</strong> — pull <code>planMetaPaidSetup</code> out as a standalone function (used by D2a-setup) and <code>planMetaPaidRows</code> / <code>planYouTube</code> / <code>planArticles</code> / <code>planOrganic</code> as the per-channel row producers (used by D2b-route). The existing <code>planDistribution</code> entry point stays as a thin composer over them for tests / future callers.</li>
+  <li><strong>Split D2-route into D2a-setup (spawn) + D2b-route (fanout)</strong> — D2a creates the Meta campaign + N adsets via one worker and stages the captured IDs. D2b fans out one unit per rowPlan, each unit's input staged via <code>ctx.stageInput(i, …)</code>, each spawnPrompt carrying only the ref.</li>
+  <li><strong>New <code>Distributions</code> entity</strong> — append-only event log; one row per D2b unit execution (worker self-report) plus one summary row per <code>(variant×channel)</code> and per article from D3-confirm (ground truth).</li>
+  <li><strong>Review page</strong> — <code>/review/distributions?runId=…</code> list view, sort by <code>createdAt desc</code>, filter by channel / status / author step.</li>
+</ol>
+
+<h2>4. Channel routing table</h2>
+
+<p>Distribute today (and under this design) covers four channels. IG is out-of-band.</p>
+
+<table>
+  <thead><tr><th>Channel</th><th>Format</th><th>Aspect</th><th>Routes to</th><th>Tool</th></tr></thead>
+  <tbody>
+    <tr><td>Meta-paid</td><td>Feed / Reel / Carousel</td><td>any</td><td>Meta Ads</td><td><code>mcp__meta-ads__upload_*</code> → <code>create_ad_creative</code> → <code>create_ad</code></td></tr>
+    <tr><td>YouTube</td><td>YT-Long / YT-Short</td><td>16:9 / 9:16</td><td>YouTube</td><td><code>mcp__youtube__upload_video</code></td></tr>
+    <tr><td>Article</td><td>—</td><td>—</td><td>engineerdad-site</td><td><code>mcp__engineerdad_site__draft_article</code></td></tr>
+    <tr><td>Meta-organic</td><td>Carousel</td><td>1:1</td><td><strong>Facebook</strong> organic</td><td><code>mcp__meta-organic__publish_carousel_post</code></td></tr>
+    <tr><td>Meta-organic</td><td>Carousel</td><td>4:5</td><td><strong>SKIPPED</strong> (E-025)</td><td>— (portrait belongs on IG; IG is manual)</td></tr>
+    <tr><td>Meta-organic</td><td>Feed</td><td>4:5</td><td>Facebook organic</td><td><code>mcp__meta-organic__publish_image_post</code></td></tr>
+    <tr><td>Meta-organic</td><td>Reel</td><td>9:16</td><td>Facebook organic</td><td><code>mcp__meta-organic__publish_video_post</code></td></tr>
+    <tr><td>Instagram</td><td>any</td><td>any</td><td><strong>Out-of-band</strong></td><td><code>/posting-pack</code> (manual, B-005 mitigation; until E-024)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <strong>Meta-organic in this stage means Facebook organic only.</strong> <code>organicPublishStep</code> at <code>packages/orchestrator/src/distribute/plan-distribution.ts:368</code> hardcodes <code>platform: "fb"</code>. Instagram is served by <code>/posting-pack</code> (read-only manual aid built 2026-05-21) until E-024 ships an always-on scheduler that can hold posts in a server-side queue.
+</div>
+
+<h2>5. Detailed design</h2>
+
+<h3>5.1 D1-query — field projection &amp; row projection</h3>
+
+<p>D1's three <code>mcp__store__query</code> calls get explicit <code>fields:</code> lists. The values flow into <code>projectVariant(row, cells)</code> and <code>projectArticle(row)</code> helpers added to <code>packages/orchestrator/src/stages/distribute.ts</code>:</p>
+
+<pre><code>const VARIANT_FIELDS = [
+  "format", "aspect", "channels", "assetFiles",
+  "adId", "ytVideoId",
+  "ytTitle", "ytDescription", "ytTags", "ytCategory",
+  "metaPrimaryTextEn", "metaPrimaryTextBm",
+  "metaHeadlineEn", "metaHeadlineBm",
+  "metaDescriptionEn", "metaDescriptionBm",
+  "metaCtaType", "metaTargetingJson",
+  "fbPostId",
+  "organicCaptionEn", "organicCaptionBm",
+  "organicLanguage", "organicScheduledFor",
+];
+
+const ARTICLE_FIELDS = ["slug", "bodyEn", "bodyBm", "faqEn", "faqBm", "deliveredAt"];
+
+// Projection helpers — assemble composite shapes from raw columns,
+// derive cellId by reverse-lookup against AllocatedCell.variantPageIds.
+function projectVariant(row, cells): DistVariant { … }
+function projectArticle(row): DistArticle { … }</code></pre>
+
+<p>The projection is <strong>idempotent</strong>: if a row already carries a pre-projected field (e.g. test fixtures with <code>rowId</code> set), it passes through; otherwise the helper derives it from the raw column. This keeps the existing distribute tests passing without touching their fixtures.</p>
+
+<p>D3-confirm gets the same field lists.</p>
+
+<h3>5.2 plan-distribution.ts — per-channel decomposition</h3>
+
+<p><code>packages/orchestrator/src/distribute/plan-distribution.ts</code> currently exposes one entry point <code>planDistribution()</code> that internally calls <code>planMetaPaid</code> + <code>planYouTube</code> + <code>planArticles</code> + <code>planOrganic</code> and merges their <code>PlanPart</code>s. Each of those internal functions today does both setup and per-row work in one pass (e.g. <code>planMetaPaid</code> emits the campaign + adsets + per-row rowPlans + backfills).</p>
+
+<p>We split <code>planMetaPaid</code> into two:</p>
+<ul>
+  <li><code>planMetaPaidSetup(runId, variants, cells, dailyBudgetMyr) → PlanPart</code> — emits the campaign + adsets only. Used by D2a.</li>
+  <li><code>planMetaPaidRows(variants, cells) → PlanPart</code> — emits per-row tool sequences (upload, creative×2, ad×2) and per-row backfills. Used by D2b.</li>
+</ul>
+
+<p>The other three (<code>planYouTube</code>, <code>planArticles</code>, <code>planOrganic</code>) have no shared setup phase; they emit only rowPlans + backfills. They stay single-function and are used by D2b directly.</p>
+
+<p><code>planDistribution()</code> stays exported as a thin composer over the per-channel functions. Existing callers (tests, dry-run paths) continue to work. The function is no longer called from within <code>d2Route.build</code> directly — D2a and D2b call the decomposed pieces instead.</p>
+
+<h3>5.3 D2a-setup (spawn)</h3>
+
+<p>New step. Replaces the campaign + adsets portion of the old D2-route.</p>
+
+<pre><code>const d2aSetup: StepSpec = {
+  id: "D2a-setup",
+  kind: "spawn",
+  build: async (run, ctx): Promise&lt;Step&gt; =&gt; {
+    const d1 = stepResult&lt;unknown[]&gt;(run, "D1-query") ?? [];
+    const cells = cellsOf(rowsOf(d1[2])[0]);
+    const variants = projectVariants(rowsOf(d1[0]), cells);
+    const params = run.params as DistributeParams;
+    const setupPart = planMetaPaidSetup(run.runId, variants, cells, params.dailyBudgetMyr ?? 0);
+    const ref = await ctx.stageInput(null, {
+      setupSteps: setupPart.setup,
+      dryRun: params.dryRun ?? false,
+    });
+    return {
+      kind: "spawn",
+      stepId: "D2a-setup",
+      agent: "general-purpose",
+      spawnPrompt: setupPromptFor(ref),
+    };
+  },
+  verify: (_run, result): VerifyResult =&gt; {
+    // Worker reports {campaignId, adsetByCellId}. Non-null pass; HG4
+    // ground-truth check on Meta entities is the real backstop.
+    if (result === null || typeof result !== "object") return { ok: false, problems: ["D2a: no setup result"] };
+    return { ok: true, problems: [] };
+  },
+};</code></pre>
+
+<p><strong>Worker prompt</strong> (<code>setupPromptFor(ref)</code>):</p>
+<pre><code>You are the Meta setup worker for the distribute stage.
+
+Your FIRST action: call
+  mcp__orchestrator__read_step_result({ stepResultId: "&lt;ref&gt;" })
+to fetch { setupSteps, dryRun }.
+
+Procedure:
+1. Run every step in `setupSteps` in order. Each step has `captures` — remember
+   the result keyed by that label.
+2. Honor `needs`: substitute the captured label for the placeholder before
+   invoking the step's tool.
+3. If `dryRun` is true, walk the steps and report what you would have called,
+   without executing.
+
+Return JSON: { campaignId, adsetByCellId: { cellId: adsetId, ... } }.
+On empty setupSteps (no routable Meta variants), return { campaignId: null, adsetByCellId: {} }.</code></pre>
+
+<p><strong>Empty-setup case:</strong> if <code>setupPart.setup.length === 0</code> (no routable Meta variants — e.g. experiment declined), the worker receives an empty list and returns the null shape. <code>d2aSetup</code> still dispatches; the worker no-ops in ~1 second. Alternative considered: skip D2a entirely when empty. Rejected because the engine doesn't natively support conditional skipping at the StepSpec level, and a 1-second no-op is cheaper than the special-case logic.</p>
+
+<h3>5.4 D2b-route (fanout)</h3>
+
+<p>New step. Replaces the per-row work portion of the old D2-route.</p>
+
+<pre><code>const d2bRoute: StepSpec = {
+  id: "D2b-route",
+  kind: "fanout",
+  build: async (run, ctx): Promise&lt;Step&gt; =&gt; {
+    const d1 = stepResult&lt;unknown[]&gt;(run, "D1-query") ?? [];
+    const cells = cellsOf(rowsOf(d1[2])[0]);
+    const variants = projectVariants(rowsOf(d1[0]), cells);
+    const articles = projectArticles(rowsOf(d1[1]));
+    const setup = stepResult&lt;SetupResult&gt;(run, "D2a-setup") ?? emptySetup();
+    const params = run.params as DistributeParams;
+    const channels = params.channelFilter ?? null;
+
+    // Per-channel row emitters → flat array of (channel, rowPlan, backfill)
+    const rowUnits = [
+      ...(channelOk("Meta-paid", channels)    ? attachBackfills(planMetaPaidRows(variants, cells))    : []),
+      ...(channelOk("YouTube",   channels)    ? attachBackfills(planYouTube(variants))                 : []),
+      ...(channelOk("Article",   channels)    ? attachBackfills(planArticles(articles))                : []),
+      ...(channelOk("Meta-organic", channels) ? attachBackfills(planOrganic(variants))                 : []),
+    ];
+
+    // Substitute setup IDs into row plans (rowPlans that need "adset:cellX"
+    // get setup.adsetByCellId[cellX] inlined as a needs-resolved placeholder).
+    const resolvedUnits = rowUnits.map((u) =&gt; resolveSetupRefs(u, setup));
+
+    const units = await Promise.all(
+      resolvedUnits.map(async (u, i) =&gt; {
+        const ref = await ctx.stageInput(i, {
+          channel: u.channel,
+          rowPlan: u.rowPlan,
+          backfill: u.backfill,
+          dryRun: params.dryRun ?? false,
+          runId: run.runId,
+        });
+        return { spawnPrompt: routePromptFor(ref, u.channel) };
+      }),
+    );
+
+    return { kind: "fanout", stepId: "D2b-route", worker: "general-purpose", units };
+  },
+  verify: (_run, result): VerifyResult =&gt; {
+    // Per-unit lenient: each unit returned its worker result. D3-confirm is
+    // the trust-of-record. Reject only on null / non-array.
+    if (!Array.isArray(result)) return { ok: false, problems: ["D2b: fanout result not an array"] };
+    return { ok: true, problems: [] };
+  },
+};</code></pre>
+
+<p><strong>Worker prompt</strong> (<code>routePromptFor(ref, channel)</code>) — uniform across channels:</p>
+<pre><code>You are a distribute-route worker for the &lt;channel&gt; channel.
+
+Your FIRST action: call
+  mcp__orchestrator__read_step_result({ stepResultId: "&lt;ref&gt;" })
+to fetch { channel, rowPlan, backfill, dryRun, runId }.
+
+Procedure:
+1. If dryRun, write a Distributions row { status: "dry-run", ... } and return
+   what you would have called. Skip steps 2–4.
+2. Pre-check: if the variant/article already has its idempotency-key field
+   populated (adId for Meta-paid, ytVideoId for YouTube, fbPostId for
+   Meta-organic, deliveredAt for Article), write a Distributions row
+   { status: "skipped", skipReason: "&lt;reason&gt;" }, return early.
+3. Execute rowPlan.steps in order, substituting captures and `$`-prefixed
+   placeholders. If any tool call errors, write a Distributions row
+   { status: "failed", errorMessage, completedAt } and return with the
+   error captured.
+4. Run the backfill step (writes adId / ytVideoId / fbPostId / deliveredAt
+   back onto the variant or article row). Write a Distributions row
+   { status: "routed", outputJson: &lt;captures&gt;, completedAt }.
+
+Return JSON: { rowId, channel, status, outputJson?, errorMessage? }.</code></pre>
+
+<p><strong>Per-unit row shape:</strong> <code>(channel × rowId)</code>. A dual-channel variant (e.g. <code>channels: ["Meta-paid", "Meta-organic"]</code>) produces two units — one Meta-paid, one Meta-organic — independently dispatched. Each does its own backfill on the same store row's distinct columns (<code>adId</code> vs <code>fbPostId</code>). No coordination needed because the backfilled columns don't collide.</p>
+
+<h3>5.5 D3-confirm (write, eager) — summary writes</h3>
+
+<p>D3-confirm's existing behavior is unchanged: re-query the store, run <code>verifyDistribute</code>. We add a side effect: <strong>after</strong> the verify, D3 issues <code>mcp__store__create</code> calls to write summary <code>Distributions</code> rows.</p>
+
+<ul>
+  <li>One row per <code>(variant, channel)</code> the variant claims. <code>status: "routed"</code> if the ground-truth field is populated (<code>adId</code> for Meta-paid, etc.); <code>status: "failed"</code> if missing.</li>
+  <li>One row per article. <code>status: "routed"</code> if <code>deliveredAt</code> is set; <code>"failed"</code> otherwise.</li>
+  <li>All summary rows carry <code>authorStep: "D3-confirm"</code>.</li>
+</ul>
+
+<p>The summary rows are the trust-of-record. The webapp page renders D2b rows and D3 summary rows together; mismatches (D2b says routed, D3 says failed) get a 🚩 marker as the "worker lied" signal.</p>
+
+<h3>5.6 D4-gate (gate, terminal)</h3>
+
+<p>Unchanged. <code>mcp__meta-ads__list_ads</code> check; HG4 clears only when every ad is ACTIVE.</p>
+
+<h2>6. Distributions entity</h2>
+
+<p>New table <code>distributions</code>, registered as <code>ENTITIES.Distributions</code>.</p>
+
+<table>
+  <thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>id</code></td><td>uuid</td><td>no</td><td>from <code>baseColumns()</code></td></tr>
+    <tr><td><code>runId</code></td><td>text</td><td>no</td><td>from <code>baseColumns()</code></td></tr>
+    <tr><td><code>title</code></td><td>text</td><td>no</td><td>from <code>baseColumns()</code> — synthesized as <code>"&lt;channel&gt; · &lt;targetEntity&gt; &lt;short-id&gt;"</code></td></tr>
+    <tr><td><code>targetEntity</code></td><td>text</td><td>no</td><td><code>"CreativeVariants"</code> | <code>"AuthorityArticles"</code></td></tr>
+    <tr><td><code>targetId</code></td><td>uuid</td><td>no</td><td>FK to the variant or article (no DB constraint, mirrors existing pattern)</td></tr>
+    <tr><td><code>channel</code></td><td>text</td><td>no</td><td><code>"Meta-paid"</code> | <code>"Meta-organic"</code> | <code>"YouTube"</code> | <code>"Article"</code></td></tr>
+    <tr><td><code>status</code></td><td>text</td><td>no</td><td><code>"routed"</code> | <code>"failed"</code> | <code>"skipped"</code> | <code>"dry-run"</code></td></tr>
+    <tr><td><code>tool</code></td><td>text</td><td>yes</td><td>MCP tool that produced the outcome; null for skipped/summary rows</td></tr>
+    <tr><td><code>attemptedAt</code></td><td>timestamptz</td><td>no</td><td>When the worker started this attempt</td></tr>
+    <tr><td><code>completedAt</code></td><td>timestamptz</td><td>yes</td><td>When the worker finished; null for in-flight</td></tr>
+    <tr><td><code>outputJson</code></td><td>jsonb</td><td>yes</td><td>Tool response / captures map</td></tr>
+    <tr><td><code>errorMessage</code></td><td>text</td><td>yes</td><td>Worker-reported failure reason</td></tr>
+    <tr><td><code>skipReason</code></td><td>text</td><td>yes</td><td>When <code>status="skipped"</code> — reason from planDistribution or pre-check</td></tr>
+    <tr><td><code>attempt</code></td><td>int</td><td>no</td><td>1-based; count of prior rows for <code>(runId, targetId, channel)</code> + 1</td></tr>
+    <tr><td><code>dryRun</code></td><td>bool</td><td>no</td><td>Mirrors <code>run.params.dryRun</code></td></tr>
+    <tr><td><code>authorStep</code></td><td>text</td><td>no</td><td><code>"D2b-route"</code> (per-attempt) | <code>"D3-confirm"</code> (summary)</td></tr>
+    <tr><td><code>approvalStatus</code></td><td>text</td><td>no</td><td>from <code>baseColumns()</code>; always <code>"Logged"</code> for this entity (not reviewable)</td></tr>
+    <tr><td><code>complianceCheck</code></td><td>bool</td><td>no</td><td>from <code>baseColumns()</code>; always <code>true</code> (entity exempt from compliance scan, mirrors PerformanceReports)</td></tr>
+    <tr><td><code>createdAt</code></td><td>timestamptz</td><td>no</td><td>from <code>baseColumns()</code></td></tr>
+    <tr><td><code>updatedAt</code></td><td>timestamptz</td><td>no</td><td>from <code>baseColumns()</code>; never moves (append-only)</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Indexes:</strong></p>
+<ul>
+  <li><code>(runId, createdAt DESC)</code> — primary list-page sort</li>
+  <li><code>(runId, channel)</code> — channel filter</li>
+  <li><code>(targetId)</code> — drill-down from variant/article detail pages</li>
+</ul>
+
+<p><strong>Compliance scan:</strong> the store's <code>complianceScan</code> already exempts <code>PerformanceReports</code>; this entity gets the same exemption. Distribution log rows describe MCP outcomes — there's no marketing copy to scan, and gating on a compliance check would block legitimate failure-row writes.</p>
+
+<p><strong>TypeScript / Zod:</strong> add <code>DistributionRow</code> interface to <code>packages/shared/src/types.ts</code>; add <code>DistributionRowSchema</code> to <code>packages/shared/src/zod.ts</code> (enums for <code>targetEntity</code>/<code>channel</code>/<code>status</code>/<code>authorStep</code>; nullable optionals on tool/outputJson/errorMessage/skipReason/completedAt). Re-export through <code>@engineerdad/shared</code>.</p>
+
+<p><strong>Drizzle migration:</strong> edit <code>packages/store/src/schema.ts</code> (new <code>pgTable</code>), then <code>pnpm db:sandbox</code> pushes to branch DB. <code>pnpm db:generate</code> produces the SQL diff in <code>packages/store/drizzle/</code>. Commit schema + generated SQL together (existing <code>lint:migrations</code> enforces).</p>
+
+<h2>7. Review page UI</h2>
+
+<p>New route <code>apps/webapp/src/app/review/distributions/page.tsx</code>. Matches the existing review-page convention but is purely observational (no approve button — the entity is a log, not an artifact).</p>
+
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│ Distributions · run_1779779169                          [↻ Refresh] [EN│BM] │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Filter: [All channels ▾] [All status ▾] [D2b worker │ D3 summary │ all]    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Time         Channel       Target              Status   Attempt  Author    │
+│ 15:42:18     Meta-organic  618762e5 Feed 4:5   routed   #1       D3-conf ✓ │
+│ 15:42:17     Meta-organic  618762e5 Feed 4:5   routed   #1       D2b      │
+│ 15:42:15     Meta-paid     b84ca145 Reel 9:16  failed   #1       D3-conf ✗ │
+│   └─ Meta API rejected headline_bm: "Headline length exceeds 60 chars"     │
+│ 15:42:14     Meta-paid     b84ca145 Reel 9:16  routed   #1       D2b      │
+│   └─ {adId: {en: "120…", ms: null}, creativeId: "120…"}                   │
+│ 15:42:10     Meta-paid     0ade51eb Feed 4:5   skipped  #1       D2b      │
+│   └─ Reason: not assigned to an experiment cell                            │
+└─────────────────────────────────────────────────────────────────────────────┘</code></pre>
+
+<p><strong>Behaviors:</strong></p>
+<ul>
+  <li>Sort by <code>createdAt DESC</code></li>
+  <li>Row coloring: green = routed, red = failed, gray = skipped, blue = dry-run</li>
+  <li><strong>Mismatch marker</strong>: when a D2b row says <code>routed</code> but the matching D3 summary row says <code>failed</code> for the same (targetId, channel), paint 🚩 on the D2b row — the "worker lied" signal</li>
+  <li>Click target ID → variant/article detail page; the per-target distribution history shows there as a section</li>
+  <li>No pagination v1 (bounded per run)</li>
+  <li>Bilingual UI per <code>Lang</code> enum (<code>"en" | "ms"</code>); errorMessage/skipReason strings stored as-written (MCP errors are English-only)</li>
+</ul>
+
+<p><strong>API route</strong>: <code>apps/webapp/src/app/api/review/distributions/route.ts</code> — thin proxy to <code>mcp__store__query</code> with the full Distributions field projection, scoped to a <code>runId</code> query param.</p>
+
+<p><strong>Nav link</strong>: add a <code>→ Distributions</code> link from the run detail page's distribute stage section.</p>
+
+<h2>8. Files touched</h2>
+
+<table>
+  <thead><tr><th>Path</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>packages/orchestrator/src/stages/distribute.ts</code></td><td>D1 fields + projection helpers (already uncommitted); D2-route split into D2a + D2b; D3-confirm writes summary Distributions rows</td></tr>
+    <tr><td><code>packages/orchestrator/src/stages/distribute.test.ts</code></td><td>Existing 4 new tests stay; add D2a / D2b / D3-summary tests</td></tr>
+    <tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></td><td>Decompose <code>planMetaPaid</code> into <code>planMetaPaidSetup</code> + <code>planMetaPaidRows</code>; thin <code>planDistribution</code> composer stays</td></tr>
+    <tr><td><code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code></td><td><strong>New.</strong> Unit tests for each decomposed function</td></tr>
+    <tr><td><code>packages/orchestrator/src/registry.ts</code></td><td>Register D2a + D2b in distribute stage (replacing D2-route)</td></tr>
+    <tr><td><code>packages/store/src/schema.ts</code></td><td>New <code>distributions</code> pgTable; <code>ENTITIES.Distributions</code> registration</td></tr>
+    <tr><td><code>packages/store/drizzle/000X_distributions.sql</code></td><td><strong>New.</strong> Generated migration</td></tr>
+    <tr><td><code>packages/store/src/compliance.ts</code> (or wherever exemptions live)</td><td>Add <code>Distributions</code> to the compliance-scan exemption list alongside <code>PerformanceReports</code></td></tr>
+    <tr><td><code>packages/store/src/crud.test.ts</code></td><td>Add Distributions round-trip test (create + query)</td></tr>
+    <tr><td><code>packages/shared/src/types.ts</code></td><td>Add <code>DistributionRow</code> interface</td></tr>
+    <tr><td><code>packages/shared/src/zod.ts</code></td><td>Add <code>DistributionRowSchema</code></td></tr>
+    <tr><td><code>packages/shared/src/index.ts</code></td><td>Re-export</td></tr>
+    <tr><td><code>apps/webapp/src/app/review/distributions/page.tsx</code></td><td><strong>New.</strong> List view</td></tr>
+    <tr><td><code>apps/webapp/src/app/api/review/distributions/route.ts</code></td><td><strong>New.</strong> Proxy to store query</td></tr>
+    <tr><td><code>apps/webapp/src/app/runs/[runId]/page.tsx</code> (or wherever the run detail lives)</td><td>Add <code>→ Distributions</code> nav link</td></tr>
+    <tr><td><code>apps/webapp/e2e/distributions-review.spec.ts</code></td><td><strong>New.</strong> Playwright test for list + filter</td></tr>
+    <tr><td><code>TASKS.md</code></td><td>Close B-related entry once distribute walks clean to HG4 again; add follow-up for E-024 IG integration</td></tr>
+  </tbody>
+</table>
+
+<h2>9. Risks &amp; mitigations</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>D2a worker silently produces wrong <code>adsetByCellId</code> shape; D2b units fail substitution</td>
+      <td>D2a verify rejects non-object results; D2b workers fail loudly when a needs-substitution can't resolve, writing a <code>Distributions</code> row with the error. Test fixture covers malformed D2a output.</td>
+    </tr>
+    <tr>
+      <td>Per-unit fanout for many variants opens many Meta API connections in parallel; rate limits</td>
+      <td>The orchestrator engine's fanout dispatcher already serializes per-unit Task spawns (1 worker at a time on this branch's harness setup). Even at full Claude Code parallelism, Meta's per-app rate limit is comfortably above the 4-30 simultaneous units this stage produces.</td>
+    </tr>
+    <tr>
+      <td>Summary-row writes from D3-confirm double-count attempts on re-run</td>
+      <td><code>Distributions</code> is append-only by design. A re-run produces fresh attempt + fresh summary; the list page shows the full timeline. This is the intended UX.</td>
+    </tr>
+    <tr>
+      <td>Drizzle migration for new table conflicts with another branch's pending migration</td>
+      <td>Standard <code>pnpm db:generate</code> workflow; <code>pnpm lint:migrations</code> catches drift. Branch sandbox isolates testing (ADR-022 + earlier today's branch-DB MCP routing work).</td>
+    </tr>
+    <tr>
+      <td>Distributions table grows unbounded over time</td>
+      <td>Per-run cardinality is bounded (rows ≈ approved-variants × channels-per-variant × attempts). Across all runs at current pace, ~100 rows/week. Retention policy is a follow-up if it becomes an issue; not in scope here.</td>
+    </tr>
+    <tr>
+      <td>Worker prompt &gt; 50 KB if a rowPlan is unusually large</td>
+      <td>Each unit's staged payload is one rowPlan (a few KB at most — even a 5-step ad creation × 20 fields ≈ 2 KB). The <code>spawnPrompt</code> itself is a fixed instruction string + a 50-byte ref. ADR-024 compliance is structural, not just probabilistic.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>10. Testing</h2>
+
+<p>See §4.3 of the brainstorming summary; replicated here for completeness.</p>
+
+<h3>Unit tests</h3>
+<ul>
+  <li><strong>plan-distribution.test.ts (new):</strong> <code>planMetaPaidSetup</code>, <code>planMetaPaidRows</code>, and existing per-channel rows tests. Verify the decomposition is behavior-preserving against the composed <code>planDistribution</code>.</li>
+  <li><strong>distribute.test.ts (extends bug-fix tests):</strong>
+    <ul>
+      <li>D1 declares fields projection (already added)</li>
+      <li>D2a-setup build emits setup steps; stages once via <code>ctx.stageInput(null, …)</code>; empty-cells case emits empty setup</li>
+      <li>D2b-route build emits N units for N rowPlans; per-unit payload contains <code>{channel, rowPlan, backfill, dryRun, runId}</code>; setup IDs from D2a are pre-substituted into row plans</li>
+      <li>D2b-route with channel filter <code>["Meta-organic"]</code> emits only Meta-organic units</li>
+      <li>Dual-channel variant → 2 units (one per channel)</li>
+      <li>D3-confirm writes summary <code>Distributions</code> rows after verify; mismatch case (D2b says routed, D3 says failed) produces both rows correctly</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>Store / schema tests</h3>
+<ul>
+  <li><code>mcp__store__create</code> round-trips a <code>Distributions</code> row through <code>mcp__store__query</code> with all columns intact</li>
+  <li>Two creates for the same <code>(runId, targetId, channel)</code> produce two distinct rows (append-only)</li>
+  <li>Compliance scan exemption: a row with <code>errorMessage</code> containing banned-list terms still creates successfully</li>
+</ul>
+
+<h3>Webapp e2e (Playwright)</h3>
+<ul>
+  <li>Seed a run with 3 Distributions rows (mix of routed/failed/skipped, mix of D2b/D3 authors)</li>
+  <li>Visit <code>/review/distributions?runId=…</code></li>
+  <li>Assert table rows in <code>createdAt DESC</code> order, status pills colored correctly</li>
+  <li>Filter dropdowns narrow results</li>
+  <li>Mismatch marker (🚩) appears when D2b/D3 disagree</li>
+</ul>
+
+<h3>Manual verification (end-to-end on this branch DB)</h3>
+<ul>
+  <li>Resume <code>run_1779779169</code> after the branch-DB snapshot is loaded</li>
+  <li>Walk through D1 (eager) → D2a (no-op worker, no cells) → D2b (1 unit for the Meta-organic carousel, 3 Meta-paid units that skip with "no experiment cell") → D3-confirm writes 1 routed Meta-organic + 3 failed Meta-paid summaries → D4-gate fires "HG4 not cleared — 0 ads ACTIVE"</li>
+  <li>Visit <code>/review/distributions?runId=run_1779779169</code> — ~8 rows visible with the expected status mix</li>
+  <li>Restore <code>.env.local</code> and confirm IG-manual <code>/posting-pack</code> still functions for IG (regression check on B-005 mitigation)</li>
+</ul>
+
+<h2>11. Out of scope &amp; follow-ups</h2>
+
+<ul>
+  <li><strong>E-024 (IG always-on scheduler).</strong> When that ships, IG distribution gets folded into D2b as a new unit category. Spec will reference this one.</li>
+  <li><strong>Auto-retry of failed Distributions.</strong> Today a user re-runs <code>/distribute</code> manually. A retry policy (3 attempts, exponential backoff, with the attempt# field already tracked) is a future enhancement.</li>
+  <li><strong>Cross-run analytics dashboard.</strong> Roll-ups across runs (success rate by channel, failure pareto by error type, throughput) read from the same Distributions table. Out of scope here.</li>
+  <li><strong>Drill-down on variant/article detail pages.</strong> The Distributions section embedded in the variant page is mentioned but not specced in detail; it's a small extension of this design (same data source, scoped filter).</li>
+  <li><strong>D2-route migration of in-flight runs.</strong> Runs already past D1-query at the time of merge will need their <code>D1-query</code> row deleted from <code>orchestrator.run_steps</code> to force re-execution under the new schema. Manual one-off, documented in the plan.</li>
+</ul>
+
+</div>
+</body>
+</html>

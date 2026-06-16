@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Branch-DB MCP Routing — Design Spec</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 880px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .meta { font-size: 0.85rem; color: #666; margin-bottom: 2.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #333; }
+  p { margin-bottom: 0.9rem; }
+  ul, ol { margin: 0.5rem 0 0.9rem 1.4rem; }
+  li { margin-bottom: 0.35rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.75rem 0 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.83em; line-height: 1.55; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1rem; font-size: 0.9rem; }
+  th { text-align: left; background: #f4f4f4; padding: 0.5rem 0.75rem; border: 1px solid #ddd; font-weight: 600; }
+  td { padding: 0.45rem 0.75rem; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .callout { border-left: 4px solid #e05; background: #fff5f5; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .callout.info { border-color: #07a; background: #f0f8ff; }
+  .callout.warn { border-color: #f90; background: #fffaf0; }
+  .tag { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0.1em 0.5em; border-radius: 3px; margin-right: 0.3rem; }
+  .tag.accepted { background: #d4edda; color: #155724; }
+  hr { border: none; border-top: 1px solid #e8e8e8; margin: 2rem 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Branch-DB MCP Routing</h1>
+<div class="meta">
+  <span><strong>Date:</strong> 2026-05-27</span>
+  <span><strong>Branch:</strong> feat/brain-experiment-params</span>
+  <span><span class="tag accepted">accepted</span></span>
+</div>
+
+<h2>1. Context</h2>
+
+<p>Every MCP server in <code>.mcp.json</code> launches with <code>--env-file=.env</code>, which hardcodes <code>DATABASE_URL</code> to the live <code>engineerdad</code> database. <code>.env.local</code> (where <code>pnpm db:sandbox</code> writes the branch sandbox URL) is ignored by the MCPs even though it is the canonical per-developer override file and is already gitignored.</p>
+
+<p>This forces every <code>/loop</code> run, every store write, every analytics ingest from a feature branch to land in production data. The split was originally documented as &ldquo;sandbox is for tests &amp; migrations; runs go live,&rdquo; but in practice branches now want to <em>exercise</em> the loop against real-shaped data (a snapshot of live) before merging — without the cost of corrupting live state on partially-built code.</p>
+
+<p>Concrete trigger: while resuming <code>run_1779779169</code> through HG4 on <code>feat/brain-experiment-params</code>, the orchestrator hit <code>Cannot read properties of undefined (reading 'includes')</code> in <code>planDistribution()</code> — a real D1-query field-projection bug. Reproducing or fixing the bug requires re-walking the distribute stage. Today there is no safe way to do that: every retry mutates live data.</p>
+
+<h2>2. Goals &amp; non-goals</h2>
+
+<h3>Goals</h3>
+<ul>
+  <li>When a developer is on a feature branch with a populated <code>.env.local</code>, every DB-touching MCP reads the branch sandbox DB instead of live, with zero manual flag-flipping per server.</li>
+  <li>Provide a one-shot way to clone live data into the branch sandbox so the loop runs against real-shaped state.</li>
+  <li>Make it hard to accidentally write to live from a non-main branch.</li>
+  <li>Keep behavior on <code>main</code> with no <code>.env.local</code> unchanged.</li>
+</ul>
+
+<h3>Non-goals</h3>
+<ul>
+  <li>Continuous live→sandbox replication. Snapshots are explicit, on-demand.</li>
+  <li>Two-way sync. Sandbox is throwaway; data only flows live→sandbox.</li>
+  <li>Production safety hardening of <code>pnpm db:migrate</code> or other intentionally-live tools. They bypass the guard via an explicit env var.</li>
+  <li>Migrating <code>run_1779779169</code> itself to the sandbox. That run will live out its remaining stages in live (or be abandoned) — the spec ships new behavior for <em>future</em> runs.</li>
+</ul>
+
+<h2>3. Approach</h2>
+
+<p>Three coordinated changes:</p>
+
+<ol>
+  <li><strong>Routing</strong> — append <code>--env-file-if-exists=.env.local</code> to every MCP entry in <code>.mcp.json</code> that already loads <code>.env</code>. Node 24's native env-file layering wins on the second file when present.</li>
+  <li><strong>Snapshot script</strong> — new <code>pnpm db:snapshot</code> that <code>pg_dump</code>s live and <code>pg_restore</code>s into the current branch sandbox, run inside the existing <code>engineerdad-postgres</code> container.</li>
+  <li><strong>Safety guard</strong> — a shared helper in <code>packages/shared</code> called from the three schema-owning <code>db.ts</code> modules; refuses to connect to live <code>engineerdad</code> when the current git branch is not <code>main</code>, unless explicitly bypassed.</li>
+</ol>
+
+<div class="callout info">
+  <strong>Alternative considered &amp; rejected:</strong> a wrapper launcher script (<code>scripts/mcp-launch.mjs</code>) that loads dotenv + runs the guard before exec'ing the MCP. More code, more indirection, no real win over native <code>--env-file-if-exists</code> + an in-process guard at the actual DB-connection seam.
+</div>
+
+<h2>4. Detailed design</h2>
+
+<h3>4.1 Routing change (<code>.mcp.json</code>)</h3>
+
+<p>Every MCP server that currently uses <code>--env-file=.env</code> (12 of them) gets a second <code>--env-file-if-exists=.env.local</code> arg. Pattern:</p>
+
+<pre><code>"orchestrator": {
+  "command": "node",
+  "args": [
+    "--env-file=.env",
+    "--env-file-if-exists=.env.local",
+    "mcp-servers/orchestrator/dist/index.js"
+  ]
+}</code></pre>
+
+<p>Servers affected: <code>meta-ads</code>, <code>meta-organic</code>, <code>analytics</code>, <code>orchestrator</code>, <code>corpus</code>, <code>experiment</code>, <code>heygen</code>, <code>media-providers-gemini</code>, <code>media-providers-kie-ai</code>, <code>store</code>, <code>youtube</code>, plus the others that currently use <code>--env-file=.env</code>. The handful that don't load <code>.env</code> today (<code>asset-store</code>, <code>static-renderer</code>, external <code>engineerdad_site</code>) are untouched — they have no DB or env coupling to begin with.</p>
+
+<p><code>--env-file-if-exists</code> requires Node ≥ 22.7. Repo runs Node 24, so this is fine. If the file is missing, the flag is a no-op (silent), so behavior on a fresh clone of <code>main</code> with no <code>.env.local</code> is identical to today.</p>
+
+<p>Restarting Claude Code is required for MCP re-registration (already noted in <code>CLAUDE.md</code>). Documented again in the updated workflow section.</p>
+
+<h3>4.2 Snapshot script (<code>scripts/db-snapshot.mjs</code>)</h3>
+
+<p>New ESM script invoked via a new top-level <code>db:snapshot</code> pnpm script. Mechanics:</p>
+
+<ol>
+  <li>Resolve <code>source = engineerdad</code>, <code>target = branchSlug()</code> (the existing helper in <code>scripts/lib/db-slug.mjs</code>).</li>
+  <li>Refuse if on <code>main</code> (nothing to clone to) or if the target DB doesn't exist yet — print &ldquo;run <code>pnpm db:sandbox</code> first&rdquo; and exit non-zero.</li>
+  <li>Inside the <code>engineerdad-postgres</code> container, run <code>pg_dump --no-owner --no-acl --clean --if-exists -Fc engineerdad &gt; /tmp/&lt;slug&gt;.dump</code>.</li>
+  <li>Inside the same container, run <code>pg_restore --no-owner --no-acl --clean --if-exists -d &lt;slug&gt; /tmp/&lt;slug&gt;.dump</code>.</li>
+  <li>Re-apply <code>pnpm db:sandbox</code>'s push step at the end (Drizzle push is idempotent) so the snapshotted schema definitively matches what's checked in on the branch — covers the case where the branch has schema changes the live DB doesn't.</li>
+  <li>Delete the temp dump file inside the container.</li>
+</ol>
+
+<p>One progress line per phase. Total runtime expected in seconds at current data volumes.</p>
+
+<p>Why <code>docker exec</code> rather than host-side <code>pg_dump</code>: this session already proved no PG CLI is installed on the host. Container-side execution removes that prerequisite and keeps the script working for anyone with the standard <code>pnpm store:up</code> setup.</p>
+
+<h3>4.3 Boot-time safety guard</h3>
+
+<p>New helper <code>packages/shared/src/db-guard.ts</code> exporting <code>assertDbSafeForBranch(databaseUrl)</code>. Called once per package at the first <code>getDb()</code> invocation, in three places:</p>
+
+<ul>
+  <li><code>packages/store/src/db.ts</code></li>
+  <li><code>packages/orchestrator/src/db.ts</code></li>
+  <li><code>packages/analytics/src/db.ts</code></li>
+</ul>
+
+<p>Rule:</p>
+
+<div class="callout">
+  If the resolved <code>DATABASE_URL</code> resolves to database name <code>engineerdad</code> (no suffix) <strong>and</strong> the current git branch is not <code>main</code>, throw an error naming the branch and suggesting:<br>
+  <code>pnpm db:sandbox &amp;&amp; pnpm db:snapshot</code>
+</div>
+
+<p>Branch detection: read <code>.git/HEAD</code> directly via <code>fs.readFileSync</code> walking up from <code>process.cwd()</code> until found. No <code>git</code> subprocess. If <code>.git/HEAD</code> can't be located (production image, CI worker without git, ephemeral container), the guard is a no-op — it is a developer foot-gun blocker, not a runtime invariant.</p>
+
+<p>Escape hatch: env var <code>ALLOW_LIVE_DB=1</code> bypasses the guard. Used by:</p>
+<ul>
+  <li><code>pnpm db:migrate</code> (legitimately writes live from a branch)</li>
+  <li><code>scripts/db-snapshot.mjs</code> (reads live to dump)</li>
+  <li>Any one-off operator script that has explicit intent</li>
+</ul>
+
+<p>Lazy ordering: the guard runs the first time the DB client is constructed (inside <code>getDb()</code>), so a process that boots and never touches the DB never trips the check. Mirrors how <code>DATABASE_URL not set</code> already behaves.</p>
+
+<h2>5. Files touched</h2>
+
+<table>
+  <thead><tr><th>Path</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>.mcp.json</code></td><td>Add <code>--env-file-if-exists=.env.local</code> to 12 server entries</td></tr>
+    <tr><td><code>packages/shared/src/db-guard.ts</code></td><td><strong>New.</strong> Exports <code>assertDbSafeForBranch()</code>. ~40 LOC.</td></tr>
+    <tr><td><code>packages/shared/src/index.ts</code></td><td>Re-export <code>db-guard</code>.</td></tr>
+    <tr><td><code>packages/shared/src/db-guard.test.ts</code></td><td><strong>New.</strong> Unit tests: mocked <code>.git/HEAD</code>, mocked URL, asserts throws / doesn't throw / bypass works.</td></tr>
+    <tr><td><code>packages/store/src/db.ts</code></td><td>Call guard on first connect.</td></tr>
+    <tr><td><code>packages/orchestrator/src/db.ts</code></td><td>Call guard on first connect.</td></tr>
+    <tr><td><code>packages/analytics/src/db.ts</code></td><td>Call guard on first connect.</td></tr>
+    <tr><td><code>scripts/db-snapshot.mjs</code></td><td><strong>New.</strong> pg_dump live → pg_restore sandbox. ~80 LOC.</td></tr>
+    <tr><td><code>scripts/db-sandbox.mjs</code></td><td>Set <code>ALLOW_LIVE_DB=1</code> in env when re-pushing schemas if it ever connects to live. (Audit; likely no change needed.)</td></tr>
+    <tr><td><code>package.json</code> (root)</td><td>Add <code>"db:snapshot": "node scripts/db-snapshot.mjs"</code>.</td></tr>
+    <tr><td><code>CLAUDE.md</code></td><td>Update &ldquo;Database workflow&rdquo; section: new <code>db:snapshot</code> bullet, note <code>.env.local</code> override semantics, mention <code>ALLOW_LIVE_DB</code>, and add the standard DB query path: <code>docker exec engineerdad-postgres psql -U engineerdad -d &lt;db&gt; -c "&hellip;"</code> &mdash; psql CLI is not installed on the host; do not invent alternatives.</td></tr>
+  </tbody>
+</table>
+
+<h2>6. Risks &amp; mitigations</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>pg_dump version drift between container and snapshot consumer</td>
+      <td>Both <code>pg_dump</code> and <code>pg_restore</code> run inside the same container against the same server. No host-side PG tools used.</td>
+    </tr>
+    <tr>
+      <td>Snapshot includes orchestrator runs created on live; mixing them with new branch runs is confusing</td>
+      <td>Acceptable — snapshot is a point-in-time clone. The webapp run list already namespaces by <code>runId</code> so collisions are impossible (timestamps + suffix). Run state stays consistent.</td>
+    </tr>
+    <tr>
+      <td>Guard false-positive in CI / production</td>
+      <td>Guard is git-aware: with no <code>.git/HEAD</code> reachable, it short-circuits. CI usually runs detached HEAD or in containers without <code>.git</code>; covered.</td>
+    </tr>
+    <tr>
+      <td>Existing branch sandboxes (no live data loaded yet) silently used as &ldquo;empty live&rdquo;</td>
+      <td>Documentation: <code>db:sandbox</code> + <code>db:snapshot</code> are now the standard branch setup. <code>CLAUDE.md</code> updated.</td>
+    </tr>
+    <tr>
+      <td>Forgotten <code>ALLOW_LIVE_DB=1</code> on legitimate scripts → guard throws on a real migration</td>
+      <td>The two scripts that need it (<code>db:migrate</code>, <code>db:snapshot</code>) set it themselves. Manual one-offs accept the friction; error message names the env var.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>7. Testing</h2>
+
+<ul>
+  <li><strong>Unit:</strong> <code>db-guard.test.ts</code> — mock <code>fs.readFileSync</code> and <code>process.env.DATABASE_URL</code>; verify throws on <code>{branch=feat/x, db=engineerdad}</code>, allows <code>{branch=main, db=engineerdad}</code>, allows <code>{branch=feat/x, db=engineerdad_sb_x}</code>, allows when <code>ALLOW_LIVE_DB=1</code>, no-op when <code>.git/HEAD</code> is missing.</li>
+  <li><strong>Integration / manual:</strong> on <code>feat/brain-experiment-params</code>: run <code>pnpm db:sandbox</code>, then <code>pnpm db:snapshot</code>, restart Claude Code, run <code>/status</code> via the orchestrator MCP — verify it shows the cloned runs from live and that a fresh <code>/loop</code> writes into the sandbox not live.</li>
+  <li><strong>Negative:</strong> on <code>main</code> with no <code>.env.local</code>, MCPs continue connecting to live (regression check). Confirm <code>/status</code> matches today.</li>
+  <li><strong>CI:</strong> existing test suite already requires <code>DATABASE_URL</code> to point at <code>_test</code> or <code>_sb_*</code>; guard is consistent with that policy.</li>
+</ul>
+
+<h2>8. Out of scope &amp; follow-ups</h2>
+
+<ul>
+  <li>The original D1-query field-projection bug in <code>packages/orchestrator/src/stages/distribute.ts</code> — separate fix, but unblocked by this work (we'll be able to re-walk D2 against a snapshot).</li>
+  <li>Compressing or anonymising the snapshot. Single-user dev env; not needed.</li>
+  <li>Auto-running <code>db:snapshot</code> on branch checkout. Manual is fine.</li>
+</ul>
+
+</div>
+</body>
+</html>

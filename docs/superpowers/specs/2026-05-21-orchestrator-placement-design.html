@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orchestrator Placement — Corrected Wiring for the EngineerDad Marketing OS</title>
+<style>
+  :root {
+    --ink: #1f2933;
+    --muted: #5b6770;
+    --accent: #4338ca;
+    --accent-soft: #ebebf9;
+    --paper: #f4f3ee;
+    --card: #ffffff;
+    --good: #1a7f4f;
+    --bad: #c0392b;
+    --warn: #b7791f;
+    --rule: #e3e1d9;
+    --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.62;
+    font-size: 16px;
+  }
+  .doc {
+    max-width: 860px;
+    margin: 40px auto;
+    background: var(--card);
+    padding: 56px 64px 72px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px;
+  }
+  h1 {
+    font-size: 27px;
+    line-height: 1.3;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-size: 19px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft);
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  h2 .num {
+    display: inline-block;
+    min-width: 1.5em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  h3 { font-size: 15px; margin: 26px 0 6px; }
+  p { margin: 10px 0; }
+  .meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 22px;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--warn);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 3px;
+    vertical-align: 2px;
+  }
+  .tldr {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px;
+    border-radius: 0 4px 4px 0;
+    margin: 24px 0;
+    font-size: 15px;
+  }
+  .tldr strong { color: var(--accent); }
+  .callout {
+    border-left: 4px solid var(--muted);
+    background: #fafafa;
+    padding: 14px 18px;
+    margin: 18px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 15px;
+  }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre {
+    background: var(--mono-bg);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: 16px 18px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    color: #2b2f36;
+  }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--mono-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--rule);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 11px;
+    border: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .ok { color: var(--good); font-weight: 700; }
+  .no { color: var(--bad); font-weight: 700; }
+  .wn { color: var(--warn); font-weight: 700; }
+  ul, ol { margin: 10px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  .foot {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Orchestrator Placement — Corrected Wiring for the EngineerDad Marketing OS</h1>
+  <p class="meta">
+    Design spec &nbsp;·&nbsp; 2026-05-21 &nbsp;·&nbsp;
+    <span class="badge">DRAFT — FOR REVIEW</span><br>
+    Supersedes the dispatch model in <code>brain.md</code> §A/§E &nbsp;·&nbsp;
+    Generalises TASKS.md E-021 &nbsp;·&nbsp;
+    Origin: brainstorming session, this conversation
+  </p>
+
+  <div class="tldr">
+    The OS was designed as a 4-tier hierarchy — <em>command → brain → leaf agents → workers</em>.
+    The Claude Code runtime supports only <strong>2 tiers</strong>: main session → subagents.
+    <code>brain</code> sits at tier 1, one level too deep to dispatch anything — so 11 of 15
+    commands and 5 of 8 agents are currently unreachable. <strong>The fix:</strong> move
+    orchestration into the command layer (the main session). <code>brain</code> becomes a pure
+    reasoning leaf; commands spawn leaves and fan-out workers directly. One rule for the whole
+    system — <strong>commands orchestrate, everything else is a terminal leaf.</strong>
+  </div>
+
+  <h2><span class="num">1.</span> The problem</h2>
+  <p>
+    The OS is built from three layers on disk:
+  </p>
+  <table>
+    <thead><tr><th>Layer</th><th>Count</th><th>What it is</th><th>Runs at</th></tr></thead>
+    <tbody>
+      <tr><td><code>.claude/commands/*.md</code></td><td>15</td><td>Slash-command entry points — currently 2-line stubs</td><td>Main session (level&nbsp;0)</td></tr>
+      <tr><td><code>.claude/agents/*.md</code></td><td>8</td><td><code>brain</code> + 7 leaf subagents</td><td>Subagent (level&nbsp;1) when spawned</td></tr>
+      <tr><td><code>.mcp.json</code></td><td>13 servers</td><td>The MCP tool layer leaves call</td><td>stdio processes</td></tr>
+    </tbody>
+  </table>
+  <p>
+    The <em>intended</em> topology, per <code>brain.md</code> §A (mode dispatch) and §E (spawn
+    protocols), is a four-tier hierarchy:
+  </p>
+  <pre>command (thin launcher)  →  brain (orchestrator)  →  7 leaf agents  →  workers</pre>
+  <p>
+    Every command except four does the identical thing — <code>Task(subagent_type=brain)</code>.
+    So the real call chain is:
+  </p>
+  <pre>Main session (level 0)
+  └─ Task → brain          (level 1 — brain IS a subagent)
+       └─ Task → targeting / content-gen / media-production / ...
+                            (level 2 — never executes)</pre>
+
+  <h2><span class="num">2.</span> The constraint <span style="font-size:13px;color:var(--muted);font-weight:400;">(verified empirically, 2026-05-21)</span></h2>
+  <div class="callout key">
+    <span class="lbl">Hard runtime constraint</span>
+    A subagent cannot spawn a subagent. The spawn tree is capped at exactly two levels:
+    <strong>main session → subagent</strong>. There is no level 3.
+  </div>
+  <p>
+    This was tested directly in the brainstorming session: a <code>general-purpose</code> subagent
+    was spawned with <code>Tools: *</code> (the most permissive allowlist possible) and instructed
+    to spawn a child. Its actual runtime toolset came back as
+    <code>Bash, Edit, Read, ShareOnboardingGuide, Skill, ToolSearch, Write</code> —
+    <strong>no <code>Task</code>, no <code>Agent</code></strong>. The runtime strips spawn
+    capability from every subagent regardless of frontmatter. This independently confirms
+    TASKS.md E-021's finding (<em>"<code>brain</code> could not spawn <code>distribution</code>"</em>).
+  </p>
+  <p>
+    The whole <code>commands</code>+<code>agents</code> structure was designed before this
+    constraint was known — the design is sound on paper; only the runtime placement is wrong.
+  </p>
+
+  <h3>Consequence — what runs today</h3>
+  <table>
+    <thead><tr><th>Pattern</th><th>Commands</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Command → leaf agent (direct)</td><td><code>/pull-meta</code>, <code>/tracking-test</code></td><td class="ok">✓ runs</td></tr>
+      <tr><td>Command runs inline (no subagent)</td><td><code>/ingest-corpus</code>, <code>/posting-pack</code></td><td class="ok">✓ runs</td></tr>
+      <tr><td>Command → brain → leaf</td><td><code>/loop-once</code>, <code>/brief</code>, <code>/brain</code>, <code>/content</code>, <code>/produce</code>, <code>/experiment</code>, <code>/distribute</code>, <code>/analyze</code>, <code>/reflect</code>, <code>/targeting</code>, <code>/post-week</code> (11)</td><td class="no">✗ dies at hop 2</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <strong>5 of 8 agents are unreachable</strong> — <code>targeting</code>,
+    <code>content-gen</code>, <code>media-production</code>, <code>experiment-os</code>,
+    <code>distribution</code>. No command spawns them directly; only <code>brain</code> is meant
+    to, and <code>brain</code> can't. <code>brain</code> works only as a reasoner (modes that
+    read + write its own DBs); the instant a mode must dispatch, it dies.
+  </p>
+
+  <h2><span class="num">3.</span> The decision</h2>
+  <div class="callout decision">
+    <span class="lbl">Chosen — Approach 2: Brain becomes a reasoning leaf</span>
+    Orchestration moves into the command layer (main session). <code>brain</code> stays a
+    subagent but only <em>reasons</em> — it runs the §12.6 nine-step scaffold and returns a
+    Decision Memo. It dispatches nothing. Each command becomes the orchestrator: it spawns
+    <code>brain</code> for the Memo, then spawns leaf agents and fan-out workers directly.
+  </div>
+  <p>Two alternatives were considered and rejected:</p>
+  <table>
+    <thead><tr><th>Approach</th><th>Why not</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1 — Command IS the orchestrator</strong><br>(brain's scaffold pasted into command bodies; <code>brain.md</code> deleted)</td>
+        <td>Correct, but the §12.6 reasoning scaffold — the intellectual core of the OS — gets duplicated across 11 command files and rots. Loses <code>brain</code> as one coherent, testable unit.</td>
+      </tr>
+      <tr>
+        <td><strong>3 — Minimal per-command fix</strong><br>(each command spawns its leaf directly; no shared orchestrator)</td>
+        <td>Ships fastest, but routing and multi-step sequencing scatter across 15 files with no shared model, and brain's scaffold is left stranded. Under-designed.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Approach 2 is the only option that is both correct and keeps the system coherent. It also
+    matches a decision the project already made: E-021 specifies that
+    <code>media-production</code> should become a spec-returning subagent that dispatches
+    nothing. Approach 2 applies the <em>same rule to every agent</em> — yielding one uniform
+    model for the whole OS.
+  </p>
+
+  <h2><span class="num">4.</span> Target architecture</h2>
+  <p>Three roles, two levels:</p>
+  <table>
+    <thead><tr><th>Role</th><th>Who</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Orchestrator</strong><br><span class="tag">level 0</span></td><td>The slash command (<code>.claude/commands/*.md</code>), running in the main session</td><td>Sequences spawns, threads outputs between them, stops at human gates, fans out workers. Holds <em>routing</em>, not <em>reasoning</em>.</td></tr>
+      <tr><td><strong>Reasoning / leaf agents</strong><br><span class="tag">level 1 · terminal</span></td><td><code>brain</code> + the 7 leaves</td><td>Call MCP servers, return structured JSON. Never spawn. <code>brain</code> returns a Decision Memo; the others return signal / Briefs / Scripts / specs / cells / platform results / diagnostics.</td></tr>
+      <tr><td><strong>Fan-out workers</strong><br><span class="tag">level 1 · terminal</span></td><td><code>general-purpose</code> subagents, spawned by the command</td><td>One disposable worker per heavy independent unit (render a PNG; later, author a hook bank). Return JSON to the command. Never spawn.</td></tr>
+    </tbody>
+  </table>
+
+  <pre>┌──────────────────────────────────────────────────────────────┐
+│  MAIN SESSION  (level 0)  —  a /command runs here            │
+│  role: ORCHESTRATOR — spawn sequence · gates · worker fan-out │
+└───────────┬──────────────────────────────────────────────────┘
+            │  Task   (level 0 → 1 — the ONLY legal spawn)
+            ▼
+┌────────────────────────────┐   ┌───────────────────────────┐
+│  REASONING / LEAF AGENTS   │   │   FAN-OUT WORKERS         │
+│  (level 1 · terminal)      │   │   (level 1 · terminal)    │
+│                            │   │                           │
+│  brain       → Decision    │   │  general-purpose × N      │
+│  analytics   → signal      │   │  render a PNG /           │
+│  targeting   → Briefs      │   │  author a hook bank …     │
+│  content-gen → Scripts     │   │                           │
+│  media-prod  → specs       │   │  return JSON to the       │
+│  experiment  → cells       │   │  command · NEVER spawn    │
+│  distribution→ platform IDs│   │                           │
+│  tracking    → diagnostic  │   │                           │
+│                            │   └───────────────────────────┘
+│  call MCP · return JSON ·  │
+│  NEVER spawn               │
+└────────────┬───────────────┘
+             ▼  MCP (stdio)
+   notion · meta-ads · analytics · corpus · experiment ·
+   youtube · asset-store · static-renderer · meta-organic ·
+   heygen · media-providers-{gemini,kie-ai} · engineerdad_site</pre>
+
+  <h3>Worked example — <code>/loop-once</code></h3>
+  <pre>/loop-once   (main session — ORCHESTRATOR)
+  1. Task → tracking      ▶ CAPI diagnostic JSON
+  2. if ok=false → halt, report to human
+  3. Task → analytics     ▶ topCreatives / fatiguing / anglePerformance
+  4. Task → brain         ▶ runs §12.6 9-step · writes Memo + Hypotheses
+                            to its own DBs · returns Decision Memo JSON
+  5. Task → targeting     ▶ writes 12 Briefs to Notion
+  6. STOP at HUMAN GATE 1  (return control to human)
+
+every spawn is level 0 → level 1 — all legal ✓</pre>
+
+  <h3>Worked example — <code>/produce</code> (absorbs E-021)</h3>
+  <pre>/produce   (main session — ORCHESTRATOR)
+  1. Task → media-production  ▶ returns Variant SPECS — shotlists,
+                               headlines, per-scene render briefs.
+                               Renders nothing.
+  2. fan-out: Task → render-worker × N   (one per static Variant,
+                               parallel within a Script)
+  3. command collects worker JSON, writes Asset Files +
+     Image Generation Notes to Notion
+  4. STOP at HUMAN GATE 3
+
+this IS E-021's target architecture — Approach 2 simply makes
+every command work this way.</pre>
+
+  <h2><span class="num">5.</span> What changes</h2>
+  <table>
+    <thead><tr><th>File(s)</th><th>Change</th></tr></thead>
+    <tbody>
+      <tr><td><code>.claude/commands/*.md</code> — the 11 brain-spawning commands</td><td><span class="no">Rewrite.</span> Each body becomes the orchestration: spawn sequence, output threading, gate stops, worker fan-out. No longer 2-line stubs.</td></tr>
+      <tr><td><code>.claude/commands/{pull-meta,tracking-test}.md</code></td><td><span class="ok">Keep.</span> Already command → leaf direct — the reference pattern.</td></tr>
+      <tr><td><code>.claude/commands/{ingest-corpus,posting-pack}.md</code></td><td><span class="ok">Keep.</span> Already inline main-session.</td></tr>
+      <tr><td><code>.claude/agents/brain.md</code></td><td><span class="wn">Trim.</span> Remove §A mode-dispatch and §E spawn protocols. Keep §B 9-step scaffold, §C Memo structure, §D move catalog, §F cold-start, hard rules. §G organic-planner moves out (see Open Decisions). Becomes a pure reasoning leaf.</td></tr>
+      <tr><td><code>.claude/agents/{analytics,targeting,content-gen,experiment-os,distribution,tracking}.md</code></td><td><span class="ok">Mostly unchanged.</span> Already terminal leaves. Audit each to confirm none assumes it was spawned by brain or expects to spawn.</td></tr>
+      <tr><td><code>.claude/agents/media-production.md</code></td><td><span class="wn">Trim (per E-021).</span> Remove Step 5.5 worker loop, the G11 direct-render prohibition, and Step 7.0 assertion B. Returns specs only; the command fans out render workers.</td></tr>
+      <tr><td><code>brain.md</code> §E spawn-prompt formats</td><td><span class="wn">Relocate.</span> The JSON-tagged spawn-prompt shapes move into the commands — the commands now do the spawning and still need them.</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">6.</span> Worker fan-out — the original goal</h2>
+  <p>
+    The brainstorm started from <em>"make the main agents efficient by fanning out workers on
+    demand."</em> Under the broken topology that was impossible — a leaf agent cannot spawn.
+    Under Approach 2 it falls out for free: the command is the main session, and the main
+    session can spawn workers.
+  </p>
+  <ul>
+    <li><strong><code>/produce</code></strong> — fans out one render worker per static Variant. This is E-021, now an instance of the general pattern rather than a special case.</li>
+    <li><strong><code>/content</code></strong> (future) — <code>content-gen</code> shrinks to a planner that returns a per-Brief spec; the command fans out one authoring worker per Brief (30+ hooks + 3 scripts each). The single strongest fan-out candidate identified in the assessment.</li>
+    <li><strong><code>/brief</code></strong> (future) — same shape for <code>targeting</code>'s 12 Briefs, if measurement justifies it.</li>
+  </ul>
+  <p>
+    The reason for fan-out is <em>context-budget isolation</em> (per ADR-014), not raw speed:
+    each worker's heavy authoring/rendering lives in its own context, so the orchestrator stays
+    small across N units.
+  </p>
+
+  <h2><span class="num">7.</span> Human gates — unaffected</h2>
+  <p>
+    HG1–HG4 are Notion approval states, not code branches. The orchestrator simply runs its
+    spawn sequence and stops — returns control to the human — at the gate. Moving the
+    orchestrator from a <code>brain</code> subagent up to the command layer does not change the
+    gates; it makes them <em>cleaner</em>, because a command in the main session naturally ends
+    the turn and hands back to the human, whereas a subagent returning is not the same as the
+    loop halting.
+  </p>
+
+  <h2><span class="num">8.</span> Open decisions <span style="font-size:13px;color:var(--muted);font-weight:400;">(for the spec → plan cycle)</span></h2>
+  <ol>
+    <li><strong>Shared orchestration code.</strong> Do the 11 rewritten commands duplicate their spawn-sequence logic, or share it via an include directive (the repo already uses <code>&lt;!-- include: --&gt;</code> + <code>pnpm sync:agents</code> for prompt fragments)? Eleven near-identical orchestrators is a maintenance smell.</li>
+    <li><strong>How <code>brain</code> receives analytics signal.</strong> The command spawns <code>analytics</code> before <code>brain</code>. Does it pass the analytics JSON into brain's spawn prompt, or does brain re-read the freshly-populated SQLite via its own read tools? (Brain currently holds <code>mcp__analytics__*</code> read tools — both work.)</li>
+    <li><strong>Fate of <code>brain.md</code> §G organic-planner.</strong> Move wholesale into the <code>/post-week</code> command body, or keep as a small leaf the command spawns?</li>
+    <li><strong>E-021's five sub-decisions</strong> carry forward: media-production spec shape; where brand-contract reasoning lives; who writes the Step 6 Notion rows; fate of <code>corpus/templates/worker-prompts/static-asset.md</code> + <code>scripts/test-static-worker.mjs</code>; cleanup of the Step 5.5 / G11 / 7.0-B language.</li>
+    <li><strong>ADR.</strong> This supersedes the dispatch model in ADR-005 (MCP + agent architecture) and resolves ADR-014's unrunnable worker split. New ADR, or amendments to both?</li>
+    <li><strong>Compliance-scan boundary.</strong> Confirm that with workers returning drafts and the <em>command</em> writing to Notion, the per-DB compliance scan at the notion MCP layer still fires on every page write (it should — the scan is MCP-side, not agent-side).</li>
+  </ol>
+
+  <h2><span class="num">9.</span> Scope &amp; non-goals</h2>
+  <ul>
+    <li><strong>In scope:</strong> relocating the orchestrator; trimming <code>brain.md</code> to a reasoning leaf; the command-rewrite pattern; the worker fan-out mechanism and its first instance (<code>/produce</code>).</li>
+    <li><strong>Not in scope:</strong> changing the closed-loop sequence itself (Tracking → Analytics → Brain → Targeting → … is unchanged); changing any MCP server; changing the Notion schema; the <code>content-gen</code> / <code>targeting</code> fan-out retrofits (follow-on work, noted in §6).</li>
+    <li><strong>Risk:</strong> command files grow from 2 lines to substantial orchestrators. Mitigated by Open Decision&nbsp;1 (shared include). This is unavoidable in any correct fix — the orchestrator must live <em>somewhere</em> in the main session.</li>
+  </ul>
+
+  <div class="foot">
+    Next step after this spec is approved: an implementation plan via the writing-plans skill —
+    sequencing the <code>brain.md</code> trim, the command rewrites, the E-021 media-production
+    changes, and the worker-prompt wiring, with review checkpoints.
+  </div>
+
+</div>
+</body>
+</html>

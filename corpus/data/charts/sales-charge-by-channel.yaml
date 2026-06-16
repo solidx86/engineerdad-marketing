@@ -1,0 +1,36 @@
+# Maximum sales charge by purchase channel — same Public Mutual equity fund family,
+# four different price tags, four different service bundles.
+# Source: corpus/data/datasets/sales-charge-by-channel.json (KWSP i-Invest page FAQ: agent/counter
+# up to 3%, i-Akaun/i-Invest up to 0.5% per buy transaction, both 'subject to change by
+# EPF', fetched 2026-06-11; Public Mutual channels from owned a-fee-schedule.md +
+# a-sales-charge-math.md — 'Up to 5.0% of NAV per unit', EPF-MIS 'up to 3% of NAV per
+# unit, as regulated by EPF', Master Prospectus p. 150).
+# Used by media-production when scene argues "5% sales charge is robbery", "just use
+# EPF i-Invest", "the charge depends on the channel"
+# (objection myths d1-sales-charge-instant-loss, d2-sales-charge-robbery,
+# d2-just-use-epf-iinvest).
+
+id: sales-charge-by-channel
+title_en: "The same funds, four price tags — maximum sales charge by purchase channel"
+title_ms: "Dana yang sama, empat harga — caj jualan maksimum mengikut saluran pembelian"
+chart_type: bar
+x_label_en: "Purchase channel"
+x_label_ms: "Saluran pembelian"
+y_label_en: "Maximum published sales charge (% per purchase)"
+y_label_ms: "Caj jualan maksimum diterbitkan (% setiap pembelian)"
+labels:
+  - "Agent / branch (full consultant service)"
+  - "Public Mutual Online (self-serve; published max — campaign rates vary)"
+  - "EPF-MIS via agent / counter (Akaun Persaraan money)"
+  - "EPF i-Invest via i-Akaun (self-serve; eligibility-capped)"
+series:
+  - name_en: "Maximum published sales charge"
+    name_ms: "Caj jualan maksimum diterbitkan"
+    semantic_role: hero          # one series across all four channels; the i-Invest bar
+                                 # (0.5%, lowest) is the story's hero, the agent bar (5%,
+                                 # fullest service) the comparison — the caption carries
+                                 # what each price tag buys
+    values: [5.0, 5.0, 3.0, 0.5]
+caption_en: "The sales charge is a chosen variable, not a fixed tax — but each price tag buys a different bundle. Up to 5.0% of NAV through an agent or branch buys a licensed consultant's service: the suitability conversation, the paperwork, ongoing review (and 5.0% of NAV works out to 4.76% of the gross amount paid, via the prospectus 5/105 formula — RM476.19 on RM10,000, not RM500). Public Mutual Online carries the same published per-fund cap with no separate online rate in the prospectus — what changes is self-service and a RM100 e-Series entry minimum; actual rates can run below the cap by distributor and campaign. The EPF channels are cheaper but gated: EPF-MIS via an agent is capped at 3% and self-serve i-Invest at 0.5% per buy transaction (both 'subject to change by EPF'), and both only take 30% of your Akaun Persaraan savings ABOVE your age-band Basic Savings, minimum RM1,000, members below 55, recalculated every 3 months — and money invested there stops earning the EPF annual dividend while it is in the funds, taking on market risk instead. This chart compares entry charges only, not suitability and not outcomes: the channels differ in service, eligibility, and caps, and the right one depends on the investor. Figures as at 2026-06-11 (KWSP i-Invest page; Public Mutual Master Prospectus dated 28 Aug 2023 with 1st Supplemental dated 3 Dec 2025); EPF rates are explicitly subject to change."
+caption_ms: "Caj jualan ialah pemboleh ubah yang dipilih, bukan cukai tetap — tetapi setiap harga membeli bungkusan berbeza. Sehingga 5.0% daripada NAB melalui ejen atau cawangan membeli khidmat perunding berlesen: perbualan kesesuaian, urusan dokumen, semakan berterusan (dan 5.0% daripada NAB bersamaan 4.76% daripada jumlah kasar dibayar, melalui formula prospektus 5/105 — RM476.19 atas RM10,000, bukan RM500). Public Mutual Online membawa had terbitan per-dana yang sama tanpa kadar dalam talian berasingan dalam prospektus — yang berubah ialah layan-diri dan minimum kemasukan e-Series RM100; kadar sebenar boleh berada di bawah had mengikut pengedar dan kempen. Saluran EPF lebih murah tetapi berpagar: EPF-MIS melalui ejen dihadkan pada 3% dan i-Invest layan-diri pada 0.5% setiap transaksi belian (kedua-duanya 'tertakluk kepada perubahan oleh EPF'), dan kedua-duanya hanya mengambil 30% daripada simpanan Akaun Persaraan anda MELEBIHI Simpanan Asas mengikut umur anda, minimum RM1,000, ahli bawah 55 tahun, dikira semula setiap 3 bulan — dan wang yang dilaburkan di situ berhenti menerima dividen tahunan EPF sepanjang ia berada dalam dana, sebaliknya menanggung risiko pasaran. Carta ini membandingkan caj kemasukan sahaja, bukan kesesuaian dan bukan hasil: saluran-saluran ini berbeza dari segi khidmat, kelayakan dan had, dan yang sesuai bergantung pada pelabur. Angka setakat 2026-06-11 (laman i-Invest KWSP; Prospektus Induk Public Mutual bertarikh 28 Ogos 2023 dengan Tambahan Pertama bertarikh 3 Dis 2025); kadar EPF tertakluk kepada perubahan secara nyata."
+source_citation: "All rows from corpus/data/datasets/sales-charge-by-channel.json (verified 2026-06-11). EPF channels verbatim from the KWSP i-Invest page FAQ (https://www.kwsp.gov.my/en/member/savings/i-invest, fetched 2026-06-11): 'Initial sales charge by FMI is up to 3% per buy transaction (subject to change by EPF)' for agent/counter applications and 'up to 0.5% per buy transaction (subject to change by EPF)' via the KWSP i-Akaun app / i-Akaun (Member) web portal; i-Invest eligibility on the same page — (Akaun Persaraan - Basic Savings) x 30%, minimum RM1,000, members below 55, eligibility updated every 3 months, no own-fund top-ups, invested amounts not entitled to EPF's annual dividend; Basic Savings targets RM390,000 at age 60, revision effective 1 Jan 2026. Public Mutual channels from owned corpus/knowledge/a-fee-schedule.md ('Up to 5.0% of NAV per unit' for equity/mixed/balanced funds; EPF-MIS 'up to 3% of NAV per unit, as regulated by EPF' — Master Prospectus p. 150; e-Series RM100 minimum, p. 60) and corpus/knowledge/a-sales-charge-math.md (5/105 formula, p. 157; rates vary by distributor and campaign period). Basis note: Public Mutual caps are 'of NAV per unit', KWSP states i-Invest caps 'per buy transaction'. Cost-only channel comparison of entry charges; channels differ in service, eligibility, and caps; not a suitability ranking or advice."

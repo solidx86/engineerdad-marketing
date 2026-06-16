@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Meta-paid unblock — B-025 + B-026 + B-027 + webapp angle surface</title>
+<style>
+  body { font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 860px; margin: 32px auto; padding: 0 16px; color: #1c1c1c; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 16px; margin-top: 22px; }
+  h4 { font-size: 14px; margin-top: 16px; color: #333; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  pre { background: #f4f4f4; padding: 12px 14px; border-radius: 6px; font-size: 13px; line-height: 1.45; overflow-x: auto; }
+  table { border-collapse: collapse; margin: 8px 0 12px; width: 100%; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th { background: #f8f8f8; font-weight: 600; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .callout { background: #fff8dc; border-left: 4px solid #d4b800; padding: 10px 14px; margin: 14px 0; }
+  .danger { background: #ffeded; border-left: 4px solid #d04040; padding: 10px 14px; margin: 14px 0; }
+  .ok { background: #f0f7ed; border-left: 4px solid #4a9c3c; padding: 10px 14px; margin: 14px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .tag { display: inline-block; background: #eef; color: #335; font-size: 11px; padding: 1px 6px; border-radius: 3px; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Meta-paid unblock — B-025 + B-026 + B-027 + webapp angle surface</h1>
+<div class="meta">2026-05-29 · target branch <code>feat/meta-paid-unblock</code> · closes <strong>B-025</strong>, <strong>B-026</strong>, <strong>B-027</strong> · adds webapp angle-visibility surface · unblocks first end-to-end <code>/loop-once</code> that lands PAUSED Meta-paid entities in Ads Manager</div>
+
+<h2>1. Context</h2>
+
+<p>The end-to-end walk on <code>run_1779895374</code> (2026-05-28) reached HG3 cleanly after Brain Initiative Phase 0.5 closed B-022/B-023/B-024 — but the run could not produce Meta-paid entities. Three independent gaps block the path from HG3 to HG4:</p>
+
+<ol>
+  <li><strong>B-026</strong> — <code>brief-writer</code> renames Brain's canonical angle keys (e.g. <code>epf-shortfall-parent-worry</code> → <code>epf-shortfall-math</code>). <code>mapCellsToVariants</code> joins by exact string equality on <code>brief.angle</code>; every multi-angle experiment silently empties its cells.</li>
+  <li><strong>B-025</strong> — <code>verifyExperiment</code> halts on the first empty cell. Operator triage (approving variants from fewer angles than Brain proposed) routinely produces empty cells. The loop halts before distribute is reached.</li>
+  <li><strong>B-027</strong> — three independent defects in the Meta-paid D2a setup path: (i) <code>create_campaign</code> MCP tool missing <code>is_adset_budget_sharing_enabled</code> (Meta API subcode 4834011); (ii) planner emits <code>daily_budget_cents = 0</code> (missing MYR→cents conversion); (iii) planner emits adset args with no <code>targeting</code> object (Meta requires it).</li>
+</ol>
+
+<p>All three must land for a clean walk to reach HG4 with Meta-paid PAUSED entities ready for human activation (HG4 is the human flip-to-ACTIVE gate per ADR-015). A fourth concern surfaces alongside: the canonical angle taxonomy is invisible in the review UI today, so an operator approving Briefs at HG1 has no way to see Brain's <code>recommendedAngles</code>, no way to see angle coverage across the 12 Briefs, and no preview of the experiment-status implication of their approval choice.</p>
+
+<div class="callout">
+<strong>Scope discipline.</strong> This spec closes three named bugs and adds the minimum review-UI surface that prevents the operator from stumbling into a <code>broken</code> or unintended <code>single-cell</code> experiment. Out of scope: B-028 (Reel/YT video pipeline, P3 large), B-029/B-030/B-031 (organic compliance, article fanout, Feed→Meta-organic — separate spec, not on the Meta-paid critical path), partial-rework retry contract (filed as E-044, referenced from §3.1.4).
+</div>
+
+<h2>2. Goal &amp; non-goals</h2>
+
+<h3>2.1 Goal</h3>
+<p>A multi-angle <code>/loop-once</code> from a clean branch sandbox walks through HG1 → HG2 → HG3 → HG4 with minimal operator approvals (1 Brief per angle, 1 Script per Brief, 1 Carousel + 1 Feed variant) and lands ≥1 Meta-paid campaign in Ads Manager with ≥1 adset per occupied cell, all PAUSED, each adset carrying non-zero <code>daily_budget</code> and a non-empty <code>targeting</code> block.</p>
+
+<h3>2.2 Non-goals</h3>
+<ul>
+  <li>No video pipeline fix (B-028 / E-004 remain open; Reel + YT-Long variants stay legitimately skippable at HG3).</li>
+  <li>No organic-compliance, article-routing, or Feed→Meta-organic fixes (B-029/B-030/B-031 — separate spec).</li>
+  <li>No partial-rework retry contract (operator-facing UX, deferred to E-044).</li>
+  <li>No multi-factor experiment generalization (E-042/E-043 — angle stays the only factor in this spec).</li>
+  <li>No critic-step pattern (E-033/E-036/E-037/E-038 — deferred until Brain Initiative Phase 3).</li>
+</ul>
+
+<h2>3. Design</h2>
+
+<h3>3.1 Part 1 — B-026: canonical angle taxonomy enforced</h3>
+
+<h4>3.1.1 The contract</h4>
+<p>Brain's Decision Memo is the canonical source of the experimental angle taxonomy for the run. <code>brief-writer</code> consumes that taxonomy and MUST stamp <code>brief.angle</code> with one of those strings verbatim. The angle is one column on a Brief; the 12-Brief count is independent of the angle count — variety lives on <code>persona × promise × proof_type × funnel_stage × budget_bucket</code>.</p>
+
+<p><strong>Singular per Brief.</strong> The <code>briefs.angle</code> column stays a single <code>text not null</code>. A Brief carrying multiple angles would make <code>mapCellsToVariants</code> ambiguous (which cell does the downstream Variant belong to?), defeating the experiment. The way to span N angles is N Briefs.</p>
+
+<h4>3.1.2 Spawn-prompt arg (orchestrator)</h4>
+
+<p>Today brief-writer infers <code>recommendedAngles</code> from the Decision Memo prose. That inference is the drift surface. Lift the values into a structured arg in the spawn prompt — same pattern Phase 0 used for <code>experimentParams</code>.</p>
+
+<p>In <code>packages/orchestrator/src/stages/brief.ts</code> (the <code>B1-author</code> spawn step's <code>build()</code>):</p>
+<ul>
+  <li>Read the resolved <code>S1-reason</code> step result via <code>BuildContext.stageInput()</code> (the ADR-024 staging primitive).</li>
+  <li>Extract <code>recommendedAngles: string[]</code> by looking up the factor by name (<code>factors.find(f =&gt; f.name === "angle")?.levels</code>) — not by index. Today Brain only emits a single "angle" factor, but E-042/E-043 may add more, and index-based lookup would silently break.</li>
+  <li>Stage the array as a ref; spawn prompt carries the dereferenced strings.</li>
+</ul>
+
+<p>The spawn prompt template gets a new section:</p>
+<pre>## Canonical angle taxonomy
+
+Brain's Decision Memo recommends these angles for this run:
+
+  {{recommendedAngles}}
+
+You MUST set `brief.angle` to one of these strings VERBATIM on
+every Brief you create. No renaming, no abbreviation, no
+paraphrasing. If you cannot reach 12 Briefs within these angles
+plus the other axes (persona, promise, proof_type, funnel_stage,
+budget_bucket), emit fewer Briefs and surface the shortfall in
+your return JSON.</pre>
+
+<h4>3.1.3 Verifier (closes the loop)</h4>
+
+<p>In <code>packages/orchestrator/src/verifiers/verify-brief.ts</code>:</p>
+<ul>
+  <li>Read <code>recommendedAngles</code> from the resolved <code>S1-reason</code> step result (same source as the spawn prompt).</li>
+  <li>For every Brief row the worker created, assert <code>brief.angle</code> is in the set. Collect ALL violations (do not short-circuit on first) so the operator sees the full shape of the drift in one halt message.</li>
+  <li>Return <code>{ ok: false, problems: ["Brief bf_3 angle 'epf-shortfall-math' not in recommendedAngles", ...] }</code> on any violation.</li>
+</ul>
+
+<p><strong>Skip-when-absent.</strong> If <code>recommendedAngles</code> is absent from the memo (the legitimate-skip path Phase 0 allows for cold-start single-angle runs), the verifier does not assert. This preserves the existing escape hatch.</p>
+
+<h4>3.1.4 Recovery contract</h4>
+
+<p>On <code>verify.ok === false</code>, the existing one-shot conductor retry fires (<code>.claude/commands/loop.md:56–63</code>). The retry re-spawns the entire brief-writer worker — same prompt, but with one critical difference now: <code>recommendedAngles</code> is an explicit structured arg, not an inference, so the drift cause is gone on the retry.</p>
+
+<p>If the retry still produces off-taxonomy Briefs, the run halts and the operator unblocks manually (delete bad Briefs in DB, re-spawn, or patch <code>brief.angle</code> in-place). This matches the recovery contract every other verifier uses today.</p>
+
+<div class="callout">
+<strong>Deferred — E-044.</strong> Partial-rework retry (verifier returns per-row bad IDs; orchestrator re-spawns brief-writer with "fix only these N Briefs, leave the other M alone" prompt) is a new contract — needs verifier-shape changes, conductor logic, and brief-writer idempotency. File as a separate enhancement when this spec ships. Trigger to re-open: ≥2 cycles where post-fix brief-writer still drifts on retry.
+</div>
+
+<h4>3.1.5 Schema tightening — <code>briefs.angle</code> NOT NULL</h4>
+
+<p>In <code>packages/store/src/schema.ts</code>, change <code>angle: text("angle")</code> to <code>angle: text("angle").notNull()</code>. The B-026 contract makes null an error; the column type should reflect that.</p>
+
+<p><strong>Backfill check.</strong> Verified 2026-05-29: existing Briefs all carry a non-null <code>angle</code> (brief-writer has always emitted it). Plan must re-verify at migration time: <code>SELECT COUNT(*) FROM briefs WHERE angle IS NULL;</code> on live <code>engineerdad</code> must return 0 before applying the migration. If any null rows are found, patch them in place from the linked Decision Memo before the NOT NULL constraint lands.</p>
+
+<h3>3.2 Part 2 — B-025: experiment tri-state</h3>
+
+<h4>3.2.1 Status vocabulary</h4>
+
+<table>
+  <thead><tr><th>Status</th><th>Cell occupancy</th><th>Verify result</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>full</code></td><td>every cell has ≥1 variant</td><td>pass</td><td>Real N-way experiment as Brain designed.</td></tr>
+    <tr><td><code>degraded</code></td><td>≥2 cells have variants, ≥1 empty</td><td>pass</td><td>Smaller-than-designed experiment; comparison still valid across populated cells.</td></tr>
+    <tr><td><code>single-cell</code></td><td>exactly 1 cell has variants</td><td>pass</td><td>Routing, not experiment. No comparison possible. <code>/reflect</code> skips Hypothesis grading.</td></tr>
+    <tr><td><code>broken</code></td><td>0 cells have variants</td><td>fail</td><td>Either upstream B-026 drift escaped, or HG3 approved zero variants. Halt.</td></tr>
+  </tbody>
+</table>
+
+<h4>3.2.2 Schema change</h4>
+
+<p>In <code>packages/store/src/schema.ts</code>, add to the <code>experiments</code> table:</p>
+<pre>experimentStatus: text("experiment_status").notNull(),</pre>
+
+<p>Values constrained by the CRUD-layer validator (per E-029 pattern; no Postgres CHECK constraint to stay consistent with the rest of the schema). Add the union to <code>packages/shared/src/zod.ts</code> as <code>ExperimentStatus = "full" | "degraded" | "single-cell" | "broken"</code>.</p>
+
+<p><strong>Migration.</strong> Generate via <code>pnpm db:generate</code> on a branch sandbox; commit the SQL alongside <code>schema.ts</code> (the <code>lint:migrations</code> pre-commit enforces this). Backfill is moot — verified 2026-05-29 against live <code>engineerdad</code> DB: <code>SELECT COUNT(*) FROM experiments;</code> returns <code>0</code>. The experiment stage has never landed a row in production yet (every prior run halted before X3-write). The implementation plan's first rollout step must re-run that count immediately before applying the migration — if any rows now exist (e.g. a successful walk between spec and merge), the migration needs a default or a backfill.</p>
+
+<h4>3.2.3 Verifier</h4>
+
+<p>In <code>packages/orchestrator/src/verifiers/verify-experiment.ts</code>:</p>
+<pre>const occupied = cells.filter(c =&gt; c.variantPageIds.length &gt; 0).length;
+const experimentStatus =
+  occupied === cells.length ? "full"
+  : occupied &gt;= 2           ? "degraded"
+  : occupied === 1          ? "single-cell"
+  :                           "broken";
+
+if (experimentStatus === "broken") {
+  return { ok: false, problems: ["all cells empty: no approved variants mapped to any cell"] };
+}
+return { ok: true, problems: [], data: { experimentStatus } };</pre>
+
+<p>The verifier carries <code>experimentStatus</code> in its <code>data</code> field so the downstream X3-write step can pick it up without recomputing.</p>
+
+<h4>3.2.4 X3-write</h4>
+
+<p>In <code>packages/orchestrator/src/stages/experiment.ts</code>, the X3-write step that persists the Experiments row now writes <code>experimentStatus</code> on every row (including <code>full</code>). Source of truth is the verifier's <code>data.experimentStatus</code> from the prior X2-verify step.</p>
+
+<h4>3.2.5 Distribute (no branching)</h4>
+
+<p>All three pass-states route the same way. <code>plan-distribution.ts</code> reads variants and routes whichever cells are populated; empty cells naturally contribute zero variants. No special case for <code>single-cell</code>.</p>
+
+<h4>3.2.6 <code>/reflect</code> (downstream consumer)</h4>
+
+<p>The Reflect procedure (<code>.claude/commands/reflect.md</code> + brain agent §B-step-2) reads <code>experimentStatus</code> from the prior cycle's Experiments row. On <code>single-cell</code>, Brain skips Hypothesis graduation for that cycle (a single cell is not a comparison; nothing to confirm or refute). On <code>degraded</code>, Brain grades only the populated cells. On <code>full</code>, no change.</p>
+
+<h3>3.3 Part 3 — B-027: Meta-paid D2a setup</h3>
+
+<h4>3.3.1 MCP schema — <code>is_adset_budget_sharing_enabled</code></h4>
+
+<p>In <code>mcp-servers/meta-ads/src/tools/create-campaign.ts</code>:</p>
+<ul>
+  <li>Add to the input Zod schema: <code>is_adset_budget_sharing_enabled: z.boolean().optional().default(false)</code>.</li>
+  <li>Forward the value to Meta's Graph API in the <code>POST /act_{ad_account_id}/campaigns</code> body. Default <code>false</code> matches today's no-CBO behavior.</li>
+  <li>Closes Meta API error subcode <code>4834011</code> on every campaign creation.</li>
+</ul>
+
+<h4>3.3.2 Planner budget math</h4>
+
+<p>In <code>packages/orchestrator/src/distribute/plan-distribution.ts</code> (line 154 today):</p>
+
+<p><strong>Before:</strong></p>
+<pre>daily_budget_cents: Math.round(dailyBudgetMyr * cell.allocationPct),</pre>
+
+<p><strong>After:</strong></p>
+<pre>daily_budget_cents: Math.max(1, Math.round(dailyBudgetMyr * cell.allocationPct * 100)),</pre>
+
+<p>Two fixes in one line:</p>
+<ul>
+  <li>The missing <code>* 100</code> — <code>dailyBudgetMyr</code> is MYR, <code>daily_budget_cents</code> is cents. Today the field is named cents but holds MYR-rounded.</li>
+  <li>The <code>Math.max(1, …)</code> floor — if <code>dailyBudgetMyr</code> defaults to 0 (no <code>--daily-budget</code> on the run) or <code>allocationPct</code> rounds to 0 for a tiny cell, the result violates Meta's <code>exclusiveMinimum: 0</code>. The floor at 1 cent makes the call legal even if the budget signal is missing; the operator sees the absurdly small budget in Ads Manager and corrects it human-side.</li>
+</ul>
+
+<p><strong>Budget source-of-truth.</strong> Today the planner reads <code>dailyBudgetMyr</code> from <code>run.params</code> only (the parsed <code>--daily-budget=N</code> CLI arg). Change the read order to: <em>(1)</em> Brain's <code>experimentParams.dailyBudgetMyr</code> from the resolved S1-reason step result (the right source — Brain's hypothesis carries the experimental budget), <em>(2)</em> falling back to <code>run.params.dailyBudgetMyr</code> (operator CLI override), <em>(3)</em> falling back to <code>0</code> (caught by the <code>Math.max(1, …)</code> floor). Audit <code>packages/orchestrator/src/run-args.ts</code> to ensure the CLI default stays <code>0</code> rather than masking missing Brain output with a hard-coded number.</p>
+
+<h4>3.3.3 Planner targeting derivation</h4>
+
+<p>Same file. Meta <code>create_adset</code> requires a <code>targeting</code> object. The targeting goes on the <strong>adset</strong>, and today's distribute architecture is <strong>one adset per cell</strong> (cell = angle × budget bucket) with multiple ads attached (one per variant × language). Verified by reading <code>plan-distribution.ts:149–162</code>: <code>adsetStep(runId, cell, dailyBudgetMyr)</code> builds one adset per cell; <code>creativeStep</code> + <code>adStep</code> hang the per-(variant × language) ads off that adset.</p>
+
+<p>Because every adset carries bilingual ads (EN + MS variants of each Variant), the adset's <code>locales</code> array must include both languages. Andromeda doctrine (creative-as-targeting; audiences stay broad) reinforces this — the targeting block should be minimal, not language-segmented.</p>
+
+<pre>function targetingForCell(_cell: AllocatedCell): MetaTargeting {
+  return {
+    geo_locations: { countries: ["MY"] },
+    age_min: 25,
+    age_max: 55,
+    locales: [LOCALE_ID.en, LOCALE_ID.ms],
+  };
+}
+
+// Meta locale IDs are integers from Meta's Graph API.
+// Look them up at implementation time via authenticated calls:
+//   GET /v18.0/search?type=adlocale&amp;q=English   → find "English (US)" id
+//   GET /v18.0/search?type=adlocale&amp;q=Malay     → find "ms_MY" / "Malay" id
+// Document the source URL + retrieval date in a comment next to the constant.
+const LOCALE_ID: { en: number; ms: number } = { en: /* TBD */ 0, ms: /* TBD */ 0 };</pre>
+
+<p>The <code>_cell</code> parameter is unused today but kept in the signature: future cell-aware targeting (per-persona age bands once persona becomes an experimental factor — E-042) reads the cell. Wiring the param now avoids a downstream signature change.</p>
+
+<div class="callout">
+<strong>Implementation step (locale IDs).</strong> The two integer values in <code>LOCALE_ID</code> MUST be looked up via an authenticated Graph API search at implementation time — web search did not yield a trustworthy source. The first plan step in Part 3 should be: hit <code>/v18.0/search?type=adlocale&amp;q=English</code> + <code>q=Malay</code> using the existing <code>META_ACCESS_TOKEN</code>, write the resulting IDs into the constant with a dated source comment, and add a unit test that asserts the constant's shape (both keys present, both non-zero).
+</div>
+
+<p><strong>Wire site.</strong> In <code>adsetStep()</code>, add <code>targeting: targetingForCell(cell)</code> to the <code>args</code> object alongside <code>daily_budget_cents</code> et al.</p>
+
+<p><strong>Why no per-language adset split.</strong> Splitting one adset into two per cell (one EN, one MS) would double the adset count, sub-split the per-cell budget, and force a redesign of the experiment's cell topology. The current "one adset per cell with bilingual ads + bilingual locales" preserves the experiment structure and keeps targeting minimal — the doctrinally correct choice. If language ever becomes an experimental factor (E-043), the split happens at the experiment design layer, not the planner.</p>
+
+<p><strong>Why no persona-derived age band.</strong> Persona is Andromeda's parent archetype (e.g. <code>concerned-EPF-parent</code>); ages overlap across archetypes (a "young-parent" archetype is not strictly 25–35). Hard-coding age bands per persona would (a) bake one specific Andromeda taxonomy into the planner, and (b) contradict creative-as-targeting doctrine. Future <code>persona</code>-as-experimental-factor (E-042) is the right place to introduce persona-driven targeting; not here.</p>
+
+<h3>3.4 Part 4 — Webapp angle-visibility surface</h3>
+
+<p>The angle taxonomy is invisible in the review UI today. An operator at HG1 sees 12 Briefs with various <code>angle</code> strings but no anchor to Brain's <code>recommendedAngles</code>, no count per angle, no preview of the experiment-status implication of their approval choice.</p>
+
+<p><strong>Webapp shape (confirmed by directory inspection).</strong> The review UI is a unified dynamic-route Next.js app, not per-entity pages:</p>
+<ul>
+  <li><strong>Run detail:</strong> <code>apps/webapp/src/app/runs/[runId]/page.tsx</code></li>
+  <li><strong>Entity list (Briefs / Scripts / CreativeVariants / etc.):</strong> <code>apps/webapp/src/app/review/[entity]/page.tsx</code> — one dynamic route, behavior driven by per-entity list config.</li>
+  <li><strong>Entity detail:</strong> <code>apps/webapp/src/app/review/[entity]/[id]/page.tsx</code></li>
+  <li><strong>Per-entity list configs:</strong> <code>apps/webapp/src/app/lib/listConfigs/&lt;entity-slug&gt;.ts</code> — currently <code>creative-variants.ts</code>, <code>distributions.ts</code>, <code>experiments.ts</code>, <code>hypotheses.ts</code>, <code>runs.ts</code>, plus <code>default.ts</code> as fallback (Briefs and Scripts currently inherit from <code>default.ts</code> — no dedicated config yet).</li>
+</ul>
+
+<p>Implication: adding an Angle column to Briefs / Scripts means <strong>creating new list-config files</strong> (<code>briefs.ts</code>, <code>scripts.ts</code>) registered via <code>lib/listConfigs/index.ts</code>. Adding it to CreativeVariants is an edit to <code>creative-variants.ts</code> (one new column entry).</p>
+
+<p>Three additions, smallest-to-largest:</p>
+
+<h4>3.4.1 Run header — angle chips</h4>
+
+<p>In <code>apps/webapp/src/app/runs/[runId]/page.tsx</code>, render Brain's <code>recommendedAngles</code> as labeled chips at the top of the page. Each chip:</p>
+<ul>
+  <li>Shows the angle key verbatim: <code>epf-shortfall-parent-worry</code></li>
+  <li>Shows a count of Briefs under it: <code>· 4</code></li>
+  <li>On hover/click, shows the Decision Memo's rationale text for that angle (extracted from the memo's <code>angles[].rationale</code> field if present).</li>
+</ul>
+
+<p>Source of truth: the resolved S1-reason step result, fetched server-side via <code>read_step_result</code> or directly from the <code>orchestrator.step_results</code> table (the page is a server component; either works).</p>
+
+<h4>3.4.2 Briefs / Scripts / Variants — angle column</h4>
+
+<p>Add an <code>Angle</code> column to each entity's list config:</p>
+
+<ul>
+  <li><strong>New <code>apps/webapp/src/app/lib/listConfigs/briefs.ts</code></strong> — columns include <code>title</code>, <code>angle</code> (new), <code>persona</code>, <code>funnelStage</code>, <code>budgetBucket</code>, <code>approvalStatus</code>, <code>runId</code>. Register in <code>lib/listConfigs/index.ts</code>.</li>
+  <li><strong>New <code>apps/webapp/src/app/lib/listConfigs/scripts.ts</code></strong> — columns include <code>title</code>, <code>angle</code> (joined via <code>script.brief → brief.angle</code>), <code>approvalStatus</code>, <code>runId</code>. The join is server-side in the <code>review/[entity]/page.tsx</code> route — extend the existing CreativeVariants script-title-prefix pattern (see <code>page.tsx:50–60</code>) to handle a Brief lookup for Scripts.</li>
+  <li><strong>Edit <code>apps/webapp/src/app/lib/listConfigs/creative-variants.ts</code></strong> — add <code>{ field: "angle", label: "Angle", type: "badge", sortable: true }</code>. The angle is derived two FK hops away (<code>variant.script → script.brief → brief.angle</code>); extend the existing route's pre-fetch loop to fetch the joined Brief for each Variant.</li>
+</ul>
+
+<p>The <code>angle</code> field is not native on Scripts or CreativeVariants — it's a denormalized read at render time. Computing it in the route handler keeps the list configs declarative. Optional UX nicety (deferred decision at implementation time): group rows by angle, or add a filter chip. The baseline is the column.</p>
+
+<h4>3.4.3 HG1 approval guidance — experiment-status preview</h4>
+
+<p>Above the Briefs list (or inline as a sticky toolbar), surface a live preview of the resulting experiment status given the current approval set:</p>
+
+<pre>You have approved Briefs from 2 of 3 recommended angles.
+Approving as-is will produce a `degraded` experiment.
+
+  • epf-shortfall-parent-worry   · 2 of 4 approved
+  • children-fund-rm200-compounding · 2 of 4 approved
+  • pcsf-2007-cautionary         · 0 of 4 approved  ← empty cell
+
+Approving Briefs from 1 angle only would produce a `single-cell`
+result (routing, not experiment).</pre>
+
+<p><strong>Component shape.</strong> The Briefs list page is a Next.js server component today (it <code>await</code>s <code>store.query</code> directly). Approvals fire via server actions that revalidate the page. So the preview has two implementation options: <em>(a) server-side recompute</em> on each approval action — preview state is just a function of the current DB rows, redrawn on revalidate; <em>(b) client component</em> wrapping the approve buttons with optimistic local state for an instant preview update before the server roundtrip. Option (a) is simpler and consistent with the existing approval flow; option (b) is snappier. Default to (a); revisit if the round-trip feels laggy in the §7 walk.</p>
+
+<p>Either way, the computation mirrors the verifier's tri-state logic in §3.2.3 via a shared helper exported from <code>packages/shared</code> so the webapp and the verifier can't diverge. This is the highest-leverage piece of Part 4 — it converts experiment status from an after-the-fact discovery to a deliberate approval choice.</p>
+
+<h2>4. Data-flow summary</h2>
+
+<pre>Brain Decision Memo
+  └─ experimentParams.factors[0].levels = ["A", "B", "C"]  (the canonical taxonomy)
+        │
+        ├─→ stages/brief.ts B1-author spawn
+        │     │
+        │     └─→ brief-writer (worker)
+        │           └─→ 12 Briefs, each angle ∈ {"A","B","C"}      ← B-026 contract
+        │
+        ├─→ verify-brief.ts: asserts every brief.angle ∈ levels     ← B-026 verifier
+        │
+        ├─→ webapp run header: chips show levels + Brief counts     ← Part 4.1
+        ├─→ webapp briefs list: Angle column + per-angle preview    ← Part 4.2/4.3
+        │
+HG1 → ... → HG3 (approve subset of variants spanning M of N angles)
+        │
+        ├─→ X1-query (projectExpVariant from B-023 — unchanged)
+        ├─→ X2-design (cells from levels — unchanged)
+        ├─→ X2-verify: occupied/total → experimentStatus            ← B-025 verifier
+        ├─→ X3-write: persist experimentStatus on row               ← B-025 writer
+        │
+        └─→ plan-distribution.ts:
+              ├─→ create_campaign(is_adset_budget_sharing_enabled)  ← B-027 #1
+              ├─→ create_adset(daily_budget_cents ≥ 1)              ← B-027 #2
+              └─→ create_adset(targeting: {geo, age, locale})       ← B-027 #3
+
+HG4 → human flips PAUSED → ACTIVE in Ads Manager (ADR-015)</pre>
+
+<h2>5. Components &amp; file map</h2>
+
+<table>
+  <thead><tr><th>File</th><th>Change</th><th>Spec §</th></tr></thead>
+  <tbody>
+    <tr><td><code>packages/store/src/schema.ts</code></td><td>+1 column <code>experiments.experiment_status</code> (NOT NULL); tighten <code>briefs.angle</code> to NOT NULL</td><td>3.2.2, 3.1.5</td></tr>
+    <tr><td><code>packages/store/drizzle/&lt;new&gt;.sql</code></td><td>generated migration (both schema changes in one file)</td><td>3.2.2, 3.1.5</td></tr>
+    <tr><td><code>packages/shared/src/zod.ts</code></td><td>+ <code>ExperimentStatus</code> union; shared experiment-status helper (consumed by verifier + webapp)</td><td>3.2.2, 3.4.3</td></tr>
+    <tr><td><code>packages/orchestrator/src/stages/brief.ts</code></td><td>B1-author <code>build()</code> stages <code>recommendedAngles</code> into spawn prompt</td><td>3.1.2</td></tr>
+    <tr><td><code>packages/orchestrator/src/verifiers/verify-brief.ts</code></td><td>+ angle-set assertion; reads S1-reason</td><td>3.1.3</td></tr>
+    <tr><td><code>packages/orchestrator/src/verifiers/verify-experiment.ts</code></td><td>tri-state classification; returns <code>experimentStatus</code> in <code>data</code></td><td>3.2.3</td></tr>
+    <tr><td><code>packages/orchestrator/src/stages/experiment.ts</code></td><td>X3-write writes <code>experimentStatus</code></td><td>3.2.4</td></tr>
+    <tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></td><td>budget math (× 100, max(1, …)); targeting block; locale ID lookup</td><td>3.3.2, 3.3.3</td></tr>
+    <tr><td><code>packages/orchestrator/src/run-args.ts</code></td><td>audit <code>dailyBudgetMyr</code> default + planner read order</td><td>3.3.2</td></tr>
+    <tr><td><code>mcp-servers/meta-ads/src/tools/create-campaign.ts</code></td><td>+ <code>is_adset_budget_sharing_enabled</code> in input schema + Graph forward</td><td>3.3.1</td></tr>
+    <tr><td><code>.claude/agents/brief-writer.md</code></td><td>+ canonical-angle-taxonomy section; "skip don't pad" if count infeasible</td><td>3.1.2</td></tr>
+    <tr><td><code>packages/shared/src/prompts/brief-writer.md</code></td><td>same content; <code>pnpm sync:agents</code> propagates</td><td>3.1.2</td></tr>
+    <tr><td><code>.claude/commands/reflect.md</code> + <code>brain.md</code></td><td>+ <code>experimentStatus</code> branch in §B-step-2 (skip grading on <code>single-cell</code>; partial grading on <code>degraded</code>)</td><td>3.2.6</td></tr>
+    <tr><td><code>apps/webapp/src/app/runs/[runId]/page.tsx</code></td><td>+ angle chips header (read S1-reason from <code>step_results</code>)</td><td>3.4.1</td></tr>
+    <tr><td><code>apps/webapp/src/app/lib/listConfigs/briefs.ts</code> (new)</td><td>per-entity config with Angle column</td><td>3.4.2</td></tr>
+    <tr><td><code>apps/webapp/src/app/lib/listConfigs/scripts.ts</code> (new)</td><td>per-entity config with derived Angle column</td><td>3.4.2</td></tr>
+    <tr><td><code>apps/webapp/src/app/lib/listConfigs/creative-variants.ts</code></td><td>+ Angle column (derived through Script → Brief)</td><td>3.4.2</td></tr>
+    <tr><td><code>apps/webapp/src/app/lib/listConfigs/index.ts</code></td><td>register the two new configs</td><td>3.4.2</td></tr>
+    <tr><td><code>apps/webapp/src/app/review/[entity]/page.tsx</code></td><td>extend pre-fetch loop to join Brief for Scripts &amp; Variants (mirrors existing Script-title-prefix pattern)</td><td>3.4.2</td></tr>
+    <tr><td><code>apps/webapp/src/app/components/BriefApprovalGuidance.tsx</code> (new)</td><td>Client component rendering the HG1 approval-guidance preview. Imported by <code>review/[entity]/page.tsx</code> only when <code>entity === "Briefs"</code>. Uses the shared experiment-status helper from <code>packages/shared</code>.</td><td>3.4.3</td></tr>
+  </tbody>
+</table>
+
+<h2>6. Test scope</h2>
+
+<h3>6.1 Unit tests</h3>
+
+<table>
+  <thead><tr><th>Test</th><th>Asserts</th></tr></thead>
+  <tbody>
+    <tr><td><code>verify-brief.test.ts</code> (new specs)</td><td>Off-taxonomy <code>brief.angle</code> → <code>ok:false</code> with per-row problem strings; all 12 Briefs evaluated (no short-circuit); absent <code>recommendedAngles</code> → assertion skipped (legitimate-skip path preserved).</td></tr>
+    <tr><td><code>verify-experiment.test.ts</code> (new specs)</td><td>Four tri-state cases: 3-of-3 cells → <code>full</code> + ok; 2-of-3 → <code>degraded</code> + ok; 1-of-3 → <code>single-cell</code> + ok; 0-of-3 → <code>broken</code> + <code>ok:false</code>. Verifier returns <code>experimentStatus</code> in <code>data</code>.</td></tr>
+    <tr><td><code>plan-distribution.test.ts</code> (new specs)</td><td>Budget math: <code>dailyBudgetMyr=10, allocationPct=0.7</code> → <code>daily_budget_cents=700</code>; <code>dailyBudgetMyr=0</code> → <code>daily_budget_cents=1</code> (floor); every adset's <code>targeting</code> has <code>geo_locations.countries=["MY"]</code>, <code>age_min=25</code>, <code>age_max=55</code>, and <code>locales=[LOCALE_ID.en, LOCALE_ID.ms]</code> (both non-zero); planner reads <code>dailyBudgetMyr</code> in priority order Brain memo → run.params → 0.</td></tr>
+    <tr><td><code>create-campaign.test.ts</code> (extend)</td><td><code>is_adset_budget_sharing_enabled</code> defaults to <code>false</code>; <code>true</code> forwards to Graph body; missing field omitted (does not send <code>undefined</code>).</td></tr>
+    <tr><td><code>brief.test.ts</code> (extend stages)</td><td>B1-author <code>build()</code> stages <code>recommendedAngles</code> as a ref and the spawn prompt substitution resolves to the string array verbatim.</td></tr>
+    <tr><td><code>experiment-status.test.ts</code> (new, shared)</td><td>The <code>classifyExperimentStatus(occupied, total)</code> helper returns the same tri-state values the verifier and webapp both compute.</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 Schema / migration</h3>
+<ul>
+  <li><code>pnpm db:generate</code> on a branch sandbox produces a single migration with both changes: <code>ADD COLUMN experiment_status text NOT NULL</code> (no default — verified 0 rows) and <code>ALTER COLUMN briefs.angle SET NOT NULL</code>.</li>
+  <li><code>pnpm lint:migrations</code> passes (schema.ts + generated SQL committed together).</li>
+  <li>Migration applies cleanly against a fresh sandbox; manual pre-flight on live DB (the two COUNT queries from §3.2.2 and §3.1.5) before <code>pnpm db:migrate</code>.</li>
+</ul>
+
+<h3>6.3 Webapp</h3>
+<ul>
+  <li>Playwright (or the existing webapp test harness): on a seeded run, the angle chips render with correct counts; toggling Brief approvals updates the experiment-status preview live; the Angle column populates on Briefs / Scripts / Variants.</li>
+  <li>Manual smoke at <code>localhost:3030</code> as a backstop — webapp visual changes hard to fully assert in unit tests.</li>
+</ul>
+
+<h2>7. Acceptance — end-to-end walk</h2>
+
+<p>Unit + schema + webapp tests are necessary but not sufficient. The real acceptance test is a clean cold-start <code>/loop-once</code> walking through HG4 with Meta-paid PAUSED entities landing in Ads Manager.</p>
+
+<h3>7.1 Pre-flight</h3>
+
+<pre># 1. Branch sandbox clean and migrated
+pnpm db:sandbox             # creates/migrates sandbox; writes DATABASE_URL to .env.local
+pnpm db:snapshot            # optional: clone live data for realistic analytics inputs
+
+# 2. All test suites green
+pnpm -r build               # sequential — never --parallel (races on @engineerdad/shared)
+pnpm test
+
+# 3. Meta creds point at TEST ad account (not production)
+#    .env.local: META_AD_ACCOUNT_ID=act_&lt;sandbox-id&gt;
+#    Confirm: tracking-stage canary will assert the sandbox account is reachable
+
+# 4. Snapshot directory for replay
+mkdir -p data/e2e-snapshots/$(date +%Y%m%d)
+export SNAP_DIR=data/e2e-snapshots/$(date +%Y%m%d)
+export SANDBOX_DB=$(grep DATABASE_URL .env.local | sed 's|.*/||')
+
+# 5. Restart Claude Code so MCP layer picks up sandbox DATABASE_URL.</pre>
+
+<h3>7.2 Cold start → HG1 (Brief approval)</h3>
+
+<p>In a Claude Code session:</p>
+<pre>/loop-once
+# Walks: tracking → analytics → synthesize → brief. STOPs at HG1.</pre>
+
+<p><strong>Snapshot before approving</strong> — captures the auto-generated Briefs as authored:</p>
+<pre>docker exec engineerdad-postgres pg_dump -U engineerdad -d $SANDBOX_DB &gt; $SNAP_DIR/01-hg1-pre.sql</pre>
+
+<p><strong>Minimal approval</strong> (exercises B-026 enforcement + sets up B-025 degraded path):</p>
+<ul>
+  <li>Open <code>localhost:3030</code>. Read the run-header angle chips (Part 4.1) — expect 2–3 angle strings from Brain.</li>
+  <li>Approve <strong>2 Briefs from 2 different angles</strong>. Leave the third angle (if present) entirely unapproved — this is what makes the experiment land in <code>degraded</code> state and exercises B-025's pass-with-warning path.</li>
+  <li>Read the HG1 approval-guidance preview (Part 4.3) — should display <code>Approving as-is will produce a "degraded" experiment</code>.</li>
+  <li><strong>Verify B-026 enforcement:</strong> spot-check 3 random Briefs — every <code>brief.angle</code> is verbatim one of Brain's <code>recommendedAngles</code>. The Briefs list shows the Angle column populated.</li>
+</ul>
+
+<pre>docker exec engineerdad-postgres pg_dump -U engineerdad -d $SANDBOX_DB &gt; $SNAP_DIR/02-hg1-approved.sql</pre>
+
+<h3>7.3 HG1 → HG2 (Script approval)</h3>
+
+<pre>/content --run=&lt;id&gt;
+# Walks content stage. STOPs at HG2.</pre>
+
+<pre>docker exec ... pg_dump &gt; $SNAP_DIR/03-hg2-pre.sql</pre>
+
+<p>Approve <strong>1 Script per approved Brief</strong> (2 Scripts minimum). Either Script must be able to derive Carousel + Feed variants downstream — both formats are auto-derived from every Script per <code>deriveSpecs</code>, so any 2 Scripts will do.</p>
+
+<pre>docker exec ... pg_dump &gt; $SNAP_DIR/04-hg2-approved.sql</pre>
+
+<h3>7.4 HG2 → HG3 (Variant approval)</h3>
+
+<pre>/produce --run=&lt;id&gt;
+# Walks produce: creative-director + render workers. STOPs at HG3.</pre>
+
+<pre>docker exec ... pg_dump &gt; $SNAP_DIR/05-hg3-pre.sql</pre>
+
+<p>Approve the <strong>2 specific variants needed</strong>:</p>
+<ul>
+  <li>1 × Carousel (4:5) variant</li>
+  <li>1 × Feed (4:5) variant</li>
+  <li>Both must carry <code>Meta-paid</code> in <code>channels</code> and have non-empty <code>asset_files</code>.</li>
+  <li>Leave Reel + YT-Long variants unapproved (B-028 video pipeline still broken — documented out of scope).</li>
+  <li>Approved variants should ideally span the 2 approved angles to keep cells populated. If both fall under the same angle, cells collapse further — still a valid test (exercises <code>single-cell</code> state).</li>
+</ul>
+
+<pre>docker exec ... pg_dump &gt; $SNAP_DIR/06-hg3-approved.sql</pre>
+
+<h3>7.5 HG3 → HG4 (the Meta-paid test)</h3>
+
+<pre>/distribute --run=&lt;id&gt;
+# Walks schedule → experiment → distribute. STOPs at HG4.</pre>
+
+<p>This is the surface where B-025 + B-027 fixes must pass cleanly.</p>
+
+<pre>docker exec ... pg_dump &gt; $SNAP_DIR/07-hg4-final.sql</pre>
+
+<h3>7.6 Acceptance — DB queries</h3>
+
+<pre>-- All via: docker exec engineerdad-postgres psql -U engineerdad -d $SANDBOX_DB -c "..."
+
+-- 1. Experiment landed with tri-state status
+SELECT id, experiment_status FROM experiments WHERE run_id = '&lt;runId&gt;';
+-- Expect: experiment_status IN ('full','degraded','single-cell'). NOT 'broken'.
+
+-- 2. Distribute attempted Meta-paid with non-zero budgets
+SELECT variant_id, status, skip_reason
+FROM distributions
+WHERE run_id = '&lt;runId&gt;' AND channel = 'meta-paid';
+-- Expect: ≥1 row with status='routed'; NO row with skip_reason mentioning
+--         'budget=0', 'targeting missing', or '4834011'.
+
+-- 3. Both formats present
+SELECT format, status FROM distributions
+WHERE run_id = '&lt;runId&gt;' AND channel = 'meta-paid' AND status = 'routed';
+-- Expect: ≥1 row with format='Carousel 4:5' AND ≥1 row with format='Feed 4:5'.</pre>
+
+<h3>7.7 Acceptance — Meta sandbox queries</h3>
+
+<p>Use <code>mcp__meta-ads__list_campaigns</code> / <code>list_ads</code> against the test ad account. Expect:</p>
+<ul>
+  <li><strong>1 campaign</strong> created today, <code>effective_status: PAUSED</code>.</li>
+  <li><strong>≥2 adsets</strong> under it (one per occupied cell × per language), each with:
+    <ul>
+      <li><code>daily_budget</code> &gt; 0</li>
+      <li><code>effective_status: PAUSED</code></li>
+      <li>non-empty <code>targeting</code> with <code>geo_locations.countries = ["MY"]</code>, <code>age_min ≥ 25</code>, <code>age_max ≤ 55</code>, <code>locales</code> populated</li>
+    </ul>
+  </li>
+  <li><strong>≥2 ads</strong>: ≥1 Carousel creative + ≥1 Feed creative, each <code>effective_status: PAUSED</code>.</li>
+</ul>
+
+<h3>7.8 Failure → replay loop</h3>
+
+<p>If any gate fails:</p>
+<ol>
+  <li>Identify which snapshot precedes the failure (e.g. <code>06-hg3-approved.sql</code>).</li>
+  <li>Patch the bug on a feature branch.</li>
+  <li>Restore: <code>docker exec ... psql -d $SANDBOX_DB -f $SNAP_DIR/06-hg3-approved.sql</code> (drop + recreate the DB first if needed: <code>dropdb -U engineerdad $SANDBOX_DB &amp;&amp; createdb -U engineerdad $SANDBOX_DB</code>).</li>
+  <li>Restart Claude Code (MCP cache invalidates on session start).</li>
+  <li>Resume from the failing stage with <code>/distribute --run=&lt;id&gt;</code> (or whichever stage failed). No need to re-walk earlier gates.</li>
+</ol>
+
+<h3>7.9 Teardown</h3>
+
+<ul>
+  <li>Pause/archive the test Meta entities via <code>mcp__meta-ads__pause_*</code> (already PAUSED, but explicitly mark for cleanup).</li>
+  <li><strong>Do NOT human-flip to ACTIVE during validation.</strong> The acceptance bar is "PAUSED entities exist as expected" — flipping to ACTIVE is an out-of-scope budget commitment.</li>
+  <li>Keep the snapshots — they're the regression baseline for the next change in this area.</li>
+</ul>
+
+<h3>7.10 What this walk validates (traceability)</h3>
+
+<table>
+  <thead><tr><th>Surface</th><th>Evidence at HG4</th></tr></thead>
+  <tbody>
+    <tr><td>B-026 angle taxonomy enforced</td><td>All 12 Briefs at HG1 have <code>angle ∈ recommendedAngles</code>; <code>verify-brief</code> did not halt.</td></tr>
+    <tr><td>B-025 tri-state</td><td><code>experiments.experiment_status</code> is one of <code>full</code> / <code>degraded</code> / <code>single-cell</code>; <code>verify-experiment</code> did not halt with empty-cell error.</td></tr>
+    <tr><td>B-027 #1 MCP schema</td><td><code>create_campaign</code> call succeeded — no Meta subcode <code>4834011</code> in the distribute audit log.</td></tr>
+    <tr><td>B-027 #2 budget math</td><td>Adset rows show <code>daily_budget_cents ≥ 1</code>; Meta side confirms non-zero daily budget.</td></tr>
+    <tr><td>B-027 #3 targeting</td><td>Adset rows + Meta side show non-empty targeting block with MY geo + age band + locale.</td></tr>
+    <tr><td>Part 4 webapp surface</td><td>Operator was able to <em>see</em> Brain's angles, <em>see</em> the experiment-status preview, and <em>see</em> the Angle column on every list view during the walk.</td></tr>
+    <tr><td>End-to-end</td><td>Carousel + Feed creatives live as PAUSED in Ads Manager.</td></tr>
+  </tbody>
+</table>
+
+<h2>8. Rollout</h2>
+
+<ol>
+  <li>Branch <code>feat/meta-paid-unblock</code> from <code>main</code>.</li>
+  <li>Land changes in order: schema migration → verifier + writer (B-025) → MCP schema + planner (B-027) → spawn prompt + agent doc + verifier (B-026) → webapp surface (Part 4).</li>
+  <li>Run full test suite after each layer.</li>
+  <li>Run the §7 E2E walk end-to-end.</li>
+  <li>Open PR; reference all three bug IDs in the title and body; cite this spec.</li>
+  <li>On merge: <code>pnpm db:migrate</code> against the live <code>engineerdad</code> DB.</li>
+  <li>Close B-025, B-026, B-027 in <code>TASKS.md</code>. File <strong>E-044</strong> (partial-rework retry) as a new row.</li>
+  <li>Update <code>ARCHITECTURE.md</code> if any surface above reshaped a doctrine (none expected — these are fills, not redirects).</li>
+</ol>
+
+<h2>9. Cross-references</h2>
+
+<ul>
+  <li><strong>Bugs closed:</strong> B-025, B-026, B-027 (<code>TASKS.md</code>).</li>
+  <li><strong>Enhancements filed by this spec:</strong> E-044 (partial-rework retry contract).</li>
+  <li><strong>Adjacent bugs (not in scope):</strong> B-028 (video pipeline / E-004), B-029 (organic compliance), B-030 (article fanout), B-031 (Feed→Meta-organic).</li>
+  <li><strong>Doctrine:</strong> ADR-015 (write-API PAUSED safety), ADR-023 (orchestrator-resident execution — <code>build()</code> stages spawn-prompt inputs), ADR-024 (per-unit input staging), ADR-020 (verifier owns acceptance), ADR-010 (bilingual EN/BM only — drives the per-language adset split in §3.3.3).</li>
+  <li><strong>Predecessor specs:</strong> <code>docs/superpowers/specs/2026-05-28-b023-experiment-cell-variant-join-design.html</code> (B-023 — the cell→variant join this spec assumes is in place); <code>docs/superpowers/specs/2026-05-26-brain-initiative-design.html</code> (Phase 0 — <code>experimentParams</code> staging pattern this spec re-uses for <code>recommendedAngles</code>).</li>
+  <li><strong>Memory anchors:</strong> <em>OS produces specs, not artifacts</em> (Meta-paid entities land PAUSED; the artifact lives in Ads Manager); <em>Meta Ads write safety</em> (this spec touches creation, not activation).</li>
+</ul>
+
+</body>
+</html>

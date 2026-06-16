@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 2 — Orchestrator Core + /loop</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  pre.run { border-left-color: var(--warn); background: #fbf7ef; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 2 — Orchestrator Core + <code>/loop</code></h1>
+  <p class="meta">
+    Implementation plan · phase 2 of 6 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">READY TO EXECUTE — INLINE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phase 1 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">Approach C1 (confirmed)</span>
+    Phase 2 builds and proves the <em>orchestrator machine</em>, not a live produce cycle. The
+    <code>produce</code> stage spawns <code>creative-director</code>, a Phase 5 deliverable — so
+    Phase 2 proves <code>plan</code>/<code>verify</code>/<code>advance</code> + the <code>/loop</code>
+    conductor end-to-end against a <strong>fixture stage</strong> (a real 2-step stage that spawns a
+    trivial worker — no throwaway agent). The real <code>produceStage</code> definition +
+    <code>verifyProduce</code> are written and unit-tested as pure data/functions; their live
+    <code>creative-director</code> spawn is activated in Phase 5 by adding <code>produceStage</code>
+    to the MCP's registry. Phase 2's MCP ships with the <strong>fixture stage as its registry</strong>,
+    so <code>/loop</code> runs end-to-end and is demonstrable today.
+  </div>
+
+  <p><strong>Goal:</strong> A typed, deterministic run-state machine (<code>packages/orchestrator</code>),
+    a thin MCP wrapper exposing <code>plan</code>/<code>verify</code>/<code>advance</code>/<code>status</code>,
+    and the domain-agnostic <code>/loop</code> conductor command — proven end-to-end on a fixture stage.</p>
+  <p><strong>Architecture:</strong> Logic in <code>packages/orchestrator</code> (pure, unit-tested);
+    transport in <code>mcp-servers/orchestrator</code> (thin stdio wrapper, ADR-005 thin-adapter).
+    State in <code>data/engineerdad.sqlite</code> via <code>node:sqlite</code>. <code>plan</code> is a
+    pure function of persisted run state — the resumability property.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM), <code>node:sqlite</code> (<code>DatabaseSync</code>),
+    <code>@modelcontextprotocol/sdk</code> ^1.18, Zod, vitest. Execution: <strong>inline</strong>,
+    TDD, one commit per task.</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/orchestrator/package.json</code> · <code>tsconfig.json</code></td><td>New workspace package <code>@engineerdad/orchestrator</code>; build = tsc + copy migrations</td></tr>
+      <tr><td><code>packages/orchestrator/src/migrations/001_orchestrator.sql</code></td><td><code>runs</code> + <code>run_steps</code> DDL (<code>IF NOT EXISTS</code>)</td></tr>
+      <tr><td><code>packages/orchestrator/src/types.ts</code></td><td><code>RunState</code>, <code>RunStepState</code>, <code>Step</code>, <code>StepSpec</code>, <code>StageDefinition</code>, <code>VerifyResult</code></td></tr>
+      <tr><td><code>packages/orchestrator/src/state.ts</code></td><td><code>node:sqlite</code> store: <code>getDb</code>, <code>createRun</code>, <code>loadRunState</code>, <code>upsertStep</code>, <code>setRunStage</code>, <code>listRuns</code></td></tr>
+      <tr><td><code>packages/orchestrator/src/engine.ts</code></td><td><code>plan</code> / <code>verify</code> / <code>advance</code> — the generic engine over a stage registry</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/fixture.ts</code></td><td>The fixture stage — 2 spawn steps, used to prove the engine + conductor</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/produce.ts</code></td><td>The real <code>produceStage</code> definition (data; activated in Phase 5)</td></tr>
+      <tr><td><code>packages/orchestrator/src/verifiers/verify-produce.ts</code></td><td><code>verifyProduce</code> — pure acceptance test (Notion-reading wrapper deferred to Phase 5)</td></tr>
+      <tr><td><code>packages/orchestrator/src/registry.ts</code> · <code>index.ts</code></td><td>Stage registry + barrel export</td></tr>
+      <tr><td><code>packages/orchestrator/src/*.test.ts</code></td><td>Colocated vitest suites</td></tr>
+      <tr><td><code>mcp-servers/orchestrator/package.json</code> · <code>tsconfig.json</code> · <code>src/index.ts</code></td><td>Thin stdio MCP — 4 tools (<code>plan</code>, <code>verify</code>, <code>advance</code>, <code>status</code>)</td></tr>
+      <tr><td><code>.mcp.json</code> <em>(modify)</em></td><td>Register the <code>orchestrator</code> server</td></tr>
+      <tr><td><code>.claude/commands/loop.md</code> · <code>status.md</code> <em>(new)</em></td><td>The conductor + the read-only run dashboard</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">1.</span> Locked interfaces</h2>
+  <p>These are the load-bearing contracts. Tasks implement them test-first; later phases consume them unchanged.</p>
+
+  <h3>1.1 — SQLite schema (<code>001_orchestrator.sql</code>)</h3>
+<pre>CREATE TABLE IF NOT EXISTS runs (
+  run_id     TEXT PRIMARY KEY,
+  stage      TEXT NOT NULL,
+  status     TEXT NOT NULL,
+  params     TEXT,                 -- JSON
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS run_steps (
+  run_id     TEXT NOT NULL,
+  step_id    TEXT NOT NULL,
+  stage      TEXT NOT NULL,
+  status     TEXT NOT NULL,        -- pending | done | failed
+  result     TEXT,                 -- JSON
+  problems   TEXT,                 -- JSON string[]
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (run_id, step_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_steps_run ON run_steps(run_id);</pre>
+  <p>Same <code>data/engineerdad.sqlite</code> file as analytics; the orchestrator applies <em>only</em>
+    this migration (additive, <code>IF NOT EXISTS</code>). WAL mode handles the two MCP processes.</p>
+
+  <h3>1.2 — Core types (<code>types.ts</code>)</h3>
+<pre>export type RunStage = "fixture" | "produce" | "done";
+export type RunStatus = "active" | "awaiting_gate" | "blocked" | "done";
+export type StepStatus = "pending" | "done" | "failed";
+
+export interface RunStepState {
+  stepId: string;
+  stage: string;
+  status: StepStatus;
+  result: unknown;
+  problems: string[];
+  attempts: number;
+}
+
+/** The full run state — the pure input to `plan`. */
+export interface RunState {
+  runId: string;
+  stage: RunStage;
+  status: RunStatus;
+  params: Record&lt;string, unknown&gt;;
+  steps: RunStepState[];
+}
+
+export type StepKind = "spawn" | "fanout" | "write" | "gate" | "done" | "halt";
+
+/** A concrete next action, returned by `plan` for the conductor to execute. */
+export type Step =
+  | { kind: "spawn";  stepId: string; agent: string; spawnPrompt: string }
+  | { kind: "fanout"; stepId: string; worker: string; units: { spawnPrompt: string }[] }
+  | { kind: "write";  stepId: string; calls: { tool: string; args: unknown }[] }
+  | { kind: "gate";   stepId: string; gate: string; message: string }
+  | { kind: "done";   message: string }
+  | { kind: "halt";   stepId: string; reason: string };
+
+export interface VerifyResult { ok: boolean; problems: string[]; }
+
+/** Declarative spec for one step of a stage. `build` turns run state into a concrete Step. */
+export interface StepSpec {
+  id: string;
+  kind: "spawn" | "fanout" | "write" | "gate";
+  build: (run: RunState) =&gt; Step;
+  verify?: (run: RunState, result: unknown) =&gt; VerifyResult;
+}
+
+export interface StageDefinition {
+  id: RunStage;
+  steps: StepSpec[];
+}</pre>
+
+  <h3>1.3 — Engine surface (<code>engine.ts</code>)</h3>
+<pre>/** Continue a run, or mint a new one when `runId` is absent. Pure function of persisted state. */
+plan(input: { runId?: string; args?: string }, registry: StageDefinition[]): Step
+
+/** Run the StepSpec's verifier (default: result is non-null and not an {error}). */
+verify(runId: string, stepId: string, result: unknown, registry: StageDefinition[]): VerifyResult
+
+/** Mark the step done + persist its result; advance the stage when its last step completes. */
+advance(runId: string, stepId: string, result: unknown, registry: StageDefinition[]):
+  { stage: RunStage; status: RunStatus }</pre>
+  <p><strong><code>plan</code> algorithm:</strong> (1) no <code>runId</code> → mint
+    <code>run_&lt;unix&gt;</code>, parse <code>args</code> into <code>params</code>, <code>createRun</code>
+    at the registry's first stage; (2) load <code>RunState</code>; (3) in the current stage, find the
+    first <code>StepSpec</code> with no <code>done</code> run-step → <code>build</code> + return it;
+    (4) all steps done → advance to the next registry stage and return its first step; (5) no next
+    stage → return <code>{ kind: "done" }</code>. Resumable by construction — step (3) is a diff
+    against persisted state, never a counter.</p>
+
+  <h3>1.4 — <code>verifyProduce</code> (pure; <code>verifiers/verify-produce.ts</code>)</h3>
+  <p>Phase 2 ships the pure function — inputs passed as arrays, no Notion I/O. The Notion-reading
+    wrapper that feeds it is Phase 5. This is the design centerpiece (the old "Step 7.0 assertion").</p>
+<pre>interface ProduceScript  { id: string; }
+interface ProduceVariant {
+  id: string; scriptId: string; format: string; aspect: string;
+  channels: string[]; assetFiles: { url: string; sha256: string }[];
+  metaSpecComplete: boolean; organicSpecComplete: boolean;
+  complianceCheck: boolean; estCostMyr: number;
+}
+
+export function verifyProduce(
+  scripts: ProduceScript[],
+  variants: ProduceVariant[],
+  reportedTotalMyr: number,
+  renderWorkersRan: number,
+): VerifyResult {
+  const problems: string[] = [];
+  const FORMAT_MATRIX = 5;                 // Reel, Feed, YT-Long, Carousel x2
+
+  for (const s of scripts) {
+    const n = variants.filter((v) =&gt; v.scriptId === s.id).length;
+    if (n !== FORMAT_MATRIX) problems.push(`script ${s.id}: ${n}/${FORMAT_MATRIX} variants`);
+  }
+  const isStatic = (v: ProduceVariant) =&gt; v.format === "Feed" || v.format === "Carousel";
+  for (const v of variants.filter(isStatic)) {
+    if (v.assetFiles.length === 0) problems.push(`variant ${v.id}: Asset Files empty`);
+  }
+  for (const v of variants) {
+    const meta = v.channels.some((c) =&gt; c.startsWith("Meta"));
+    if (meta &amp;&amp; !v.metaSpecComplete) problems.push(`variant ${v.id}: Meta spec incomplete`);
+    if (v.channels.includes("Meta-organic") &amp;&amp; !v.organicSpecComplete)
+      problems.push(`variant ${v.id}: organic spec incomplete`);
+    if (!v.complianceCheck) problems.push(`variant ${v.id}: compliance scan did not pass`);
+  }
+  const sum = variants.reduce((a, v) =&gt; a + v.estCostMyr, 0);
+  if (sum !== reportedTotalMyr) problems.push("totals.cost drifts from per-variant sum");
+  const staticN = variants.filter(isStatic).length;
+  if (staticN &gt; 0 &amp;&amp; renderWorkersRan === 0)
+    problems.push(`${staticN} static variants, 0 render workers ran`);
+
+  return { ok: problems.length === 0, problems };
+}</pre>
+
+  <h3>1.5 — The <code>/loop</code> conductor (<code>.claude/commands/loop.md</code> body)</h3>
+<pre>Repeat until a step says STOP:
+1. step = mcp__orchestrator__plan   (first call { args:"$ARGUMENTS" }; then { runId })
+2. by step.kind:
+   spawn  -&gt; Task(step.agent, step.spawnPrompt)            verbatim
+   fanout -&gt; Task x N general-purpose workers, parallel    verbatim
+   write  -&gt; execute step.calls against the named MCP      verbatim
+   gate / done / halt -&gt; print message, STOP
+3. spawn|fanout|write -&gt; v = mcp__orchestrator__verify({ runId, stepId, result })
+4. v.ok            -&gt; mcp__orchestrator__advance(...) ; goto 1
+   v.ok === false  -&gt; [judgment] transient: retry once. structural: print problems, STOP.</pre>
+  <p>Domain-agnostic — no marketing concept appears. <code>status.md</code> calls
+    <code>mcp__orchestrator__status</code> and prints the run table.</p>
+
+  <h2><span class="num">2.</span> Tasks</h2>
+  <p>Inline TDD execution: per task — write the test(s), run red, implement, run green, commit.
+    Commit prefix <code>feat(orchestrator):</code>. Run a suite with
+    <code>pnpm vitest run packages/orchestrator/&lt;file&gt;</code>.</p>
+
+  <div class="task">
+    <h3>T1 — Scaffold <code>packages/orchestrator</code></h3>
+    <p><span class="lbl">Files</span> <code>package.json</code>, <code>tsconfig.json</code>,
+      <code>src/migrations/001_orchestrator.sql</code> (§1.1), placeholder <code>src/index.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>package.json</code> mirrors <code>@engineerdad/mcp-analytics</code>:
+      <code>type:module</code>, build = <code>tsc -p tsconfig.json &amp;&amp; node -e "...cpSync('src/migrations','dist/migrations'...)"</code>,
+      dep <code>@engineerdad/shared: workspace:*</code>. <code>tsconfig.json</code> extends
+      <code>../../tsconfig.base.json</code>.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm install</code> links the package; <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — <code>types.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>src/types.ts</code> — all of §1.2 verbatim.</p>
+    <p><span class="lbl">Verify</span> Type-only; <code>tsc</code> via <code>pnpm -r build</code> is the check. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — <code>state.ts</code>: <code>getDb</code> + <code>createRun</code> + <code>loadRunState</code></h3>
+    <p><span class="lbl">Files</span> <code>src/state.ts</code>, <code>src/state.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> Port the <code>getDb</code> pattern from <code>mcp-servers/analytics/src/db.ts</code>
+      (<code>node:sqlite</code> <code>DatabaseSync</code>, WAL, <code>findPackageRoot</code>, apply
+      <code>001_orchestrator.sql</code>). <code>createRun(runId, stage, params)</code> inserts a
+      <code>runs</code> row; <code>loadRunState(runId)</code> joins <code>runs</code> +
+      <code>run_steps</code> into a <code>RunState</code> (or <code>null</code>).</p>
+    <p><span class="lbl">Test</span> Use a temp DB path. createRun then loadRunState round-trips
+      stage/status/params; unknown runId → null; params JSON survives.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm vitest run packages/orchestrator/src/state.test.ts</code> green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — <code>state.ts</code>: <code>upsertStep</code> + <code>setRunStage</code> + <code>listRuns</code></h3>
+    <p><span class="lbl">Files</span> <code>src/state.ts</code>, <code>src/state.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> <code>upsertStep(runId, RunStepState)</code> — insert-or-replace a
+      <code>run_steps</code> row (JSON-encode <code>result</code>/<code>problems</code>);
+      <code>setRunStage(runId, stage, status)</code> updates <code>runs</code> + <code>updated_at</code>;
+      <code>listRuns()</code> → run summaries for <code>/status</code>.</p>
+    <p><span class="lbl">Test</span> upsertStep is idempotent on (runId, stepId); after upsert,
+      loadRunState shows the step; setRunStage moves the stage; listRuns returns all runs.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — <code>engine.ts</code>: <code>plan</code></h3>
+    <p><span class="lbl">Files</span> <code>src/engine.ts</code>, <code>src/engine.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>plan</code> per §1.3 — mint on absent runId
+      (<code>run_${Math.floor(Date.now()/1000)}</code>), else load state, return the first
+      not-<code>done</code> step via the StepSpec's <code>build</code>; stage roll-over; final
+      <code>{kind:"done"}</code>.</p>
+    <p><span class="lbl">Test</span> Against a 2-step in-test registry: fresh call mints a run + returns
+      step 1; after step 1 done, returns step 2; after all done, returns <code>{kind:"done"}</code>;
+      re-entry is deterministic (same persisted state → same step — the resumability property).</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — <code>engine.ts</code>: <code>verify</code></h3>
+    <p><span class="lbl">Files</span> <code>src/engine.ts</code>, <code>src/engine.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> <code>verify</code> — locate the StepSpec, run its <code>verify</code>
+      if present, else a default (<code>result</code> non-null and not <code>{error}</code>).</p>
+    <p><span class="lbl">Test</span> Default verifier passes a normal result, fails null/error; a
+      StepSpec with a custom verifier routes to it; problems array surfaces.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — <code>engine.ts</code>: <code>advance</code></h3>
+    <p><span class="lbl">Files</span> <code>src/engine.ts</code>, <code>src/engine.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> <code>advance</code> — <code>upsertStep</code> with
+      <code>status:"done"</code> + result; if it was the stage's last step, <code>setRunStage</code> to
+      the next registry stage (or <code>done</code>). Returns the new <code>{stage,status}</code>.</p>
+    <p><span class="lbl">Test</span> advancing a mid-stage step keeps the stage; advancing the last
+      step rolls the stage; advancing the final stage's last step sets status <code>done</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — <code>stages/fixture.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>src/stages/fixture.ts</code>, <code>src/stages/fixture.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>fixtureStage: StageDefinition</code> — id <code>"fixture"</code>,
+      2 <code>spawn</code> steps. Each <code>build</code> returns a <code>spawn</code> Step targeting
+      <code>general-purpose</code> with a deterministic echo prompt ("reply with the JSON
+      <code>{ok:true,step:&lt;id&gt;}</code>"). Each <code>verify</code> asserts the worker echoed
+      <code>ok:true</code> and the right <code>step</code>.</p>
+    <p><span class="lbl">Test</span> Well-formedness: 2 steps, kind <code>spawn</code>, ids unique;
+      <code>build</code> yields a valid spawn Step; <code>verify</code> passes a matching echo,
+      fails a mismatch.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — Engine integration test over the fixture stage <span style="color:var(--good);">(the C1 proof)</span></h3>
+    <p><span class="lbl">Files</span> <code>src/engine.integration.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> No new source — a test that drives the full loop against
+      <code>[fixtureStage]</code>: <code>plan</code> (mint) → simulate worker result → <code>verify</code>
+      → <code>advance</code> → <code>plan</code> → … → <code>{kind:"done"}</code>. Then a
+      <strong>resumability</strong> case: stop after step 1, reload, <code>plan</code> returns step 2
+      (not step 1) — proving <code>plan</code> is a pure function of persisted state.</p>
+    <p><span class="lbl">Verify</span> suite green — the engine + the design's resumability claim are proven. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T10 — <code>verifiers/verify-produce.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>src/verifiers/verify-produce.ts</code>, <code>verify-produce.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>verifyProduce</code> exactly per §1.4 (pure function).</p>
+    <p><span class="lbl">Test</span> A complete fixture run → <code>ok:true</code>; each check fails in
+      isolation — short variant matrix, empty Asset Files, incomplete Meta spec, incomplete organic
+      spec, failed compliance, totals drift, static-variants-but-zero-render-workers.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T11 — <code>stages/produce.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>src/stages/produce.ts</code>, <code>src/stages/produce.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>produceStage: StageDefinition</code> — id <code>"produce"</code>,
+      4 StepSpecs: <code>P1-creative</code> (spawn <code>creative-director</code>),
+      <code>P2-render</code> (fanout <code>general-purpose</code>), <code>P3-persist</code> (write;
+      its <code>verify</code> calls <code>verifyProduce</code> over data carried on the run),
+      <code>P4-gate</code> (gate <code>HG3</code>). Definition only — not added to the live registry
+      this phase.</p>
+    <p><span class="lbl">Test</span> Well-formedness: 4 steps, correct kinds/ids/order; P3's
+      <code>verify</code> delegates to <code>verifyProduce</code>; P4 is a <code>gate</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T12 — <code>registry.ts</code> + <code>index.ts</code> barrel</h3>
+    <p><span class="lbl">Files</span> <code>src/registry.ts</code>, <code>src/index.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>registry.ts</code> exports <code>FIXTURE_REGISTRY = [fixtureStage]</code>
+      (the live registry Phase 2 ships) and <code>produceStage</code> for later inclusion.
+      <code>index.ts</code> re-exports types, engine, state, registry, verifiers.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; the package's public surface
+      imports cleanly. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T13 — <code>mcp-servers/orchestrator</code> + <code>.mcp.json</code></h3>
+    <p><span class="lbl">Files</span> <code>mcp-servers/orchestrator/{package.json,tsconfig.json}</code>,
+      <code>src/index.ts</code>; modify <code>.mcp.json</code>.</p>
+    <p><span class="lbl">Build</span> Thin stdio server mirroring <code>mcp-servers/analytics/src/index.ts</code>
+      — <code>McpServer</code>, <code>toolResult</code>/<code>errorResult</code> helpers, 4 tools:
+      <code>plan</code> (<code>{runId?,args?}</code>), <code>verify</code>
+      (<code>{runId,stepId,result}</code>), <code>advance</code> (<code>{runId,stepId,result}</code>),
+      <code>status</code> (<code>{}</code>). Each delegates to <code>@engineerdad/orchestrator</code>,
+      passing <code>FIXTURE_REGISTRY</code>. Register in <code>.mcp.json</code> as
+      <code>orchestrator</code> → <code>node mcp-servers/orchestrator/dist/index.js</code>.</p>
+    <p><span class="lbl">Test</span> Input-validation tests on the Zod shapes (mirror the analytics MCP's
+      test style). <span class="lbl">Verify</span> build clean; tests green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T14 — <code>/loop</code> + <code>/status</code> commands</h3>
+    <p><span class="lbl">Files</span> <code>.claude/commands/loop.md</code>, <code>.claude/commands/status.md</code>.</p>
+    <p><span class="lbl">Build</span> <code>loop.md</code> — frontmatter (<code>description</code>,
+      <code>argument-hint</code>, <code>allowed-tools: Task, mcp__orchestrator__*</code>) + the §1.5
+      conductor body. <code>status.md</code> — calls <code>mcp__orchestrator__status</code>, prints
+      the run table.</p>
+    <p><span class="lbl">Verify</span> Files parse as commands (no build). <code>pnpm sync:agents:check</code>
+      unaffected. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T15 — Full build, suite, and live smoke</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; <code>pnpm vitest run</code>
+      (whole repo) green; <code>pnpm sync:agents:check</code> clean. Then a live smoke: restart Claude
+      Code (picks up <code>.mcp.json</code>), run <code>/loop</code> — it mints a run, drives the
+      fixture stage's 2 spawn steps through verify+advance, and reports <code>done</code>;
+      <code>/status</code> shows the completed run. Commit any doc/tracking updates.</p>
+  </div>
+
+  <h2><span class="num">3.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>packages/orchestrator</code> exposes <code>plan</code>/<code>verify</code>/<code>advance</code>
+    + <code>state</code> + the fixture &amp; produce stage definitions + <code>verifyProduce</code>, all
+    unit-tested; the engine integration test proves the full <code>plan→verify→advance</code> loop
+    <em>and</em> resumability over the fixture stage; the <code>orchestrator</code> MCP is registered
+    and its 4 tools work; <code>/loop</code> drives the fixture stage end-to-end live and
+    <code>/status</code> reports it; <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+    <code>pnpm sync:agents:check</code> all green. <code>produceStage</code> + <code>verifyProduce</code>
+    exist and are tested but are <em>not</em> in the live registry — Phase 5 adds them.</div>
+
+  <div class="callout key">
+    <span class="lbl">Carried to Phase 3+</span>
+    The locked interfaces (§1.2 types, §1.3 engine surface) are frozen here. Phase 3 (distribute +
+    experiment stages), Phase 4 (tracking + analytics + schedule), and Phase 5 (the real
+    <code>produce</code> registry entry + the Notion-reading <code>verifyProduce</code> wrapper +
+    <code>creative-director</code>) all build against them without modification.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>.
+    On completion, Phase 3 is expanded next.
+  </div>
+
+</div>
+</body>
+</html>

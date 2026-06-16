@@ -1,0 +1,1 @@
+ALTER TABLE "scripts" ADD COLUMN "claim_bindings" jsonb DEFAULT '[]'::jsonb NOT NULL;

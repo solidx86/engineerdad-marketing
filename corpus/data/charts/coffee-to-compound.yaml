@@ -1,0 +1,30 @@
+# Coffee to Compound — what redirecting lifestyle-bloat leaks becomes in 18 years
+# Source: cross-links corpus/courses/children-fund-101.md Module 3.1 (Lifestyle Audit
+# leak amounts: RM240/mo coffee + RM1,500/mo eating-out reform = ~RM1,740/mo found
+# money) with Module 1.3 / 1.4 compounding math (8%, 18y).
+# Used by media-production when scene argues "your daily coffee buys this", "the leak
+# isn't the coffee — it's the 18 years of compounding you lost", the punchline
+# that turns the Lifestyle Audit hook into an action close, "I can't afford to invest"
+# (objection myth d0-cant-afford-to-start), or "investing is for rich people"
+# (objection myth d0-investing-is-for-the-rich).
+
+id: coffee-to-compound
+title_en: "Where lifestyle-bloat money ends up after 18 years at 8%"
+title_ms: "Ke mana wang lifestyle-bloat berakhir selepas 18 tahun pada 8%"
+chart_type: bar
+x_label_en: "What you redirect"
+x_label_ms: "Apa yang anda halakan semula"
+y_label_en: "Value at year 18 (RM)"
+y_label_ms: "Nilai pada tahun ke-18 (RM)"
+labels:
+  - "Keep the leaks (RM0 redirected)"
+  - "Redirect coffee only (RM240/mo)"
+  - "Redirect coffee + eat-out reform (RM1,740/mo)"
+series:
+  - name_en: "Projected portfolio value at year 18"
+    name_ms: "Nilai portfolio dianggar pada tahun ke-18"
+    semantic_role: hero
+    values: [0, 115000, 835000]
+caption_en: "The coffee isn't the problem. The 18 years of compounding it costs you is. RM240/month redirected becomes RM115,000 — more than a local degree. Add the eating-out reform and the same household quietly compounds itself to RM835,000 — within reach of the EPF Adequate retirement tier. Lifestyle bloat doesn't feel expensive month-to-month. That's exactly why it's expensive."
+caption_ms: "Kopi bukan masalahnya. 18 tahun kompaun yang ia rampas dari anda — itulah masalahnya. RM240/sebulan dihalakan semula menjadi RM115,000 — lebih daripada kos ijazah tempatan. Tambah pembaharuan makan-luar dan rumah tangga yang sama secara senyap berkompaun sendiri kepada RM835,000 — dalam capaian tahap persaraan EPF Mencukupi. Lifestyle bloat tidak berasa mahal bulan demi bulan. Itulah sebabnya ia mahal."
+source_citation: "Calculated using future value of a monthly annuity at 8% annual return, monthly compounding, 216 months (18 years), no initial deposit. Leak amounts sourced from corpus/courses/children-fund-101.md Module 3.1 (RM240/mo coffee, RM1,500/mo eating-out reduction). Rounded to nearest RM1,000. Illustrative — actual fund returns and household leaks vary."

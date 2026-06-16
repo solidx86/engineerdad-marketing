@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_bar_stacked",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "For fifteen years the portfolio is mostly equity, then it deliberately glides toward bonds and cash just before you need the money.", "onScreenText": "Growth now, protection later", "chartRef": "glide-path-allocation", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "show the allocation mix shifting from equity to bonds over the plan years as a 100%-stacked bar per year" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

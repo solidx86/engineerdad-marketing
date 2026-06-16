@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 6 — Wire the live loop</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .badge.review { background: var(--warn); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 6 — Wire the live loop</h1>
+  <p class="meta">
+    Implementation plan · phase 6 of 7 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phases 2–5 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">This is the cutover phase</span>
+    Phases 2–5 built nine stage <em>definitions</em> behind a fixture-only registry (the C1
+    staging). Phase 6 builds the three remaining stages, assembles the ordered live registry,
+    and points the orchestrator MCP at it — <strong>after this phase <code>/loop</code> walks the
+    real 9-stage loop end to end.</strong> It also deletes the five agents the stages replaced.
+    The integration risk is real and concentrated here; T10 is a full live smoke.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Three decisions baked in</span>
+    <strong>1 — synthesize / brief / content are agentic-cell stages.</strong> Each is a thin
+    <code>spawn</code> of a genuine reasoning/authoring agent (<code>brain</code>,
+    <code>brief-writer</code>, <code>content-writer</code>) plus — for brief and content — a
+    human gate. The spawn-prompt formats are the ones relocated from <code>brain.md</code> §E,
+    now typed in stage files. The verifiers are light: they catch a totally-failed agent run;
+    the human gate is the real judgement.<br>
+    <strong>2 — content is spawn + gate (no fanout yet).</strong> The current
+    <code>content-gen</code> agent authors hook banks, scripts, and articles in one pass. Design
+    §8's "content-writer + fan-out workers" is a later refinement; Phase 6 ships
+    <code>content</code> faithful to the agent as it stands.<br>
+    <strong>3 — the loop order is design §8.</strong>
+    <code>tracking → analytics → synthesize → brief →[HG1]→ content →[HG2]→ produce →[HG3]→
+    schedule → experiment → distribute →[HG4]</code>. <code>schedule</code> precedes
+    <code>experiment</code> + <code>distribute</code> (Phase 4 review).
+  </div>
+
+  <p><strong>Goal:</strong> Build <code>synthesize</code>, <code>brief</code>, <code>content</code>
+    as agentic-cell stages; assemble the ordered live registry; point the orchestrator MCP at it;
+    upgrade HG4 to a passable Meta check; delete the five replaced agents — so <code>/loop</code>
+    conducts the whole loop.</p>
+  <p><strong>Architecture:</strong> No engine change. The three new stages are
+    <code>spawn</code>(+<code>gate</code>) <code>StageDefinition</code>s built against Phase 2's
+    frozen engine. The registry swap is a one-line change in the orchestrator MCP.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM), vitest. New deps: none. Execution:
+    <strong>TBD</strong> — this doc is for review first.</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>orchestrator/src/types.ts</code> <em>(modify)</em></td><td>Extend <code>RunStage</code> with <code>synthesize</code>, <code>brief</code>, <code>content</code></td></tr>
+      <tr><td><code>orchestrator/src/stages/synthesize.ts</code></td><td><code>synthesizeStage</code> — spawn <code>brain</code> (reason-only) → Decision Memo</td></tr>
+      <tr><td><code>orchestrator/src/stages/brief.ts</code></td><td><code>briefStage</code> — spawn <code>brief-writer</code> → 12 Briefs · HG1 gate</td></tr>
+      <tr><td><code>orchestrator/src/stages/content.ts</code></td><td><code>contentStage</code> — spawn <code>content-writer</code> → Scripts + Articles · HG2 gate</td></tr>
+      <tr><td><code>orchestrator/src/verifiers/verify-synthesize.ts</code> · <code>verify-brief.ts</code> · <code>verify-content.ts</code></td><td>Light structural verifiers — agent-run-failed detection</td></tr>
+      <tr><td><code>orchestrator/src/stages/distribute.ts</code> <em>(modify)</em></td><td>D4-gate gains a Meta <code>list_ads</code> check — HG4 becomes passable</td></tr>
+      <tr><td><code>orchestrator/src/registry.ts</code> <em>(modify)</em></td><td>Assemble + export <code>LIVE_REGISTRY</code> (ordered 9 stages)</td></tr>
+      <tr><td><code>mcp-servers/orchestrator/src/index.ts</code> <em>(modify)</em></td><td><code>plan</code>/<code>verify</code>/<code>advance</code> point at <code>LIVE_REGISTRY</code></td></tr>
+      <tr><td><code>.claude/agents/brief-writer.md</code> · <code>content-writer.md</code></td><td>Renamed from <code>targeting.md</code> / <code>content-gen.md</code> (T5)</td></tr>
+      <tr><td><code>.claude/agents/brain.md</code> <em>(modify)</em></td><td>Trim §A mode-dispatch + §E spawn protocols; drop <code>Task</code> — brain becomes a pure reasoner (T10)</td></tr>
+      <tr><td><code>.claude/agents/{tracking,analytics,distribution,experiment-os,media-production}.md</code></td><td><strong>Delete</strong> — replaced by stages</td></tr>
+      <tr><td><code>corpus/templates/worker-prompts/static-asset.md</code></td><td><strong>Delete</strong> — superseded by <code>render-worker.md</code> (Phase 5)</td></tr>
+      <tr><td><code>*.test.ts</code></td><td>Colocated vitest suites</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Not in Phase 6:</strong> trimming <code>brain.md</code> §G (organic-planner) +
+    writing ADR-020 + <code>ARCHITECTURE.md</code> + archiving PLAN.md — Phase 7. Phase 6 <em>does</em>
+    trim <code>brain.md</code> §A/§E (T10) — the live loop must not run with <code>brain</code>
+    still believing it dispatches.</p>
+
+  <h2><span class="num">1.</span> Locked interfaces</h2>
+
+  <h3>1.1 — <code>RunStage</code> (additive)</h3>
+<pre>export type RunStage =
+  "fixture" | "tracking" | "analytics" | "synthesize" | "brief"
+  | "content" | "produce" | "schedule" | "experiment" | "distribute" | "done";</pre>
+
+  <h3>1.2 — Stage shapes</h3>
+<pre>synthesizeStage  "synthesize"  S1-reason (spawn brain — "run §B 9-step, emit the
+                               Decision Memo, do NOT dispatch"; verify =
+                               verifySynthesize — Memo has recommendedAngles)
+                               — no gate; flows straight into brief.
+
+briefStage       "brief"       B1-write (spawn brief-writer — build passes runId
+                               + the Memo's recommendedAngles/personas/
+                               topCreatives/hypothesisIds; verify = verifyBrief)
+                               B2-gate  (gate HG1 — check: Briefs Approved query)
+
+contentStage     "content"     C1-write (spawn content-writer — build passes
+                               runId; verify = verifyContent)
+                               C2-gate  (gate HG2 — check: Scripts Approved query)</pre>
+  <p>Each <code>spawn</code> build reads the prior stage's step result to assemble its prompt —
+    the same pattern as <code>distribute</code>'s D2. The spawn-prompt formats are
+    <code>brain.md</code> §E's, now typed.</p>
+
+  <h3>1.3 — Verifiers (light, structural)</h3>
+<pre>verifySynthesize(memo)   ok when the spawn result carries a non-empty
+                         recommendedAngles[] (brain produced a usable Memo).
+verifyBrief(result)      ok when result.angles[] is non-empty (brief-writer
+                         created Brief rows). Cold-start tolerant.
+verifyContent(result)    ok when result.scripts[] is non-empty.</pre>
+  <p>These catch an agent run that produced nothing. The acceptance judgement is the human gate
+    (HG1 / HG2) — a light verifier here, a real gate after.</p>
+
+  <h3>1.4 — HG4 upgrade — <code>distribute</code> D4-gate</h3>
+<pre>D4-gate gains a `check` (it was a terminal STOP in Phase 3):
+  check: { tool: "mcp__meta-ads__list_ads", args: { runId } }
+  verify: gate clears when every ad for the run is ACTIVE — i.e. a human has
+          un-paused them in Meta Ads Manager (ADR-015: activation is human-only).</pre>
+
+  <h3>1.5 — <code>LIVE_REGISTRY</code> (<code>registry.ts</code>)</h3>
+<pre>export const LIVE_REGISTRY: StageDefinition[] = [
+  trackingStage, analyticsStage, synthesizeStage, briefStage, contentStage,
+  produceStage, scheduleStage, experimentStage, distributeStage,
+];</pre>
+  <p>The orchestrator MCP imports <code>LIVE_REGISTRY</code> in place of
+    <code>FIXTURE_REGISTRY</code>; <code>FIXTURE_REGISTRY</code> + <code>fixtureStage</code> stay
+    exported for the engine unit tests.</p>
+
+  <h2><span class="num">2.</span> Tasks</h2>
+  <p>TDD: write the test(s), run red, implement, run green, commit. Commit prefix
+    <code>feat(orchestrator):</code> for T1–T4, T6–T8; <code>feat:</code> / <code>chore:</code>
+    for the agent renames, deletions, and the <code>brain.md</code> trim (T5, T9, T10);
+    <code>docs:</code> for T11's roadmap.</p>
+
+  <div class="task">
+    <h3>T1 — <code>RunStage</code> extension</h3>
+    <p><span class="lbl">Files</span> <code>types.ts</code>. <span class="lbl">Build</span> Extend
+      <code>RunStage</code> per §1.1 — additive, type-only.
+      <span class="lbl">Verify</span> <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — <code>synthesizeStage</code> + <code>verifySynthesize</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/synthesize.ts</code>,
+      <code>verifiers/verify-synthesize.ts</code>, both <code>*.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> One <code>spawn</code> step <code>S1-reason</code> —
+      <code>agent: "brain"</code>; <code>spawnPrompt</code> = runId + the analytics-stage output
+      + an explicit "run the §B 9-step scaffold, emit the Decision Memo, do NOT dispatch any
+      subagent — the orchestrator owns sequencing." No gate. <code>verify</code> delegates to
+      <code>verifySynthesize</code>.</p>
+    <p><span class="lbl">Test</span> 1 step, spawn, agent <code>brain</code>; prompt contains the
+      runId and "do NOT dispatch"; <code>verifySynthesize</code> ok on a Memo with
+      <code>recommendedAngles</code>, fails on an empty result.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — <code>briefStage</code> + <code>verifyBrief</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/brief.ts</code>,
+      <code>verifiers/verify-brief.ts</code>, both <code>*.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>B1-write</code> (<code>spawn</code> —
+      <code>agent: "brief-writer"</code>; build reads <code>S1-reason</code>'s Memo and packs
+      runId + <code>recommendedAngles</code> + <code>personas</code> + <code>topCreatives</code>
+      + <code>hypothesisIds</code>; <code>verify</code> = <code>verifyBrief</code>).
+      <code>B2-gate</code> (<code>gate</code> HG1 — <code>check</code>: query <code>Briefs</code>
+      where <code>Run ID</code> = runId AND <code>Approval Status</code> = Approved;
+      <code>verify</code> ok when ≥1 approved).</p>
+    <p><span class="lbl">Test</span> 2 steps; B1 spawn targets <code>brief-writer</code> and the
+      prompt carries the Memo's angles; B2 is a gate with a Notion <code>check</code>;
+      <code>verifyBrief</code> ok on a non-empty <code>angles[]</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — <code>contentStage</code> + <code>verifyContent</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/content.ts</code>,
+      <code>verifiers/verify-content.ts</code>, both <code>*.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>C1-write</code> (<code>spawn</code> —
+      <code>agent: "content-writer"</code>; build packs runId; <code>verify</code> =
+      <code>verifyContent</code>). <code>C2-gate</code> (<code>gate</code> HG2 —
+      <code>check</code>: query <code>Scripts</code> Approved for the run).</p>
+    <p><span class="lbl">Test</span> 2 steps; C1 spawn targets <code>content-writer</code>; C2
+      gate carries the Scripts <code>check</code>; <code>verifyContent</code> ok on non-empty
+      <code>scripts[]</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — Rename targeting → brief-writer, content-gen → content-writer</h3>
+    <p><span class="lbl">Files</span> <code>git mv</code> <code>.claude/agents/targeting.md</code>
+      → <code>brief-writer.md</code>, <code>content-gen.md</code> → <code>content-writer.md</code>;
+      update each file's <code>name:</code> frontmatter; update every reference
+      (<code>brain.md</code> §E, <code>CLAUDE.md</code>, command files, <code>PLAN.md</code>).</p>
+    <p><span class="lbl">Build</span> Rename the two agent files + their <code>name:</code> field.
+      Keep the fragment role keys (<code>tactical-piliero.md#targeting</code> /
+      <code>#content-gen</code>) unchanged — they are internal sync identifiers, not
+      user-facing, so <code>sync:agents:check</code> stays clean with zero fragment edits.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm sync:agents:check</code> clean; no dangling
+      <code>targeting</code>/<code>content-gen</code> agent references (<code>grep</code>). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — <code>registry.ts</code>: assemble <code>LIVE_REGISTRY</code></h3>
+    <p><span class="lbl">Files</span> <code>registry.ts</code>, <code>registry.test.ts</code>,
+      <code>index.ts</code>.</p>
+    <p><span class="lbl">Build</span> Add <code>LIVE_REGISTRY</code> per §1.5 — the ordered 9
+      stages. Keep <code>FIXTURE_REGISTRY</code> exported. Re-export the three new stages +
+      verifiers from the barrel.</p>
+    <p><span class="lbl">Test</span> <code>LIVE_REGISTRY</code> has 9 stages in the design-§8
+      order; every <code>id</code> is a distinct <code>RunStage</code>; <code>schedule</code>
+      precedes <code>experiment</code> and <code>distribute</code>.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — Orchestrator MCP: point at <code>LIVE_REGISTRY</code></h3>
+    <p><span class="lbl">Files</span> <code>mcp-servers/orchestrator/src/index.ts</code>.</p>
+    <p><span class="lbl">Build</span> Swap the <code>FIXTURE_REGISTRY</code> import + the three
+      <code>plan</code>/<code>verify</code>/<code>advance</code> call sites to
+      <code>LIVE_REGISTRY</code>. This is the cutover line.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; the orchestrator MCP
+      starts. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — HG4 upgrade: <code>distribute</code> D4-gate Meta check</h3>
+    <p><span class="lbl">Files</span> <code>stages/distribute.ts</code>,
+      <code>distribute.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> D4-gate gains a <code>check</code> per §1.4 — a Meta
+      <code>list_ads</code> read; its <code>verify</code> clears the gate when every ad for the
+      run is <code>ACTIVE</code> (a human un-paused them; ADR-015 keeps activation human-only).
+      Remove the Phase-3 "terminal STOP" comment.</p>
+    <p><span class="lbl">Test</span> D4-gate carries a <code>check</code>; verify ok when all ads
+      ACTIVE, fails when any is PAUSED.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — Delete the replaced agents + <code>static-asset.md</code></h3>
+    <p><span class="lbl">Files</span> delete <code>.claude/agents/{tracking,analytics,distribution,experiment-os,media-production}.md</code>
+      + <code>corpus/templates/worker-prompts/static-asset.md</code>; clean references in
+      <code>CLAUDE.md</code>, <code>.mcp.json</code>, command files, <code>TASKS.md</code>/<code>DONE.md</code>,
+      <code>scripts/test-static-worker.mjs</code> (re-point to <code>render-worker.md</code>).</p>
+    <p><span class="lbl">Build</span> Remove the five agent files + <code>static-asset.md</code>;
+      sweep every reference. <code>brain.md</code>'s §A/§E references to the deleted agents are
+      handled per the open-review decision below.</p>
+    <p><span class="lbl">Verify</span> no dangling references (<code>grep</code>);
+      <code>pnpm sync:agents:check</code> clean; <code>pnpm test:worker</code> still renders
+      (now via <code>render-worker.md</code>). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T10 — Trim <code>brain.md</code> to a pure reasoner</h3>
+    <p><span class="lbl">Files</span> <code>.claude/agents/brain.md</code>.</p>
+    <p><span class="lbl">Build</span> Remove §A (mode dispatch) + §E (subagent spawn protocols) —
+      the orchestrator owns sequencing and the stage files own the spawn prompts now. Drop
+      <code>Task</code> from the tool list (a reasoner does not spawn). Rewrite the intro
+      4-step list to drop step 4 "Dispatch", and the <code>description:</code> frontmatter to
+      read as a reasoner, not a router. Keep §B (9-step scaffold), §C (Decision Memo), §D (move
+      catalog), §F (cold-start), §G (organic-planner — Phase 7 trims it), and the hard rules.
+      Sweep any §G reference to a now-deleted agent.</p>
+    <p><span class="lbl">Verify</span> <code>brain.md</code> has no §A/§E and no <code>Task</code>;
+      <code>pnpm sync:agents:check</code> clean; no dangling deleted-agent references
+      (<code>grep</code>). Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T11 — Live <code>/loop</code> smoke; full build, suite, sync; roadmap</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+      <code>pnpm sync:agents:check</code> all green. Restart Claude Code; run <code>/loop</code>
+      against a fresh run — confirm <code>plan</code> walks <code>tracking → analytics →
+      synthesize</code> and stops cleanly (a gate or a verify-fail STOP), driven by
+      <code>LIVE_REGISTRY</code>. Update the roadmap — mark Phase 6 shipped. Commit.</p>
+  </div>
+
+  <h2><span class="num">3.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>synthesize</code>, <code>brief</code>, <code>content</code> exist as unit-tested
+    <code>StageDefinition</code>s; <code>LIVE_REGISTRY</code> is the ordered design-§8 loop and
+    the orchestrator MCP drives it; HG4 is a passable Meta check; the five replaced agents +
+    <code>static-asset.md</code> are deleted; <code>brain.md</code> reads as a pure reasoner
+    (no §A/§E, no <code>Task</code>); no dangling references; <code>/loop</code> conducts the
+    live loop in a smoke run; <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+    <code>pnpm sync:agents:check</code> all green.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Review resolved — 2026-05-22</span>
+    <strong>(a) The agent rename — confirmed.</strong> T5 renames
+    <code>targeting.md</code> → <code>brief-writer.md</code> and <code>content-gen.md</code> →
+    <code>content-writer.md</code>, matching design §8.<br>
+    <strong>(b) <code>brain.md</code> §A/§E timing — option (ii) confirmed.</strong> The §A/§E
+    trim is pulled forward into Phase 6 as <strong>T10</strong> — the live loop must not run with
+    <code>brain</code> still believing it dispatches. Phase 6 is now 11 tasks; Phase 7 narrows to
+    §G + ADR-020 + docs.
+  </div>
+
+  <div class="callout key">
+    <span class="lbl">Carried to Phase 7</span>
+    Phase 7 trims <code>brain.md</code> §G (organic-planner), writes
+    <code>docs/decisions/020-agentic-cell-architecture.md</code>, adds the status note to
+    ADR-005, creates <code>ARCHITECTURE.md</code>, and archives <code>PLAN.md</code>.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>
+    · Predecessor: <code>phase-5.html</code> (shipped). On approval, Phase 6 executes; Phase 7 is expanded next.
+  </div>
+
+</div>
+</body>
+</html>

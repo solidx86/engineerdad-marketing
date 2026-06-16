@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: engineerdad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: engineerdad
+      POSTGRES_PASSWORD: engineerdad
+      POSTGRES_DB: engineerdad
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./data/postgres/pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engineerdad"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

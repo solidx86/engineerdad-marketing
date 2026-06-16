@@ -1,0 +1,52 @@
+{
+  "scriptId": "test_script_004",
+  "format": "Carousel",
+  "aspects": [
+    { "aspect": "4:5", "width": 1080, "height": 1350 },
+    { "aspect": "1:1", "width": 1080, "height": 1080 }
+  ],
+  "language": "en",
+  "scenes": [
+    {
+      "scene": 1,
+      "headline": "RM200/month from birth.",
+      "headline_source": "hook",
+      "body": "What it actually buys your child by age 18.",
+      "shotNotes": "hero card, single argument",
+      "chartRef": null
+    },
+    {
+      "scene": 2,
+      "headline": "Year 5: ~RM15K",
+      "headline_source": "onScreenText",
+      "body": "Five years of compounding. The base is starting to do the work.",
+      "shotNotes": "intermediate proof point",
+      "chartRef": null
+    },
+    {
+      "scene": 3,
+      "headline": "Year 10: ~RM38K",
+      "headline_source": "onScreenText",
+      "body": "Now the gains-on-gains start to matter more than the contributions.",
+      "shotNotes": "intermediate proof point",
+      "chartRef": null
+    },
+    {
+      "scene": 4,
+      "headline": "Year 18: ~RM100K",
+      "headline_source": "onScreenText",
+      "body": "Enough to fund a local degree. RM200 a month did the work.",
+      "shotNotes": "payoff card",
+      "chartRef": null
+    },
+    {
+      "scene": 5,
+      "headline": "Start at age 5 → ~RM57K",
+      "headline_source": "onScreenText",
+      "body": "Same RM200/month. Same return assumption. Five years late = roughly half the result. Time is the engine.",
+      "shotNotes": "contrast / cautionary card",
+      "chartRef": null
+    }
+  ],
+  "thumbnailBrief": "Calm reassurance / education tone. Teal-light background as a cohesive series. Each card shows one year-anchor + one number. Card 1 is the hook setup; cards 2-4 build the curve; card 5 is the cautionary contrast. Numbers in orange (the 'wins'); navy headlines; muted grey for time labels. Logo + position indicator (1/5, 2/5, etc.) on every card."
+}

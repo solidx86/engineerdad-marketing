@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-027 — Fan out the heavy single-spawn agents</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p0 {
+    background: var(--bad-bg);
+    border-color: var(--bad-line);
+    color: #8b2a2a;
+  }
+  .strike { color: var(--muted); }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-027 — Fan out the heavy single-spawn agents</h1>
+  <p class="subtitle">Replace the C1 content-writer and P1 creative-director single spawns with per-unit worker fanouts</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-23</dd>
+    <dt>Status</dt><dd><span class="pill">Draft — awaiting approval before plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill p0">P0</span> — blocks <code>run_1779446750</code> at <code>produce</code> / <code>P1-creative</code></dd>
+    <dt>Branch</dt><dd><code>feat/agentic-rebuild</code></dd>
+    <dt>Tracker</dt><dd>TASKS.md E-027</dd>
+    <dt>Related</dt><dd>Design §8 (deferred at Phase 6) · B-016 (verifier audit) · E-028 (hook-level learning)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context</h2>
+<p>
+  The first real end-to-end loop walk (<code>run_1779446750</code>) is stuck at
+  <code>produce</code> / <code>P1-creative</code>. Two stages still ship the Phase-6 single-spawn shape
+  that Design §8 explicitly flagged for fan-out and never came back to:
+</p>
+<ul>
+  <li><strong><code>content.ts</code> C1-write</strong> — one <code>content-writer</code> spawn that queries every
+    approved Brief, then authors a hook bank + 3 scripts for each one + 1–2 cross-Brief articles,
+    all in one context window.</li>
+  <li><strong><code>produce.ts</code> P1-creative</strong> — one <code>creative-director</code> spawn that takes the
+    run's Scripts (typically ~12) and produces 4 creatives per Script, all in one context window.</li>
+</ul>
+<p>The single spawn fails for an architectural reason, not a model one:</p>
+<div class="callout bad">
+  <span class="tag">Evidence — <code>run_1779446750</code> walk, 2026-05-22..23.</span>
+  <ul>
+    <li>5 subagent dispatches; the 2 heaviest (<code>content-writer</code>, <code>creative-director</code>) both
+      failed with <code>Tool result missing due to internal error</code>; the 3 lighter ones succeeded.</li>
+    <li>The content-writer that <em>did</em> return reported <strong>144,027 tokens — ~72% of Sonnet's 200k context
+      window</strong> for one run. Zero headroom. The earlier attempt that ran ~2× longer exceeded the window.</li>
+    <li><strong>Root cause:</strong> a subagent that exhausts its ~200k window cannot emit a final message; the
+      harness surfaces that as <code>Tool result missing due to internal error</code>. A subagent has <strong>no
+      compaction</strong> — unlike the main session it gets one window and dies if it fills.</li>
+    <li><strong>Model swap is not a fix:</strong> <code>content-writer</code> + <code>creative-director</code>
+      switched <code>sonnet → opus</code> (2026-05-23); <code>creative-director</code> still failed identically.
+      The window is the wall, not the model.</li>
+  </ul>
+</div>
+<p>
+  The fix is the fan-out the design always called for: replace each heavy single spawn with N narrow workers,
+  each working in its own fresh window on a single unit of work (one Brief; one Script).
+</p>
+
+<h2><span class="num">2.</span> Goal</h2>
+<p>Make the <code>content</code> and <code>produce</code> stages survive a real run at v1 scale (12 Briefs / 12 Scripts) without any worker approaching its context window.</p>
+<p><strong>Definition of done:</strong></p>
+<ul>
+  <li><code>run_1779446750</code> resumes and clears <code>produce</code> end-to-end on the new shape.</li>
+  <li>Cold-start <code>/loop-once</code> walks <code>content</code> and <code>produce</code> without any single
+    worker exceeding ~60k tokens (≈30% of Sonnet's window).</li>
+  <li><code>pnpm -r build</code> + <code>pnpm vitest run</code> + <code>pnpm sync:agents:check</code> green.</li>
+  <li>The C1 and P1 verifiers' contracts (hook-bank §8 Piliero rule, <code>CreativePlan</code> shape, 80% proof rule)
+    hold under aggregation.</li>
+</ul>
+
+<h2><span class="num">3.</span> Non-goals</h2>
+<ul>
+  <li>Re-doing register-level learning (E-028 is its own spec).</li>
+  <li>Changing what content-writer or creative-director <em>produce</em>. The artifact shapes
+    (<code>ContentResult</code>, <code>CreativePlan</code>, hook bank entries, scene cards) are unchanged.
+    Only dispatch granularity changes.</li>
+  <li>Removing the <code>general-purpose</code> worker pattern used by <code>P2-render</code>. P2 already works;
+    it stays.</li>
+</ul>
+
+<h2><span class="num">4.</span> Current shape (what's wrong)</h2>
+
+<h3>content stage — <code>packages/orchestrator/src/stages/content.ts</code></h3>
+<pre class="flow">C1-write  spawn  content-writer   → queries Briefs, authors EVERYTHING
+C2-gate   gate   HG2</pre>
+<p>C1's spawnPrompt: "Query this run's human-approved Briefs and author the hook banks, scripts, and AEO/GEO
+authority articles from them." The agent does:</p>
+<ul>
+  <li>query Notion for N Briefs</li>
+  <li>for each Brief: ≥30 bilingual hooks × 6 registers + value bank + 3 scripts + Notion writes</li>
+  <li>1–2 cross-Brief Authority Articles (800–1500 words each, bilingual)</li>
+  <li>batch <code>proofRatio</code> validation</li>
+</ul>
+<p>For 12 Briefs that's ≥360 bilingual hooks + 36 scripts + 2 articles in one window. This is what hit 144k tokens.</p>
+
+<h3>produce stage — <code>packages/orchestrator/src/stages/produce.ts</code></h3>
+<pre class="flow">P1-creative  spawn   creative-director → CreativePlan for ALL Scripts
+P2-render    fanout  general-purpose workers, one per static creative
+P3-persist   write   create_page per variant + articles query
+P4-enrich    write   article packaging fill-only-if-empty
+P5-confirm   write   re-query Scripts + CreativeVariants; verifyProduce
+P6-gate      gate    HG3</pre>
+<p>P1's spawnPrompt: "Query this run's human-approved Scripts and decompose each into the 4 distinct creatives."
+With 12 Scripts that's 48 creatives, each carrying a 3–8 scene shotlist × 2 languages + thumbnail brief, plus
+the full hookBanks JSON from C1. P2 already fans out cleanly; the wall is P1 itself.</p>
+
+<h2><span class="num">5.</span> Target shape</h2>
+<p>Two structural moves, parallel between stages:</p>
+<ol>
+  <li><strong>Add a "read approved units" write step</strong> before the heavy work. This is the cheap Notion
+    query already inside the agents today. Moving it to the orchestrator turns the next step's plan-time
+    <code>build</code> into a pure function of run state — fan-out granularity is known at plan time.</li>
+  <li><strong>Replace the heavy single spawn with a fanout</strong> — one worker per unit (one Brief; one Script).
+    The worker keeps its agent identity (<code>content-writer</code>, <code>creative-director</code>) but gets a
+    scoped <code>spawnPrompt</code>: one unit's data plus the contract for just that unit's output.</li>
+</ol>
+
+<h3>content stage — target</h3>
+<pre class="flow">C0-briefs    write   query approved Briefs for this run
+C1-fanout    fanout  content-writer worker, one per Brief
+                      → emits { briefId, hooks[], scripts[] }
+C2-articles  spawn   content-writer (article-mode) → 1–2 cross-Brief articles
+C3-gate      gate    HG2</pre>
+<ul>
+  <li><strong>C0-briefs.</strong> Single <code>mcp__notion__query</code> for <code>Briefs</code> filtered to
+    <code>Run ID = runId AND Approval Status = Approved</code>. The trailing-call pattern is already proven by
+    P3-persist's articles query.</li>
+  <li><strong>C1-fanout.</strong> <code>kind: "fanout"</code>, <code>worker: "content-writer"</code>. The
+    <code>build</code> function maps approved Brief rows to one unit per Brief; each unit's
+    <code>spawnPrompt</code> carries one Brief's properties + the C1-worker contract (≥30 hooks across 6
+    registers, ≥3 scripts per Brief, Notion writes for scripts only, <code>proofRefs</code> as multi_select).
+    No Notion query of its own — the Brief data is in the prompt. The verifier aggregates over the fanout's
+    array result and re-runs the <code>verifyContent</code> §8 Piliero check on the unioned
+    <code>hookBanks</code> and the unioned <code>scripts</code>.</li>
+  <li><strong>C2-articles.</strong> One small spawn for the 1–2 cross-Brief AEO/GEO articles. These need the
+    cross-Brief view (themes spanning Briefs) so cannot be per-Brief; but the workload — 2 articles at 800–1500
+    words — is well under one window even at 2× headroom.</li>
+  <li><strong>C3-gate.</strong> Unchanged HG2.</li>
+</ul>
+
+<h3>produce stage — target</h3>
+<pre class="flow">P0-scripts   write   query approved Scripts for this run; load hookBanks from C1
+P1-fanout    fanout  creative-director worker, one per Script
+                      → emits one CreativeUnit[4] per Script
+P2-render    fanout  general-purpose, one per static creative   (UNCHANGED)
+P3-persist   write   create_page per variant + articles query   (UNCHANGED)
+P4-enrich    write   article packaging                          (UNCHANGED)
+P5-confirm   write   re-query + verifyProduce                   (UNCHANGED)
+P6-gate      gate    HG3                                        (UNCHANGED)</pre>
+<ul>
+  <li><strong>P0-scripts.</strong> Single Notion query for the run's approved Scripts with the
+    <code>filter_properties</code> projection the creative-director uses today. Reads C1-fanout's
+    <code>hookBanks</code> from <code>run.steps</code> via <code>stepResult</code> — no new state shape.</li>
+  <li><strong>P1-fanout.</strong> <code>kind: "fanout"</code>, <code>worker: "creative-director"</code>. One unit
+    per Script. Each unit's prompt carries: that Script's properties, its parent Brief's hook bank (looked up by
+    <code>briefId</code>), and the contract for producing exactly 4 <code>CreativeUnit</code>s for that one
+    Script. The worker never re-queries Notion. The aggregator unions the per-Script outputs into a single
+    <code>CreativePlan</code>.</li>
+  <li><strong>P2–P6 unchanged.</strong> P2's render-worker fanout already operates on <code>plan.creatives</code>
+    flat — it's indifferent to whether that array came from one spawn or N. P3's <code>deriveSpecs</code> is
+    pure. P5's verifier reads from the aggregated plan and Notion ground truth.</li>
+</ul>
+
+<h2><span class="num">6.</span> Aggregation contract</h2>
+<p>The fanout step's <code>result</code> is an array of per-unit worker outputs. A verifier reduces it back to the
+shape the downstream code already expects:</p>
+<table>
+  <tr><th>Step</th><th>Per-unit output</th><th>Folded into</th></tr>
+  <tr>
+    <td><code>C1-fanout</code></td>
+    <td><code>{ briefId, hooks[], scripts[], proofRefs[], notes[] }</code></td>
+    <td><code>ContentResult</code> = <code>{ scripts: flat, hookBanks: [{briefId, hooks}], proofRatio: recomputed, ok: all-ok }</code></td>
+  </tr>
+  <tr>
+    <td><code>P1-fanout</code></td>
+    <td><code>{ scriptId, creatives[4] }</code></td>
+    <td><code>CreativePlan</code> = <code>{ runId, creatives: flat }</code> — no new fields; <code>deriveSpecs</code> consumes it unchanged.</td>
+  </tr>
+</table>
+<p>The §8 Piliero hook-bank check runs <em>per</em> <code>hookBanks</code> entry exactly as today; only the
+assembly point moves. Downstream <code>stepResult&lt;ContentResult&gt;</code> /
+<code>stepResult&lt;CreativePlan&gt;</code> reads are unchanged — they see the verifier-folded shape rather
+than a single agent's self-reported shape.</p>
+
+<h2><span class="num">7.</span> Agent prompt split</h2>
+<p>
+  <code>content-writer.md</code> and <code>creative-director.md</code> are written today as "do all units in one
+  batch." The fanout shape inverts that. Two options were weighed:
+</p>
+<table>
+  <tr><th>Option</th><th>How</th><th>Verdict</th></tr>
+  <tr>
+    <td><strong>1</strong> — One agent file, prompt-driven mode</td>
+    <td>Add a "Single-Brief / Single-Script worker mode" section gated by the spawnPrompt shape; the agent
+      operates only on the named unit.</td>
+    <td><strong>Chosen.</strong> Keeps agent identity (<code>subagent_type</code>), keeps the tools allowlist
+      sized correctly (Notion writes stay per-unit privileges of the specialist agent), smallest diff.</td>
+  </tr>
+  <tr>
+    <td><strong>2</strong> — Per-unit worker prompts under <code>corpus/templates/worker-prompts/</code></td>
+    <td>Mirror <code>render-worker.md</code>: fanout uses <code>worker: "general-purpose"</code> with a prompt
+      that says "read this worker file and follow it."</td>
+    <td>Rejected — forces <code>general-purpose</code> to gain Notion-write access just to materialize Scripts;
+      breaks the specialist tool-allowlist boundary.</td>
+  </tr>
+</table>
+<p>
+  Batch-level validations that genuinely need the cross-unit view
+  (<code>proofRatio &lt; 0.80</code>, article generation, cross-Script hook-register diversity) move out of the
+  per-unit agent and into either the <strong>C1-fanout aggregator</strong> or the dedicated
+  <strong>C2-articles spawn</strong>.
+</p>
+
+<h2><span class="num">8.</span> The 80% proof rule under fan-out</h2>
+<div class="callout ok">
+  <span class="tag">Spec decision.</span> Each C1 worker enforces <code>proofRatio ≥ 0.80</code> on its own
+  Brief's scripts. The C1-fanout aggregator re-checks the unioned ratio as defence in depth — it is
+  mathematically guaranteed by per-worker enforcement, but the explicit aggregate check protects against a
+  future worker that surfaces the violation only via <code>notes</code>.
+</div>
+<p>The 20% brand-spot budget thus becomes a per-Brief allowance rather than a shared batch resource — a tighter
+contract, but it removes the only cross-Brief coupling C1-fanout would otherwise need to coordinate.</p>
+
+<h2><span class="num">9.</span> Files touched</h2>
+<table>
+  <tr><th class="n">#</th><th>Path</th><th>Change</th></tr>
+  <tr>
+    <td class="n">1</td>
+    <td><code>packages/orchestrator/src/stages/content.ts</code></td>
+    <td>Replace <code>c1Write</code> / <code>c2Gate</code> with <code>c0Briefs</code> / <code>c1Fanout</code> /
+      <code>c2Articles</code> / <code>c3Gate</code>.</td>
+  </tr>
+  <tr>
+    <td class="n">2</td>
+    <td><code>packages/orchestrator/src/stages/produce.ts</code></td>
+    <td>Insert <code>p0Scripts</code>; replace <code>p1Creative</code> with <code>p1Fanout</code>.
+      P2–P6 untouched.</td>
+  </tr>
+  <tr>
+    <td class="n">3</td>
+    <td><code>packages/orchestrator/src/verifiers/verify-content.ts</code></td>
+    <td>Split into per-unit <code>verifyContentUnit</code> (one worker output) and aggregator
+      <code>verifyContent</code> (folds + re-checks). §8 Piliero check moves to the unit verifier so a
+      single bad Brief is caught at its own worker, not buried in the union.</td>
+  </tr>
+  <tr>
+    <td class="n">4</td>
+    <td><code>packages/orchestrator/src/verifiers/verify-produce.ts</code></td>
+    <td>No shape change. P1-aggregator builds a <code>CreativePlan</code>; existing <code>verifyProduce</code>
+      runs on P5's ground-truth as today.</td>
+  </tr>
+  <tr>
+    <td class="n">5</td>
+    <td><code>packages/orchestrator/src/types.ts</code></td>
+    <td>No change. The fanout <code>Step</code> shape already exists.</td>
+  </tr>
+  <tr>
+    <td class="n">6</td>
+    <td><code>.claude/agents/content-writer.md</code></td>
+    <td>Add "Single-Brief worker mode" section. Existing batch-mode steps (4a/4b/4c/5/7) reframed as "the
+      orchestrator dispatches one worker per Brief; you handle one Brief; the orchestrator aggregates."</td>
+  </tr>
+  <tr>
+    <td class="n">7</td>
+    <td><code>.claude/agents/creative-director.md</code></td>
+    <td>Add "Single-Script worker mode" section. Step 2's batch query becomes a single-Script input carried
+      in the prompt.</td>
+  </tr>
+  <tr>
+    <td class="n">8</td>
+    <td><code>packages/shared/src/prompts/*.md</code></td>
+    <td>No change. Agents include these via the existing <code>sync:agents</code> machinery.</td>
+  </tr>
+  <tr>
+    <td class="n">9</td>
+    <td>Tests</td>
+    <td>New fixtures for <code>verifyContent</code> aggregation; engine tests for the new stage shapes.</td>
+  </tr>
+</table>
+
+<h2><span class="num">10.</span> Test plan</h2>
+<ul>
+  <li><strong>C1 verifier per-unit.</strong> A single-Brief worker output with 29 hooks fails with the existing §8
+    message naming that Brief. With 30 hooks but missing a register, fails with the existing missing-register
+    message.</li>
+  <li><strong>C1 verifier aggregation.</strong> Three per-Brief outputs, all individually ok, produce a
+    <code>ContentResult</code> whose <code>hookBanks.length === 3</code> and whose <code>scripts</code> is the
+    flat union with no duplicates.</li>
+  <li><strong>C1 verifier 80% proof.</strong> Three workers each at exactly 80% proof produce an aggregate at
+    ≥80%. One worker below 80% is surfaced even though the union may still be ≥80% — defence in depth.</li>
+  <li><strong>P1 aggregation.</strong> Twelve per-Script outputs produce a <code>CreativePlan</code> whose
+    <code>creatives.length === 48</code> (12 × 4 formats). <code>deriveSpecs</code> over this aggregate
+    produces the same <code>VariantSpec[]</code> it would have for an unbatched run.</li>
+  <li><strong>Engine integration.</strong> A fixture run drives <code>content</code> from C0 through C3 and
+    <code>produce</code> from P0 through P6 with the new shapes. Stub workers return canned per-unit outputs;
+    the test verifies stage advancement, the verifier-folded results, and that no unit prompt exceeds a sentinel
+    size (a coarse proxy for "no worker overloads its window").</li>
+  <li><strong>No regression in <code>pnpm vitest run</code></strong> — current 459 passing must hold.</li>
+</ul>
+
+<h2><span class="num">11.</span> Risks</h2>
+<div class="callout warn">
+  <span class="tag">Per-worker context still has to fit.</span>
+  A single Brief produces ≥30 hooks × ~20 tokens × 2 languages + 3 scripts at 30/60/90s + per-Brief Notion writes.
+  At ~3–5k tokens for instructions + ~10k for outputs this is far under the window. But if per-worker output
+  grows (E-028 register-rich hooks; long-form scripts), this needs to be re-checked. The engine test's per-unit
+  size proxy catches obvious drift; the worst case is one Brief fails at its verifier and the run parks at C1 —
+  recoverable, not catastrophic.
+</div>
+<div class="callout warn">
+  <span class="tag">Notion rate-limiting.</span>
+  N workers each writing M Scripts is N×M parallel <code>create_page</code> calls. Notion's published rate limit
+  is ~3 rps; 12 workers × 3 scripts = 36 writes inside one fanout window. <strong>Mitigation:</strong> each
+  worker serialises its own Notion writes (a tight for-loop, not parallel). The fanout's parallelism is at the
+  per-Brief boundary, not inside one Brief.
+</div>
+<div class="callout warn">
+  <span class="tag">Stage step IDs.</span>
+  Step IDs change: <code>C1-write → C1-fanout</code>; <code>P1-creative → P1-fanout</code>. The blocked
+  <code>run_1779446750</code> has <code>C1-write</code> already done in its persisted state. Resume path is
+  decided in the plan: either (a) treat <code>C1-write</code> as satisfying <code>C1-fanout</code> via an
+  <code>oldStepIds</code> alias in the stage spec, or (b) introduce new IDs alongside the old via a
+  registry-versioned stage. Option (a) is simpler if state lookup is by ID.
+</div>
+
+<h2><span class="num">12.</span> Open questions</h2>
+<ol>
+  <li><strong>Stage step IDs.</strong> Rename in place (<code>C1-write → C1-fanout</code>) and migrate
+    persisted state, or layer new IDs alongside? Plan picks before the build.</li>
+  <li><strong>Worker count cap.</strong> Should the fanout cap at N (e.g. max 12 parallel) to bound Notion
+    write pressure? P2-render currently has no cap and works at run-scale, so probably no — but worth a
+    sanity check in the plan.</li>
+  <li><strong>C2-articles overload.</strong> 1–2 articles at 800–1500 words bilingual is ~6–10k output tokens.
+    Fine for one spawn. But the article-mode prompt currently re-reads compliance + house-style. If those grow
+    we may need a per-article fanout. Out of scope for E-027 unless the first walk surfaces it.</li>
+</ol>
+
+<h2><span class="num">13.</span> What this unblocks</h2>
+<ul>
+  <li><code>run_1779446750</code> can resume at <code>produce</code> once P1-fanout lands (with the stage-ID
+    migration decided in §11).</li>
+  <li>A cold-start <code>/loop-once</code> no longer dies at C1.</li>
+  <li>The remaining v1.5 enhancements that build on register-level learning (E-028) gain a stable produce
+    stage to attach to.</li>
+</ul>
+
+<footer class="doc">
+  E-027 design — 2026-05-23 · pairs with TASKS.md E-027 · supersedes the §8 deferral noted in
+  <code>content.ts:10-12</code>.
+</footer>
+
+</div>
+</body>
+</html>

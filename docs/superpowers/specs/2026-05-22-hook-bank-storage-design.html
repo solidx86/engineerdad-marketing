@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hook-Bank Storage — Design (Approach D)</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--ok-bg);
+    border: 1px solid var(--ok-line);
+    color: #2c6b3d;
+  }
+  .strike { color: var(--muted); }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Hook-Bank Storage</h1>
+  <p class="subtitle">Approach D — carry the hook bank in the run record, not on Notion Script rows</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-22</dd>
+    <dt>Status</dt><dd><span class="pill">Design approved — pending spec review</span></dd>
+    <dt>Origin</dt><dd>The <code>run_1779446750</code> walk: a <code>creative-director</code> spawn spent ~9 minutes crawling a spilled file because an unfiltered <code>Scripts</code> query overflowed the tool-result token cap.</dd>
+    <dt>Related</dt><dd>B-016 (verifier audit) · E-027 (content fan-out) · E-028 (hook-level learning)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Problem</h2>
+<p>
+  Every <code>Scripts</code> row in Notion carries a <code>Hook Bank</code> property — a JSON array of ≥30 bilingual
+  hooks (<code>{en, ms, register}</code>). content-writer copies the <em>same</em> bank onto every Script of a Brief.
+  Measured against the 6 approved Scripts of <code>run_1779446750</code>:
+</p>
+<table>
+  <tr><th>Layer</th><th>Size per Script</th></tr>
+  <tr><td>Hook-bank <em>content</em> (the JSON of hooks itself)</td><td>3.4k chars (18 hooks) → 6.6k (30 hooks)</td></tr>
+  <tr><td>As <em>stored</em> in Notion (rich_text API JSON, double-encoded)</td><td>8k–15k chars — Notion's wrapper inflates ~2.2×</td></tr>
+  <tr><td>The whole Script row (all properties)</td><td>18k–27k chars</td></tr>
+</table>
+<p>
+  The Hook Bank is <strong>~45–55% of every Script row's weight</strong>. Six approved Scripts returned
+  <strong>162,451 characters</strong> in one query — over the MCP tool-result token cap. The result spilled to a
+  file, and the agent crawled it in ~100-line chunks for nine minutes. The same overflow hit the orchestrator's
+  own HG2 gate-check two steps earlier. Any <code>filter_properties</code>-less query of <code>Scripts</code>
+  busts the cap once a handful of scripts are approved.
+</p>
+
+<h2><span class="num">2.</span> What the hook bank actually is</h2>
+<p>
+  Confirmed during brainstorming: the hook bank is <strong>machine-only, single-run plumbing</strong>.
+</p>
+<ul>
+  <li><strong>Not human-gated.</strong> At HUMAN GATE 2 a human reviews script bodies and the chosen hooks — nobody
+    scrutinises or edits the full 30-hook bank. So it has no reason to live in Notion, which is the OS's
+    human-gate substrate.</li>
+  <li><strong>Single-run, ephemeral.</strong> content-writer generates a fresh bank every run; creative-director
+    consumes it minutes later in the same run. Nothing downstream (<code>/reflect</code>, variant render)
+    re-reads the candidate pool. It is never reused across runs.</li>
+  <li><strong>A candidate pool, not a learning record.</strong> creative-director uses 4 hooks per Script; the
+    other ~26 are never published and carry no performance signal. Hook-level <em>learning</em> belongs to the
+    <em>used</em> hooks and is a separate concern — filed as E-028.</li>
+</ul>
+<p>
+  Two agents need the <em>same</em> bank, so it must be carried from one to the other — but "carried" need not
+  mean "given a database home."
+</p>
+
+<h2><span class="num">3.</span> Decision</h2>
+<p>
+  Three options were weighed. <strong>Approach D is chosen.</strong>
+</p>
+<table>
+  <tr><th>Option</th><th>Where the bank waits between the two agents</th><th>Verdict</th></tr>
+  <tr>
+    <td><strong>A</strong> — SQLite store</td>
+    <td>A new <code>hook_banks</code> table + two analytics MCP tools (<code>put</code>/<code>get</code>).</td>
+    <td>Rejected — a table and two tools for an artifact that lives minutes. Storage it doesn't earn.</td>
+  </tr>
+  <tr>
+    <td><strong>B</strong> — Notion Brief row</td>
+    <td>Move the column from Scripts to Briefs (de-duped 6→4).</td>
+    <td>Rejected — bolts machine plumbing onto the human-gated Brief row, clutters HG1, and only
+      <em>shrinks</em> the bloat rather than removing it.</td>
+  </tr>
+  <tr>
+    <td><strong>D</strong> — pass-through, no storage</td>
+    <td>Inside the C1-write result, which the orchestrator <em>already</em> persists in the run record.</td>
+    <td><strong>Chosen</strong> — zero new storage, schema migration, or MCP tool; the bank rides a result the
+      orchestrator was keeping anyway and dies with the run.</td>
+  </tr>
+</table>
+<div class="callout ok">
+  <span class="tag">Load-bearing assumption — confirmed.</span> <code>RunStepState.result</code> is persisted, and
+  every step is <code>stage</code>-tagged so <code>run.steps</code> accumulates across stages.
+  <code>produce.ts</code> already ships a <code>stepResult&lt;T&gt;(run, stepId)</code> helper, and P2–P5 already
+  read prior step results through it. Approach D reuses an existing pattern — it is not a new mechanism.
+</div>
+
+<h2><span class="num">4.</span> Data flow</h2>
+<pre class="flow">content-writer authors per-Brief hook banks (≥30 hooks each)
+   │  ✗ no longer writes a "Hook Bank" column onto Script rows
+   └─→ returns them IN the C1-write result:
+         hookBanks: [ { briefId, hooks: [ {en,ms,register} ×30 ] } ]   ← full, not a summary
+   │
+verifyContent → counts the REAL hooks per register from hooks[]        (tightens B-016)
+   │
+advance → persists the C1-write result into run.steps                  (already happens)
+   │
+   ···  HUMAN GATE 2  ···
+   │
+produce / P1-creative.build(run):
+   stepResult(run,"C1-write").hookBanks  →  injected into the creative-director spawnPrompt
+   │
+creative-director: reads banks from its prompt; queries Scripts only for
+   script bodies + CTA, now with filter_properties</pre>
+
+<h2><span class="num">5.</span> Changes</h2>
+<p>Seven small, coherent edits. No new database, table, MCP tool, or migration.</p>
+<table>
+  <tr><th class="n">#</th><th>Component</th><th>Change</th></tr>
+  <tr>
+    <td class="n">1</td>
+    <td><code>.claude/agents/content-writer.md</code></td>
+    <td>Stop writing the <code>Hook Bank</code> Script column. The C1-write result's <code>hookBanks</code> field
+      carries the <strong>full</strong> <code>hooks[]</code> per Brief, replacing the
+      <code>{registerCounts, totalHooks}</code> summary.</td>
+  </tr>
+  <tr>
+    <td class="n">2</td>
+    <td><code>packages/orchestrator/src/verifiers/verify-content.ts</code> (+ test)</td>
+    <td>Count the real hooks per register from <code>hooks[]</code> instead of trusting content-writer's
+      self-reported <code>registerCounts</code>. Closes the B-016 weakness (this run reported 18, wrote 30).</td>
+  </tr>
+  <tr>
+    <td class="n">3</td>
+    <td><code>packages/orchestrator/src/stages/produce.ts</code> — <code>P1-creative.build</code></td>
+    <td>Read <code>stepResult(run, "C1-write")</code> and inject <em>all</em> per-Brief hook banks into the
+      creative-director spawnPrompt. <code>build()</code> throws if the C1-write result carries no banks.</td>
+  </tr>
+  <tr>
+    <td class="n">4</td>
+    <td><code>.claude/agents/creative-director.md</code> — Step 2</td>
+    <td>Read hook banks from the spawn prompt, not a Script column. Its Scripts query (for bodies + CTA) gains
+      <code>filter_properties</code> so it stays well under the cap — the workaround folded into the cure.</td>
+  </tr>
+  <tr>
+    <td class="n">5</td>
+    <td><code>packages/notion-bootstrap/src/schemas.ts</code></td>
+    <td>Drop the <code>Hook Bank</code> column from the Scripts DB definition. The live-workspace column becomes
+      vestigial (empty); a <code>migrate:</code> to physically delete it is low-priority cleanup, not required.</td>
+  </tr>
+  <tr>
+    <td class="n">6</td>
+    <td><code>mcp-servers/notion/src/extract-text.ts</code></td>
+    <td>Remove <code>extractHookBank()</code> and the <code>"Hook Bank"</code> branch — dead code once the column
+      is never written.</td>
+  </tr>
+  <tr>
+    <td class="n">7</td>
+    <td><code>packages/shared/src/zod.ts</code> + <code>types.ts</code></td>
+    <td>Remove <code>ScriptSchema.hookBank</code> and <code>Script.hookBank</code>. Planning confirmed the
+      <code>HookSchema</code> / <code>HookBankSchema</code> / <code>Hook</code> cluster is then fully orphaned
+      (nothing imports it) — remove it too. The result's per-Brief bank is typed by a plain
+      <code>HookBankEntry</code> interface in <code>verify-content.ts</code>.</td>
+  </tr>
+</table>
+<p>A stale line in the shared <code>tactical-piliero.md</code> prompt fragment — it claims
+<code>HookBankSchema</code> enforces the hook count — is corrected alongside change #7 and re-synced with
+<code>pnpm sync:agents</code>.</p>
+
+<h2><span class="num">6.</span> Error handling &amp; edge cases</h2>
+<ul>
+  <li><strong>Missing C1-write result.</strong> <code>P1-creative.build()</code> must fail loud if
+    <code>stepResult(run, "C1-write")</code> is absent or carries no <code>hookBanks</code> — it should never
+    silently dispatch creative-director with an empty bank set. (Cannot happen in a normal run; produce only
+    runs after content advances — but the guard is cheap and the failure mode is otherwise silent.)</li>
+  <li><strong>All banks passed, not filtered.</strong> P1 injects every per-Brief bank from the C1-write
+    result; the creative-director uses the ones matching its approved Scripts and ignores the rest. Filtering
+    in P1 would couple it to the C2-gate result shape for a negligible saving.</li>
+  <li><strong>Resume safety.</strong> The banks live in persisted run state, so a run resumed at P1-creative
+    still has them — no re-query, no regeneration.</li>
+  <li><strong>Prompt size.</strong> ~4 banks ≈ 24k chars embedded in the spawnPrompt. A prompt is not a capped
+    tool result; this is acceptable and far below any limit.</li>
+</ul>
+
+<h2><span class="num">7.</span> Compliance note</h2>
+<div class="callout warn">
+  <span class="tag">Trade-off, accepted.</span> Removing the Notion column (change #6) means the hook bank is no
+  longer compliance-scanned at the Notion write boundary. <strong>Mitigation:</strong> content-writer already runs
+  the compliance scanner on hooks at authoring time, and every hook that is actually <em>used</em> is re-scanned
+  when its creative variant lands in Notion. The ~26 unused candidates per bank are never published, so an
+  at-rest scan of them protects nothing.
+</div>
+
+<h2><span class="num">8.</span> Testing</h2>
+<ul>
+  <li><code>verify-content.test.ts</code> — update fixtures: <code>hookBanks[]</code> now carries
+    <code>hooks[]</code>; assert the verifier counts real hooks per register and rejects an under-30 bank, a
+    missing register, and a register below 3.</li>
+  <li><code>produce.test.ts</code> — assert <code>P1-creative.build()</code> reads the C1-write result and embeds
+    the hook banks in the spawnPrompt; assert it injects only banks for Briefs with approved Scripts; assert it
+    fails loud when the C1-write result is missing.</li>
+  <li>Full suite green: <code>pnpm -r build</code> (sequential) then <code>pnpm test</code>.</li>
+</ul>
+
+<h2><span class="num">9.</span> Scope boundary</h2>
+<p>This design fixes <em>storage of the candidate bank</em>. Three adjacent items are deliberately out of scope:</p>
+<ul>
+  <li><strong>B-016</strong> — the broad verifier audit. Change #2 tightens <code>verifyContent</code>; the rest
+    of the audit stays separate.</li>
+  <li><strong>E-027</strong> — content-stage fan-out. Independent; this design works the same whether the content
+    stage is one spawn or a fan-out.</li>
+  <li><strong>E-028</strong> — hook-level <em>learning</em> (structured register on creatives, register-aware
+    selection). The candidate bank carries no learning signal, so it is correctly absent from this design.</li>
+</ul>
+
+<footer class="doc">
+  EngineerDad Marketing OS · design spec · 2026-05-22 · next step: writing-plans → implementation plan.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__meta-ads",
+      "mcp__meta-organic",
+      "mcp__engineerdad_site",
+      "mcp__youtube",
+      "mcp__heygen",
+      "mcp__analytics",
+      "mcp__corpus",
+      "mcp__experiment",
+      "mcp__media-providers-gemini",
+      "mcp__media-providers-kie-ai",
+      "mcp__asset-store",
+      "mcp__static-renderer",
+      "mcp__store__query",
+      "mcp__store__get",
+      "mcp__store__create",
+      "mcp__store__update",
+      "mcp__store__set_status",
+      "mcp__orchestrator__read_step_result",
+      "mcp__orchestrator__status",
+      "mcp__orchestrator__plan",
+      "mcp__orchestrator__advance",
+      "mcp__orchestrator__verify",
+      "mcp__orchestrator__write_step_result",
+      "Bash(pdftotext *)",
+      "Write(data/assets/**)",
+      "Edit(data/assets/**)",
+      "Bash(mkdir -p data/assets/*)"
+    ]
+  }
+}

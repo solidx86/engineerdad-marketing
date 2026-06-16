@@ -1,0 +1,13 @@
+{
+  "verified_at": "2026-05-21",
+  "verification_status": "verified",
+  "source": "Belanjawanku 2024/2025 Expenditure Guide (EPF/KWSP with the Social Wellbeing Research Centre, Universiti Malaya). Household figures are the Klang Valley reference; cross-checked against EPF media coverage of the 2024/2025 release.",
+  "base_year": 2024,
+  "notes": "Belanjawanku publishes ONE monthly reference budget per household composition per city (a 'reasonable standard of living' estimate) — it does NOT publish a Basic/Adequate/Enhanced split per household. The three-tier Basic/Adequate/Enhanced structure belongs to KWSP's separate Retirement Income Adequacy (RIA) *savings* framework, captured here in `retirement_targets_rm`. Household figures below are the Klang Valley reference (Malaysia's highest-cost region); other cities run lower. FLAG: only the Klang Valley figures were retrievable from public coverage — consult the full published guide for city-specific and additional household types.",
+  "households": [
+    { "composition": "single_elderly", "location": "Klang Valley", "monthly_expenditure_rm": 2690 },
+    { "composition": "couple_elderly", "location": "Klang Valley", "monthly_expenditure_rm": 3390 },
+    { "composition": "couple_with_2_children", "location": "Klang Valley", "monthly_expenditure_rm": 7440 }
+  ],
+  "retirement_targets_rm": { "basic": 390000, "adequate": 650000, "enhanced": 1300000 }
+}

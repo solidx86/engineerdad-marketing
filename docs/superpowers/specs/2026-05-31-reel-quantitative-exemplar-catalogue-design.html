@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reel Quantitative-Visual Exemplar Catalogue — Design</title>
+<style>
+  body { font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         color: #1b2b3a; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 30px; border-bottom: 3px solid #F07621; padding-bottom: 8px; }
+  h2 { font-size: 22px; margin-top: 36px; color: #1B2B6B; border-bottom: 1px solid #e5e7f0; padding-bottom: 4px; }
+  h3 { font-size: 17px; margin-top: 24px; color: #1B2B6B; }
+  code { background: #f3f4f8; padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+  pre { background: #1b2b3a; color: #e8eef5; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.45; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { border: 1px solid #d6dae6; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #eef1f8; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 10px; }
+  .new { background: #fde7d4; color: #b5500f; }
+  .keep { background: #d8f0e6; color: #0a6b48; }
+  .drop { background: #f6d9d9; color: #9a2222; }
+  blockquote { border-left: 4px solid #F07621; margin: 14px 0; padding: 4px 14px; background: #fff7f0; }
+  .meta { color: #667; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Reel Quantitative-Visual Exemplar Catalogue</h1>
+<p class="meta">Design spec · 2026-05-31 · branch <code>feat/reel-visual-scenes</code> · status: approved, ready to plan</p>
+
+<h2>Problem</h2>
+<p>
+The reel <strong>data-visual</strong> lane (a <code>visual</code> scene with a <code>chartRef</code>) has been the
+source of repeated rendering-quality failures. We just retired two chart reference-designs that embodied the very
+defects we were fixing — a callout floated over the plot, the built-in Chart.js circle legend crammed inside the
+canvas — because the worker prompt orders workers to <em>imitate</em> the exemplar, and a picture beats prose.
+</p>
+<p>
+The lesson: <strong>determinism for these frames lives in an approved exemplar, not in prose rules.</strong> But we
+have no exemplars yet for most quantitative layouts, and only one chart type (line) has ever been rendered through
+the test harness. We want a curated catalogue: one fixture per quantitative variation, the worker explores a layout,
+a human reviews every render, and the approved render is promoted into <code>corpus/templates/reference-designs/</code>
+as a true exemplar that future renders pattern off.
+</p>
+
+<h2>Current state (as built)</h2>
+<ul>
+  <li>Three reel fixtures: <code>data-visual.json</code>, <code>concept-visual.json</code>, <code>mixed-reel.json</code>.
+      Only the line chart (<code>compounding-30y</code>) has been exercised.</li>
+  <li><code>chartjs-config.js</code> supports <code>line</code> | <code>bar</code> only.</li>
+  <li><code>reel-render-worker.md</code> Step 2 data-visual branch <strong>hard-codes</strong>
+      <code>buildChartConfig(...)</code> — it assumes a Chart.js chart, no other presentation.</li>
+  <li>Frames-only mode passes the authored HTML <em>inline</em> to <code>render_html_to_png</code>
+      (<code>render.ts:161</code>). The renderer writes only the PNG (<code>render.ts:176</code>); the HTML is never
+      persisted. Disk confirms: test-reel dirs hold only <code>.png</code> files.</li>
+  <li><code>face</code> scenes render no frame (worker prompt line 120).</li>
+</ul>
+
+<h2>Goals</h2>
+<ol>
+  <li>A catalogue of reel fixtures, <strong>one per quantitative visual variation</strong>, each driving a single
+      reviewable render.</li>
+  <li>Promotion path: an approved render becomes a reference-design exemplar carrying its source markup
+      (<code>.html</code> + <code>.png</code> siblings).</li>
+  <li>Persist the worker's authored HTML beside the PNG so promotion can copy both.</li>
+  <li>Drop the redundant <code>mixed-reel</code> fixture (it is just data + concept concatenated).</li>
+</ol>
+
+<h2>Non-goals</h2>
+<ul>
+  <li><strong>No schema / data-model change.</strong> <code>chartRef</code> stays the only quantitative data lane;
+      numbers + <code>source_citation</code> always come from a corpus chart YAML (compliant, vetted).</li>
+  <li><strong>No <code>chartjs-config.js</code> extension yet.</strong> Pie/donut are hand-authored during
+      exploration; an approved winner is folded into the config <em>afterward</em> (separate follow-up).</li>
+  <li><strong>No promote script.</strong> Promotion is manual: <code>cp</code> the PNG + HTML, add one README row.</li>
+  <li><strong>No <code>.md</code> sidecars.</strong> The README table is the single curation-note surface.</li>
+  <li>Concept-visual lane is unchanged (already has two clean exemplars).</li>
+  <li>Static-worker harness (<code>test:worker</code>) is out of scope.</li>
+</ul>
+
+<h2>Decisions (from the brainstorm)</h2>
+<table>
+  <tr><th>Question</th><th>Decision</th></tr>
+  <tr><td>Catalogue scope</td><td>All quantitative visuals — charts <em>and</em> tabular/grid layouts.</td></tr>
+  <tr><td>How is layout chosen?</td><td>Worker's free choice, gated by human review (explore → curate → codify).</td></tr>
+  <tr><td>Where do numbers come from?</td><td>Always a corpus chart YAML via <code>chartRef</code>. Worker chooses only the <em>presentation</em>.</td></tr>
+  <tr><td>Where does determinism land?</td><td>At the end: an approved exemplar's <code>.html</code> is effectively a template the next render near-clones with new data.</td></tr>
+  <tr><td>Promotion mechanism</td><td>Manual (<code>cp</code> png + html, add README row). No script.</td></tr>
+  <tr><td><code>.md</code> sidecars</td><td>Dropped. README table holds the notes.</td></tr>
+</table>
+
+<h2>The catalogue (9 fixtures)</h2>
+<p>
+Rename <code>data-visual.json</code> → <code>data-line.json</code>; keep <code>concept-visual.json</code>;
+delete <code>mixed-reel.json</code>. Each fixture is a single <code>visual</code> scene with <code>chartRef</code> set
+(see fixture shape below).
+</p>
+<table>
+  <tr><th>Fixture</th><th>YAML seed</th><th>Layout the worker explores</th><th>Renders via</th><th></th></tr>
+  <tr><td><code>data-line</code></td><td><strong>new</strong> dca-20y-line</td><td>line — DCA buying through a choppy 20-yr uptrend</td><td>Chart.js (<code>buildChartConfig</code>)</td><td><span class="tag keep">rename</span></td></tr>
+  <tr><td><code>data-bar</code></td><td>start-age-penalty</td><td>vertical bar — start early vs late (opportunity cost, ~11× spread)</td><td>Chart.js (<code>buildChartConfig</code>)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-bar-horizontal</code></td><td><strong>new</strong> (ranked leaks / fee drag)</td><td>horizontal bar (ranking / long labels)</td><td>Chart.js (<code>indexAxis:'y'</code>)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-bar-stacked</code></td><td>glide-path-allocation</td><td>stacked bar (composition)</td><td>Chart.js (<code>stacked:true</code>)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-bar-grouped</code></td><td>single-country-vs-global</td><td>grouped bar (category × series)</td><td>Chart.js (multi-series)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-pie</code></td><td>single-country-vs-global</td><td>pie / donut (proportion)</td><td>hand-authored Chart.js (config ext after a winner)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-table</code></td><td>epf-baseline-tiers</td><td>comparison table</td><td>pure HTML (no Chart.js)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>data-statgrid</code></td><td>lifestyle-bloat-leaks</td><td>stat-callout grid (2–4 big numbers)</td><td>pure HTML (no Chart.js)</td><td><span class="tag new">new</span></td></tr>
+  <tr><td><code>mixed-reel</code></td><td>—</td><td>—</td><td>—</td><td><span class="tag drop">delete</span></td></tr>
+</table>
+<p class="meta">
+Seeds verified against data shape at Phase-0 recon (2026-05-31). Swapped from the first guess:
+<code>epf-baseline-tiers</code> is single-series so cannot be a grouped bar (→ moved to <code>data-table</code>);
+<code>glide-path-allocation</code> is a time series so a pie would force an invented snapshot (→ pie uses
+<code>single-country-vs-global</code>, whose two allocations each sum to 100%). <code>single-country-vs-global</code> is
+intentionally reused for grouped-bar and pie (same allocation data, two presentations, two exemplars).
+<strong>Seed revision (2026-05-31, post-data-bar render):</strong> DCA reads as a line (buying through a choppy
+uptrend), not a flat 2-bar — so DCA moved to <code>data-line</code> (new <code>dca-20y-line</code> YAML) and
+<code>data-bar</code> now uses <code>start-age-penalty</code> (dramatic ~11× early-vs-late spread). Where the corpus
+lacks a good fit we author reasonable new chart YAMLs; the human review gate flags any unreasonable figures.
+</p>
+
+<h2>Fixture shape</h2>
+<p>
+A catalogue fixture is a <strong>single <code>visual</code> scene, no face scene</strong> — face scenes render no frame
+in frames-only mode, so they are dead weight for exemplar generation. <code>scene.explains</code> carries the layout
+nudge; numbers and citation come verbatim from the YAML.
+</p>
+<pre>{
+  "scriptId": "test_bar",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 10, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    {
+      "scene": "1",
+      "voiceover": "DCA bought more units when prices dipped.",
+      "onScreenText": "More units, same money",
+      "chartRef": "dca-vs-lump",
+      "sceneType": "visual",
+      "estimatedSeconds": 9,
+      "visualBrief": null,
+      "explains": "side-by-side comparison of units acquired; DCA vs lump sum"
+    }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}</pre>
+<blockquote>
+<strong>Risk — schema validation.</strong> A visual-first, face-less fixture must pass <code>ReelShotlistSchema</code>
+with <code>faceFirstHook:false</code>. If a refinement requires ≥1 face scene or a face-first ordering, the build must
+reconcile that (set <code>faceFirstHook:false</code> and confirm the XOR/ordering refinements allow a lone visual
+scene). Verify in Phase 1 before authoring all nine.
+</blockquote>
+
+<h2>Worker-prompt changes (<code>reel-render-worker.md</code>)</h2>
+
+<h3>1. Presentation latitude (relax Step 2 data-visual branch)</h3>
+<p>
+Today the data-visual branch hard-codes <code>buildChartConfig</code>. Relax it: <em>given a <code>chartRef</code>, the
+worker chooses the presentation that best serves <code>scene.explains</code></em> —
+</p>
+<ul>
+  <li><strong>Chart</strong> (line / bar via <code>buildChartConfig</code>; pie/donut hand-authored until codified) —
+      HTML legend above the canvas, callout as a row outside the plot (unchanged §5 rules).</li>
+  <li><strong>Comparison table</strong> — pure HTML; rows = entities, columns = metrics; emphasize the contrast cell.</li>
+  <li><strong>Stat-callout grid</strong> — pure HTML; 2–4 headline numbers in large type, one per cell.</li>
+</ul>
+<p>
+All presentations: numbers + full <code>source_citation</code> verbatim from the YAML (never invented/recomputed),
+and obey brand-contract §4a (legibility), §8 (density), §9 (self-critique). Legend/§5-chart rules apply only to chart
+presentations.
+</p>
+
+<h3>2. Persist the authored HTML beside the PNG</h3>
+<p>
+After each <code>render_html_to_png</code> call, the worker <code>Write</code>s the exact HTML it authored to the same
+directory as the PNG, as <code>&lt;scene&gt;.html</code> — i.e.
+<code>data/assets/&lt;runId&gt;/&lt;variantId&gt;/&lt;scene&gt;.html</code> beside
+<code>&lt;scene&gt;.png</code>. The render-worker already has the <code>Write</code> tool. This is the single source
+of the markup needed for promotion; it works in the normal path too, not just the harness.
+</p>
+
+<h3>3. Read exemplar HTML, not just the PNG</h3>
+<p>
+Update the "Reference designs" section so the worker <code>Read</code>s the exemplar's <code>.html</code> (the
+transferable source) in addition to viewing the <code>.png</code>, when an <code>.html</code> sibling exists.
+</p>
+
+<h2>Promotion workflow (manual)</h2>
+<ol>
+  <li><code>pnpm test:reel-frames &lt;fixture&gt;</code> → spawn the worker → review the PNG.</li>
+  <li>On approval, with <code>&lt;vid&gt;</code> = variantId, <code>&lt;n&gt;</code> = scene index:
+    <pre>cp data/assets/test-reel-&lt;fixture&gt;/&lt;vid&gt;/&lt;n&gt;.png \
+   corpus/templates/reference-designs/reel-9x16-&lt;variation&gt;-NNN.png
+cp data/assets/test-reel-&lt;fixture&gt;/&lt;vid&gt;/&lt;n&gt;.html \
+   corpus/templates/reference-designs/reel-9x16-&lt;variation&gt;-NNN.html</pre>
+  </li>
+  <li>Add one row to the README "Reel exemplars" table (tone, what it demonstrates).</li>
+  <li>If it's a chart frame, also point the worker prompt's reference-designs list at the new exemplar (keep ≤3 per
+      bucket — the README's existing rule).</li>
+</ol>
+
+<h2>README convention update</h2>
+<ul>
+  <li>Drop <code>.md</code> from the sibling convention: exemplars are <code>.html</code> + <code>.png</code> only.</li>
+  <li>State that the worker reads the exemplar <code>.html</code> as the primary pattern, the <code>.png</code> as the
+      visual check.</li>
+  <li>Existing <code>.md</code> sidecars can be cleaned up later — out of scope here.</li>
+</ul>
+
+<h2>chartjs-config deferral</h2>
+<p>
+Pie/donut are rendered by a worker-authored Chart.js config inline during exploration. Once a pie/donut exemplar is
+approved, fold a <code>pie</code>/<code>doughnut</code> branch into <code>buildChartConfig</code> as a tracked
+follow-up (TASKS.md). Comparison-table and stat-grid never touch Chart.js.
+</p>
+
+<h2>Open risks</h2>
+<table>
+  <tr><th>Risk</th><th>Mitigation</th></tr>
+  <tr><td>Seed YAML data shape doesn't fit the target layout.</td><td>Verify per fixture at build; swap seed YAML.</td></tr>
+  <tr><td>Lone visual scene fails <code>ReelShotlistSchema</code>.</td><td>Phase-1 validation gate before authoring all nine.</td></tr>
+  <tr><td>Worker picks the "wrong" layout for a fixture.</td><td>Acceptable — human gate. Sharpen <code>scene.explains</code> and re-render.</td></tr>
+  <tr><td>Worker forgets to <code>Write</code> the HTML.</td><td>Make it a numbered Step-2 sub-instruction; the harness can warn if <code>&lt;scene&gt;.html</code> is absent (optional).</td></tr>
+</table>
+
+</body>
+</html>

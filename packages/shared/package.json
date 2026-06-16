@@ -1,0 +1,54 @@
+{
+  "name": "@engineerdad/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./zod": {
+      "types": "./dist/zod.d.ts",
+      "import": "./dist/zod.js"
+    },
+    "./compliance": {
+      "types": "./dist/compliance.d.ts",
+      "import": "./dist/compliance.js"
+    },
+    "./derive": {
+      "types": "./dist/derive/index.d.ts",
+      "import": "./dist/derive/index.js"
+    },
+    "./test-helpers": {
+      "types": "./dist/test-helpers/index.d.ts",
+      "import": "./dist/test-helpers/index.js"
+    },
+    "./prompts/*": "./src/prompts/*"
+  },
+  "files": [
+    "dist",
+    "src/prompts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "postgres": "^3.4.5",
+    "yaml": "^2.6.1"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "zod": "^3.23.8"
+  }
+}

@@ -1,0 +1,40 @@
+# GENERAL-inflation vs Savings — what RM100,000 in a 2% savings account is *really* worth
+# over 18 years when measured against Malaysia's SOURCED general (DOSM headline-CPI) inflation.
+# Re-grounded 2026-06-11: the real line is deflated at the 2011–2025 geometric-mean headline
+# CPI of 2.0%/yr (corpus/data/datasets/my-cpi-inflation.json, DOSM OpenDOSM cpi_annual_inflation),
+# replacing the earlier unsourced 3% planning midpoint. At ~2% CPI the account roughly treads
+# water — a stronger, sourced version of the "cash barely keeps up with everyday inflation" claim.
+# This is the GENERAL counterpart to inflation-vs-savings-real-value.yaml (which is 5% EDUCATION-
+# cost inflation → real RM59,000 at year 18, ~41% loss).
+# The two charts depict DIFFERENT real-value numbers so a claim binds to exactly one of them:
+#   - general (this chart):  real RM100,000 at year 18 — ~0% real growth (treads water).
+#   - education (the other): real RM59,000 at year 18 — ~41% loss.
+# Used by content/media-production ONLY for generic-savings / general-purchasing-power claims
+# ("a 2% account barely keeps up with everyday inflation", "cash slowly loses real value").
+# Do NOT use this for education-shortfall claims — use inflation-vs-savings-real-value.yaml.
+
+id: general-inflation-vs-savings-real-value
+title_en: "RM100,000 in a 2% savings account vs Malaysia's ~2% average CPI — real value over 18 years"
+title_ms: "RM100,000 dalam akaun simpanan 2% vs purata CPI ~2% Malaysia — nilai sebenar selama 18 tahun"
+chart_type: line
+x_label_en: "Years"
+x_label_ms: "Tahun"
+y_label_en: "Value (RM, today's purchasing power for the real line)"
+y_label_ms: "Nilai (RM, kuasa beli hari ini untuk garisan sebenar)"
+labels: [0, 5, 10, 15, 18]
+series:
+  - name_en: "Real value (purchasing power at 2.0% average inflation, DOSM 2011–2025)"
+    name_ms: "Nilai sebenar (kuasa beli pada purata inflasi 2.0%, DOSM 2011–2025)"
+    legend_label_en: "Real (2% CPI, DOSM)"
+    legend_label_ms: "Sebenar (CPI 2%, DOSM)"
+    semantic_role: hero          # the flat truth-line — the headline argument
+    values: [100000, 100000, 100000, 100000, 100000]
+  - name_en: "Nominal value (account balance at 2% interest)"
+    name_ms: "Nilai nominal (baki akaun pada faedah 2%)"
+    legend_label_en: "Nominal (2% account)"
+    legend_label_ms: "Nominal (akaun 2%)"
+    semantic_role: comparison    # the misleading rising number people actually see
+    values: [100000, 110000, 122000, 135000, 143000]
+caption_en: "Your statement shows RM143,000 at year 18 — up 43% on paper. But at Malaysia's average headline inflation for 2011–2025 (2.0% a year, DOSM annual CPI), prices compounded at almost exactly the rate the account paid. What RM143,000 buys then is what RM100,000 buys today: eighteen years of waiting for zero real growth. And 2.0% is only the average — in 2022 alone prices rose 3.4% while the account paid 2%. The statement rises; the purchasing power treads water. Figures as at 2026-06-11; actual inflation and deposit rates vary year to year."
+caption_ms: "Penyata anda menunjukkan RM143,000 pada tahun ke-18 — naik 43% di atas kertas. Tetapi pada purata inflasi keseluruhan Malaysia 2011–2025 (2.0% setahun, CPI tahunan DOSM), harga barang naik hampir sama pantas dengan faedah yang dibayar akaun itu. Apa yang RM143,000 boleh beli ketika itu ialah apa yang RM100,000 boleh beli hari ini: lapan belas tahun menunggu tanpa sebarang pertumbuhan sebenar. Dan 2.0% hanyalah purata — pada tahun 2022 sahaja harga naik 3.4% sedangkan akaun membayar 2%. Penyata meningkat; kuasa beli cuma bertahan di takuk lama. Angka setakat 2026-06-11; inflasi dan kadar deposit sebenar berubah dari tahun ke tahun."
+source_citation: "General-inflation scenario, sourced. Nominal series: RM100,000 × (1.02)^t (a 2% savings account). Real series: nominal value deflated at the 2011–2025 geometric-mean headline CPI inflation of 2.00%/yr — RM100,000 × (1.02/1.0200)^t. Both rounded to nearest RM1,000. Inflation: DOSM annual headline CPI via corpus/data/datasets/my-cpi-inflation.json (OpenDOSM cpi_annual_inflation, fetched 2026-06-11) — named window 2011–2025, arithmetic mean 2.01%, geometric mean 2.00%; other windows differ (trailing 10y 2016–2025 averages 1.79%, at which a 2% account slightly gains real value). This is GENERAL headline CPI — DISTINCT from the 5% education-cost figure (tuition-fee escalation, see corpus/courses/three-gaps-framework.md Gap 3 and inflation-vs-savings-real-value.yaml), which applies ONLY to education-cost claims. 2% is a deposit-rate assumption, not a quoted bank rate. Illustrative mechanics, not a forecast; not advice, not guaranteed."

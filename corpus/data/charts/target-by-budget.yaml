@@ -1,0 +1,30 @@
+# Target by budget — RM100/RM200/RM300 per month over 18 years at 8% return
+# Source: FV of monthly annuity at r=8%/12, n=216 months, no initial deposit. Anchored
+# to corpus/courses/children-fund-101.md FAQ "How much per month for university?"
+# ("RM200–300 per month starting from birth, assuming 7–8% annual return" → ~RM100k)
+# and the canonical worked example in corpus/courses/compounding-dca.md.
+# Used by media-production when a scene argues "how much should I be saving per month",
+# "is RM100 a month enough", any 5-Step Education Fund Playbook Step 1 hook
+# (Define the goal in numbers), or "investing is for rich people / not for someone
+# like me" (objection myth d0-investing-is-for-the-rich).
+
+id: target-by-budget
+title_en: "What RM100, RM200, or RM300 per month becomes in 18 years (8% return)"
+title_ms: "Apa yang RM100, RM200, atau RM300 sebulan menjadi dalam 18 tahun (pulangan 8%)"
+chart_type: bar
+x_label_en: "Monthly contribution"
+x_label_ms: "Sumbangan bulanan"
+y_label_en: "Value at age 18 (RM)"
+y_label_ms: "Nilai pada usia 18 (RM)"
+labels:
+  - "RM100/month"
+  - "RM200/month"
+  - "RM300/month"
+series:
+  - name_en: "Projected value at age 18"
+    name_ms: "Nilai dianggar pada usia 18"
+    semantic_role: hero
+    values: [48000, 96000, 144000]
+caption_en: "Started at birth, RM200/month at an 8% assumed return projects to roughly RM96,000 by age 18 — close to the RM100,000+ a local degree is expected to cost. RM100/month gets you halfway there; RM300/month gives a buffer for tuition inflation overshoot or an overseas top-up. The variable that moves the result most is not the amount — it's the start date."
+caption_ms: "Bermula dari kelahiran, RM200/sebulan pada andaian pulangan 8% menganggar kira-kira RM96,000 pada usia 18 — hampir dengan RM100,000+ yang dijangka kos ijazah tempatan. RM100/sebulan membawa anda separuh jalan; RM300/sebulan memberi penampan untuk inflasi yuran berlebihan atau tambahan luar negara. Pemboleh ubah yang paling banyak menggerakkan keputusan bukan jumlah — ia tarikh mula."
+source_citation: "Calculated using future value of a monthly annuity at 8% annual return, monthly compounding, 216 months (18 years), no initial lump-sum deposit. Anchored to the FAQ in corpus/courses/children-fund-101.md ('RM200–300 per month from birth at 7–8% return') and the canonical worked example in corpus/courses/compounding-dca.md. Illustrative only — actual fund returns vary. Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

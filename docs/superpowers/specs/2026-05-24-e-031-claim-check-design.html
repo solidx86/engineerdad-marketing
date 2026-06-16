@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-031 — Claim-Check for worker output transmission</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .strike { color: var(--muted); text-decoration: line-through; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-031 — Claim-Check for worker output transmission</h1>
+  <p class="subtitle">Workers persist outputs to a step-results store; the <code>/loop</code> conductor carries claim-check refs only; the orchestrator MCP dereferences server-side.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-24</dd>
+    <dt>Status</dt><dd><span class="pill">Draft — awaiting approval before plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill p1">P1</span> — load-bearing for loop correctness; blocks <code>run_1779557517</code> at P1-fanout</dd>
+    <dt>Branch</dt><dd><code>feat/e-031-claim-check</code> (new, off <code>feat/agentic-rebuild</code>)</dd>
+    <dt>Pattern</dt><dd>Claim-Check (Hohpe EIP); a.k.a. Reference-Based Messaging; Google ADK "handle pattern"</dd>
+    <dt>ADR</dt><dd><code>docs/decisions/022-claim-check-worker-output.md</code> (committed alongside)</dd>
+    <dt>Tracker</dt><dd>TASKS.md E-031</dd>
+    <dt>Related</dt><dd>ADR-021 (cap-honouring MCP precedent) · ADR-020 (agentic cell architecture) · ADR-011 (server-mint runId) · E-030 (Postgres unification) · E-032 (worker token cost)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context — the bug the architecture forces</h2>
+
+<p>
+The closed-loop conductor (<code>.claude/commands/loop.md</code>) drives every <code>/loop-once</code>, <code>/brief</code>, <code>/content</code>, <code>/produce</code>, <code>/distribute</code> run. For <code>fanout</code> steps it dispatches N <code>Task</code> subagents in parallel, then must assemble each worker's final message into a single JSON <code>result</code> array and pass that array to <code>mcp__orchestrator__verify</code> and <code>__advance</code>. The conductor's contract is <em>transmission middleman</em>: read worker output verbatim, pass it through, never reshape.
+</p>
+
+<p>
+<code>.claude/commands/loop.md</code> codifies the rule:
+</p>
+
+<div class="quote">
+  Do not summarise or reshape worker output before handing it to <code>verify</code> — the verifier is the judge, not you.
+</div>
+
+<p>The architecture violates the rule in two distinct ways:</p>
+
+<div class="callout bad">
+  <span class="tag">Architectural defect 1 — the harness 50 KB inline cap.</span>
+  <p>The Claude Code <code>Task</code> tool returns the subagent's final message as <code>result</code>. When that message exceeds ~50 KB, the harness persists the full content to <code>~/.claude/projects/.../tool-results/toolu_*.json</code> and surfaces a 2 KB preview. The conductor literally cannot see the full output. Reproduced <strong>2026-05-24 / run_1779557517 / P1-fanout</strong>: 4 creative-director workers returned ~13 KB each; 4 previews surfaced; the verbatim payloads were on disk, the conductor saw heads only.</p>
+</div>
+
+<div class="callout bad">
+  <span class="tag">Architectural defect 2 — hand-assembly reshape.</span>
+  <p>Even when payloads fit inline, the conductor is an LLM hand-typing JSON across N workers. It drops fields, reorders, truncates. Reproduced in:</p>
+  <ul>
+    <li><strong>run_1779549312 / C1-fanout (2026-05-23, the E-031 filing repro):</strong> first verify rejected 3/4 workers — workers shipped clean banks, the conductor lost them in transit. Second pass restored.</li>
+    <li><strong>run_1779553270 / C1-fanout advance (2026-05-24):</strong> conductor dropped <code>hooks</code> from advance payload — produce stage's <code>hookBanksFromC1</code> lookup returned empty.</li>
+    <li><strong>run_1779553270 / P0-scripts advance (2026-05-24):</strong> conductor dropped <code>brief</code> field — produce stage's per-script brief lookup returned empty.</li>
+  </ul>
+</div>
+
+<p>
+<code>loop.md</code> rule says <em>don't reshape</em>; the architecture forces reshape <em>by transmission alone</em>. The rule is honour-system; the architecture overrides it. Honest workers get rejected because the conductor loses data on the way to the verifier.
+</p>
+
+<h2><span class="num">2.</span> Research — this is not a new problem</h2>
+
+<p>
+This shape — large outputs in a multi-agent fanout, coordinator can't hold them all — is a 20-year-old enterprise integration pattern that the LLM/agent community has been re-deriving without naming. <strong>The name is Claim-Check (a.k.a. Reference-Based Messaging).</strong> Hohpe's EIP catalog, codified by Microsoft Azure: store the large payload in an external store, pass a small reference (a <em>claim ticket</em>) through the channel, the consumer dereferences at the boundary.
+</p>
+
+<h3>How established multi-agent frameworks handle it</h3>
+
+<table>
+  <tr><th>Framework</th><th>What they do</th><th>Verdict for us</th></tr>
+  <tr>
+    <td>Anthropic Multi-Agent Research System</td>
+    <td>Lead Researcher persists plan to "Memory" because 200k will be truncated. Subagents return <em>summarized findings</em>, not raw dumps.</td>
+    <td>Our design is <strong>stricter</strong> — pure ref, no summary. Matches our "never reshape" doctrine exactly.</td>
+  </tr>
+  <tr>
+    <td>LangGraph <code>Send()</code> API</td>
+    <td>Documented best practice verbatim: <em>"Keep the Send payload small — send IDs and let each branch fetch its own data."</em></td>
+    <td>Our design = canonical LangGraph fanout shape.</td>
+  </tr>
+  <tr>
+    <td>Google ADK</td>
+    <td>Named primitive: artifact store + <code>{name, summary}</code> handle + <code>LoadArtifactsTool</code> for "ephemeral expansion."</td>
+    <td>Closest published vocabulary. We adopt the structure and the framing.</td>
+  </tr>
+  <tr>
+    <td>CrewAI</td>
+    <td>Shared crew memory + auto-injected Pydantic outputs. No ref primitive. Relies on outputs being small.</td>
+    <td>Doesn't scale. Don't copy.</td>
+  </tr>
+  <tr>
+    <td>AutoGen / OpenAI Agents SDK</td>
+    <td><code>tool_call_summary_formatter</code>, <code>nest_handoff_history</code>: trim/compress on handoff.</td>
+    <td><strong>Wrong shape for us</strong> — they reshape. Our doctrine forbids reshape.</td>
+  </tr>
+</table>
+
+<h3>MCP spec primitive — researched and rejected</h3>
+
+<p>
+MCP <strong>Resources</strong> (<code>uri</code>, <code>mimeType</code>, <code>size</code>; 2026-07 RC adds <code>ttlMs</code> + <code>cacheScope</code>) are tempting — a server can publish addressable content the client reads. But Resources are designed for <em>server→client</em> exposure of content the server owns, not <em>worker→orchestrator→verifier</em> ephemeral run artifacts. Shoehorning is possible (URI scheme <code>stepresult://run/{runId}/step/{stepId}</code>) but stretches the spec's intent. <strong>Decision: opaque IDs in tool args, not MCP URIs.</strong> Simpler, identical effect, doesn't bend the spec.
+</p>
+
+<div class="callout ok">
+  <span class="tag">Verdict:</span> on the right track, but adopt the named pattern. We are not reinventing — we are correctly applying a 20-year-old EIP that every major multi-agent framework has converged on. This SPEC and ADR-022 can be the doc that names it for MCP-flavoured orchestration.
+</div>
+
+<h2><span class="num">3.</span> Goal</h2>
+
+<p>Make every <code>fanout</code> and <code>spawn</code> step transmit worker output without:</p>
+<ol>
+  <li>Tripping the Claude Code harness's 50 KB inline cap.</li>
+  <li>Allowing the conductor to drop, reorder, or truncate fields.</li>
+</ol>
+
+<p><strong>Definition of done:</strong></p>
+<ul>
+  <li>The blocked <code>run_1779557517</code> resumes from HG2 and clears P1-fanout end-to-end on the new shape.</li>
+  <li>Cold-start <code>/loop-once</code> walks all four worker stages (S1 brain, B1 brief-writer, C1 content-writer fanout + C2 content-writer article, P1 creative-director fanout) without any worker's final message exceeding 200 bytes.</li>
+  <li><code>orchestrator.step_results</code> rows match expected fanout cardinality (1 from S1, 12 from B1, 4 from C1, 1 from C2, 4 from P1).</li>
+  <li><code>run_steps.result</code> in SQLite still contains fully-materialized JSON after dereference — downstream <code>stepResult&lt;T&gt;()</code> reads in stage builders work unchanged.</li>
+  <li>The <code>verifyProduce</code> ground-truth check at P5 passes on the resolved payloads.</li>
+  <li><code>pnpm -r build</code> + <code>pnpm vitest run</code> + <code>pnpm sync:agents:check</code> green.</li>
+</ul>
+
+<h2><span class="num">4.</span> Non-goals</h2>
+
+<ul>
+  <li><strong>Migrating <code>runs</code> + <code>run_steps</code> to Postgres.</strong> That's E-030. <code>step_results</code> in Postgres now <em>anchors</em> the migration; the rest follows in E-030's batch.</li>
+  <li><strong>TTL / cleanup job for <code>step_results</code>.</strong> Filed as a follow-up (provisional E-033). v1 keeps rows for the run's lifetime + audit retention. Columns (<code>created_at</code>, <code>size_bytes</code>) ship so a sweep job can target rows later.</li>
+  <li><strong>Reducing per-worker token cost.</strong> That's E-032.</li>
+  <li><strong>Changing what workers produce.</strong> Hook banks, Scripts, Decision Memos, CreativePlans are unchanged in shape and content. Only the <em>transmission</em> primitive changes.</li>
+  <li><strong>Render-worker (P2-render) integration.</strong> Audit during implementation; render-workers already return small payloads (asset URLs after upload to asset-store) — likely no change needed. Folded in only if audit shows otherwise.</li>
+</ul>
+
+<h2><span class="num">5.</span> Current shape (what's wrong)</h2>
+
+<h3>Today's flow — fanout transmission</h3>
+
+<div class="diagram">conductor (LLM)
+    │
+    ├─►  Task(content-writer, brief A)  ◄── full final message (~13 KB JSON)
+    ├─►  Task(content-writer, brief B)  ◄── full final message (~13 KB JSON)
+    ├─►  Task(content-writer, brief C)  ◄── full final message (~13 KB JSON)
+    └─►  Task(content-writer, brief D)  ◄── full final message (~13 KB JSON)
+                                              │
+        ╔═════════════════════════════════════╧══════════════════════╗
+        ║  harness ~50 KB cap exceeded?                              ║
+        ║   • yes → persist to ~/.claude/.../toolu_*.json,           ║
+        ║          return 2 KB preview to conductor                  ║
+        ║   • no  → return full content inline                       ║
+        ╚═════════════════════════════════════╤══════════════════════╝
+                                              │
+conductor hand-assembles array:               ▼
+    result = [worker1Out, worker2Out, worker3Out, worker4Out]
+                                              │
+    mcp__orchestrator__verify({ runId, stepId, result }) ───► engine.verify
+    mcp__orchestrator__advance({ runId, stepId, result }) ──► engine.advance
+                                              │
+                              upsertStep(run_steps.result = JSON.stringify(result))</div>
+
+<p>Two failure modes from this shape:</p>
+
+<ul>
+  <li><strong>Harness-cap failure mode.</strong> If any worker returns &gt; ~50 KB, the conductor sees only a preview. Hand-assembling the full array becomes impossible — the conductor would have to read each persisted file from disk, paste contents into a JSON literal, and pray nothing got mangled. We hit this on 2026-05-24.</li>
+  <li><strong>Hand-typing failure mode.</strong> Even within the cap, the conductor is an LLM literally retyping 4×13 KB of JSON. Field drops, ordering changes, escaping bugs. We hit this twice in this session and once filed as the original E-031 repro.</li>
+</ul>
+
+<h2><span class="num">6.</span> Target shape — Claim-Check</h2>
+
+<h3>The flow</h3>
+
+<div class="diagram">conductor (LLM)
+    │
+    ├─►  Task(content-writer, brief A)
+    │      │ worker authors content,
+    │      │ writes Scripts to entity store,
+    │      │ writes full output to step_results table  via mcp__orchestrator__write_step_result
+    │      ▼
+    │    return { stepResultId: "sr_01HZ..." }       ◄── ~50 bytes, always under cap
+    │
+    ├─►  Task(content-writer, brief B)  → { stepResultId: "sr_01HZ..." }
+    ├─►  Task(content-writer, brief C)  → { stepResultId: "sr_01HZ..." }
+    └─►  Task(content-writer, brief D)  → { stepResultId: "sr_01HZ..." }
+                                              │
+conductor wraps refs verbatim:                ▼
+    result = [
+      { stepResultId: "sr_01HZ..." },         ◄── ~200 bytes total
+      { stepResultId: "sr_01HZ..." },
+      { stepResultId: "sr_01HZ..." },
+      { stepResultId: "sr_01HZ..." },
+    ]
+                                              │
+    mcp__orchestrator__verify({ runId, stepId, result })
+       │
+       │ at MCP boundary: resolveRefs(result) → array of full payloads
+       │
+       ▼
+    engine.verify(runId, stepId, RESOLVED_RESULT) ── unchanged
+                                              │
+    mcp__orchestrator__advance({ runId, stepId, result })
+       │
+       │ at MCP boundary: resolveRefs(result) → array of full payloads
+       │
+       ▼
+    engine.advance(runId, stepId, RESOLVED_RESULT) ── unchanged
+                                              │
+                              upsertStep(run_steps.result = JSON.stringify(RESOLVED))</div>
+
+<div class="callout new">
+  <span class="tag">The win — default opaque, opt-in transparent.</span>
+  <p>The conductor physically cannot reshape what it doesn't hold. To reason over a worker's output (failure-aware retry, meta-orchestration, debugging), the conductor must take an explicit, auditable <code>read_step_result</code> tool call — visible in the tool-call log, unlike implicit reshape during transmission. Reshape during transmission becomes impossible by construction. Audited reasoning remains possible. This is exactly Google ADK's <code>LoadArtifactsTool</code> shape: materialize when needed, never by accident.</p>
+</div>
+
+<h3>Design decisions, at a glance</h3>
+
+<table>
+  <tr><th>Decision</th><th>Choice</th><th>Why</th></tr>
+  <tr>
+    <td>Substrate</td>
+    <td>Postgres, new <code>orchestrator</code> schema namespace</td>
+    <td>Future-proof for E-030. JSONB suits the 50 KB–5 MB payload range. Transactional. Anchors the orchestrator-in-Postgres migration.</td>
+  </tr>
+  <tr>
+    <td>Worker write path</td>
+    <td>New MCP tool: <code>mcp__orchestrator__write_step_result</code></td>
+    <td>Bypasses <code>mcp__store__create</code>'s compliance scanner — step_results are intermediate output, not marketing copy. Keeps the entity-only schema clean (no rogue step_results entity). Owned by the same MCP that owns plan/verify/advance.</td>
+  </tr>
+  <tr>
+    <td>Conductor read path</td>
+    <td>New MCP tool: <code>mcp__orchestrator__read_step_result</code></td>
+    <td>Opt-in transparency. Future conductor-as-reasoner work (retry analysis, meta-orchestration, human debugging) hooks in here without further architectural change.</td>
+  </tr>
+  <tr>
+    <td>Dereference site</td>
+    <td>MCP layer (<code>mcp-servers/orchestrator/src/index.ts</code>)</td>
+    <td>Engine + state.ts untouched. Verifiers + downstream <code>stepResult&lt;T&gt;()</code> reads continue to see full payloads. One place to resolve, one place to test.</td>
+  </tr>
+  <tr>
+    <td>ID format</td>
+    <td>ULID with <code>sr_</code> prefix → <code>sr_01HZA9...</code></td>
+    <td>Greppable in logs. Typed-prefix prevents cross-type passes ("did I pass a brief id or a step-result id?"). 26 chars + prefix.</td>
+  </tr>
+  <tr>
+    <td>Back-compat</td>
+    <td>Hard-cut for <code>spawn</code> + <code>fanout</code> kinds</td>
+    <td>Schema rejects inline payloads for those kinds once workers migrate. <code>write</code> + <code>gate</code> kinds keep inline (conductor assembles their results from MCP calls, not from worker output).</td>
+  </tr>
+  <tr>
+    <td>Rollout</td>
+    <td>All four worker agents at once on a feature branch</td>
+    <td>Single contract across the OS. No asymmetry. Hard-cut lives on the branch until verified.</td>
+  </tr>
+  <tr>
+    <td>Naming</td>
+    <td>"Claim-Check"</td>
+    <td>Anchor to Hohpe's EIP. Cite Google ADK's "handle pattern" as alt term. Doctrine references the standard vocabulary, not local terminology.</td>
+  </tr>
+</table>
+
+<h2><span class="num">7.</span> Schema</h2>
+
+<pre><code>-- packages/orchestrator/src/migrations/postgres/001_step_results.sql
+
+CREATE SCHEMA IF NOT EXISTS orchestrator;
+
+CREATE TABLE orchestrator.step_results (
+  id          TEXT        PRIMARY KEY,         -- ULID with "sr_" prefix
+  run_id      TEXT        NOT NULL,
+  step_id     TEXT        NOT NULL,            -- e.g. "C1-fanout", "P1-fanout", "S1-reason"
+  unit_index  INTEGER,                         -- NULL for spawn; 0..N-1 for fanout unit
+  payload     JSONB       NOT NULL,
+  size_bytes  INTEGER     NOT NULL,            -- octet_length(payload::text) at insert time, for audit / future TTL
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX step_results_run_step_idx
+  ON orchestrator.step_results (run_id, step_id);</code></pre>
+
+<h4>Why these columns</h4>
+<ul>
+  <li><code>id</code> as <code>TEXT</code> (not UUID) — we want the typed <code>sr_</code> prefix to survive at SQL level for grep/audit.</li>
+  <li><code>unit_index</code> nullable — natural shape: spawn (one worker) has no index; fanout (N workers) carries 0..N-1.</li>
+  <li><code>(run_id, step_id, unit_index)</code> intentionally <strong>not unique</strong> — retries are valid (a flaky worker can be re-dispatched and write a new row; the conductor carries whichever ref the latest worker returned). Most-recent ref wins; older rows stay for audit.</li>
+  <li><code>size_bytes</code> for audit and future TTL/sweep. v1 doesn't sweep.</li>
+  <li><code>JSONB</code> not <code>TEXT</code> — query-shape support if we ever need to grep payloads for debugging.</li>
+</ul>
+
+<h2><span class="num">8.</span> MCP surface changes</h2>
+
+<h3>New: <code>mcp__orchestrator__write_step_result</code></h3>
+
+<pre><code>// mcp-servers/orchestrator/src/schemas.ts
+
+export const WriteStepResultInputSchema = z.object({
+  runId:      z.string().min(1),
+  stepId:     z.string().min(1),
+  unitIndex:  z.number().int().nonnegative().optional(),
+  payload:    z.unknown(),
+});
+
+// Handler in index.ts:
+server.tool(
+  "write_step_result",
+  "Persist a worker's final output to orchestrator.step_results. Returns { stepResultId }.",
+  WriteStepResultInputSchema.shape,
+  async (args) =&gt; {
+    const id = await writeStepResult({
+      runId: args.runId,
+      stepId: args.stepId,
+      unitIndex: args.unitIndex,
+      payload: args.payload,
+    });
+    return { content: [{ type: "text", text: JSON.stringify({ stepResultId: id }) }] };
+  },
+);</code></pre>
+
+<h3>New: <code>mcp__orchestrator__read_step_result</code></h3>
+
+<pre><code>export const ReadStepResultInputSchema = z.object({
+  stepResultId: z.string().regex(/^sr_/),
+});
+
+// Handler — thin pass-through to loadPayload:
+server.tool(
+  "read_step_result",
+  "Read a worker's persisted output by stepResultId. Auditable opt-in transparency.",
+  ReadStepResultInputSchema.shape,
+  async (args) =&gt; {
+    const payload = await loadPayload(args.stepResultId);
+    return { content: [{ type: "text", text: JSON.stringify({ payload }) }] };
+  },
+);</code></pre>
+
+<h3>Changed: <code>VerifyInputSchema</code> / <code>AdvanceInputSchema</code></h3>
+
+<pre><code>const StepResultRef = z.object({ stepResultId: z.string().regex(/^sr_/) });
+
+export const VerifyInputSchema = z.object({
+  runId:  z.string().min(1),
+  stepId: z.string().min(1),
+  result: z.union([
+    StepResultRef,                    // spawn: single ref
+    z.array(StepResultRef),           // fanout: array of refs
+    z.unknown(),                      // write/gate: conductor-assembled MCP-call results (inline)
+  ]),
+});
+
+// AdvanceInputSchema mirrors VerifyInputSchema.</code></pre>
+
+<p>
+Per-kind enforcement happens at the handler: the handler looks up the step's <code>StepSpec.kind</code> in the registry and rejects an inline payload for <code>spawn</code>/<code>fanout</code>, rejects refs for <code>write</code>/<code>gate</code>. The Zod schema is permissive at the type level; the handler is strict at the contract level.
+</p>
+
+<h3>Resolution helper</h3>
+
+<pre><code>// mcp-servers/orchestrator/src/resolve.ts (NEW)
+
+import { loadPayload } from "@engineerdad/orchestrator/postgres";
+
+const isRef = (x: unknown): x is { stepResultId: string } =&gt;
+  typeof x === "object" && x !== null
+    && "stepResultId" in x
+    && typeof (x as { stepResultId: unknown }).stepResultId === "string"
+    && (x as { stepResultId: string }).stepResultId.startsWith("sr_");
+
+export async function resolveRefs(result: unknown): Promise&lt;unknown&gt; {
+  if (isRef(result)) return loadPayload(result.stepResultId);          // spawn
+  if (Array.isArray(result) && result.every(isRef)) {                  // fanout
+    return Promise.all(result.map((r) =&gt; loadPayload(r.stepResultId)));
+  }
+  return result;                                                       // write/gate: pass through
+}</code></pre>
+
+<h3>Verify / advance handlers — wired</h3>
+
+<pre><code>// mcp-servers/orchestrator/src/index.ts
+
+server.tool("verify", "...", VerifyInputSchema.shape, async (args) =&gt; {
+  const coerced = coerceResult(args.result);
+  const resolved = await resolveRefs(coerced);
+  const verifyOut = engine.verify(args.runId, args.stepId, resolved, LIVE_REGISTRY);
+  return { content: [{ type: "text", text: JSON.stringify(verifyOut) }] };
+});
+
+server.tool("advance", "...", AdvanceInputSchema.shape, async (args) =&gt; {
+  const coerced = coerceResult(args.result);
+  const resolved = await resolveRefs(coerced);
+  const adv = engine.advance(args.runId, args.stepId, resolved, LIVE_REGISTRY);
+  return { content: [{ type: "text", text: JSON.stringify(adv) }] };
+});</code></pre>
+
+<h2><span class="num">9.</span> Worker contract changes</h2>
+
+<p>All four worker agents add the new tool to frontmatter and a new instruction at their emit point.</p>
+
+<h3>brain (<code>.claude/agents/brain.md</code>)</h3>
+
+<table>
+  <tr><th>Today</th><th>After E-031</th></tr>
+  <tr>
+    <td>
+      §9 EMIT: writes PerformanceReport + N Hypotheses; final message = full Decision Memo JSON.
+    </td>
+    <td>
+      §9 EMIT: writes PerformanceReport + N Hypotheses (unchanged) <strong>+</strong> calls <code>mcp__orchestrator__write_step_result({ runId, stepId: "S1-reason", payload: memo })</code>. Final message = <code>{ stepResultId }</code>.
+    </td>
+  </tr>
+</table>
+
+<h3>brief-writer (<code>.claude/agents/brief-writer.md</code>)</h3>
+
+<table>
+  <tr><th>Today</th><th>After E-031</th></tr>
+  <tr>
+    <td>
+      §Step 8: writes 12 Briefs; final message = <code>{ runId, angles: [...12], rejected, notes, ok }</code>.
+    </td>
+    <td>
+      §Step 8: writes 12 Briefs (unchanged) <strong>+</strong> calls <code>write_step_result({ runId, stepId: "B1-write", payload: { runId, angles, rejected, notes, ok } })</code>. Final message = <code>{ stepResultId }</code>.
+    </td>
+  </tr>
+</table>
+
+<h3>content-writer (<code>.claude/agents/content-writer.md</code>)</h3>
+
+<table>
+  <tr><th>Today</th><th>After E-031</th></tr>
+  <tr>
+    <td>
+      Single-Brief mode: writes Scripts; final message = <code>{ briefId, hooks, scripts, proofRefs?, notes? }</code>.<br>
+      Article mode: writes AuthorityArticles; final message = <code>{ articles, notes }</code>.
+    </td>
+    <td>
+      Single-Brief mode: writes Scripts (unchanged) <strong>+</strong> calls <code>write_step_result({ runId, stepId: "C1-fanout", unitIndex: i, payload: { briefId, hooks, scripts, ... } })</code>. Final message = <code>{ stepResultId }</code>.<br>
+      Article mode: same shape, <code>stepId: "C2-articles"</code>.
+    </td>
+  </tr>
+</table>
+
+<h3>creative-director (<code>.claude/agents/creative-director.md</code>)</h3>
+
+<table>
+  <tr><th>Today</th><th>After E-031</th></tr>
+  <tr>
+    <td>
+      Hard rule: <em>"Never write the store, never render, never spawn."</em><br>
+      Final message = <code>{ runId, creatives: [...] }</code> (full <code>CreativePlan</code>).
+    </td>
+    <td>
+      Hard rule clarified: <em>"Never write the <strong>entity</strong> store (Briefs / Scripts / CreativeVariants / etc.), never render, never spawn. <strong>Always</strong> write the step_result via <code>mcp__orchestrator__write_step_result</code> before emitting."</em><br>
+      Final message = <code>{ stepResultId }</code>.
+    </td>
+  </tr>
+</table>
+
+<div class="callout warn">
+  <span class="tag">Why creative-director's rule needs clarification.</span>
+  <p>Today the rule says "never writes the store." Read literally, the new <code>write_step_result</code> call would violate it. The intent of the rule is to keep creative-director out of the entity-write path (taste layer, not data layer); writing intermediate output to the orchestrator's <em>worker-output sidecar</em> is a different lifecycle and a different MCP. The rule update makes that distinction explicit.</p>
+</div>
+
+<h2><span class="num">10.</span> Conductor (<code>loop.md</code>) doctrine change</h2>
+
+<p>The conductor's §2 step-kind execution gets two-line edits for <code>spawn</code> and <code>fanout</code>. <code>write</code> and <code>gate</code> are unchanged (their results come from MCP calls the conductor itself runs, not from worker output).</p>
+
+<table>
+  <tr><th>Kind</th><th>Today's instruction</th><th>After E-031</th></tr>
+  <tr>
+    <td><code>spawn</code></td>
+    <td>"The worker's final message is the <code>result</code>."</td>
+    <td>"The worker's final message is <code>{ stepResultId }</code>. Pass it verbatim as <code>result</code>."</td>
+  </tr>
+  <tr>
+    <td><code>fanout</code></td>
+    <td>"The <code>result</code> is the array of worker outputs."</td>
+    <td>"Each worker's final message is <code>{ stepResultId }</code>. Pass <code>[{ stepResultId }, ...]</code> verbatim as <code>result</code>."</td>
+  </tr>
+  <tr>
+    <td><code>write</code></td>
+    <td>(no change)</td>
+    <td>(no change — MCP-call results are conductor-assembled and small)</td>
+  </tr>
+  <tr>
+    <td><code>gate</code></td>
+    <td>(no change)</td>
+    <td>(no change — gate check results are server-side MCP reads)</td>
+  </tr>
+</table>
+
+<p>A new §Rules line: <em>"For spawn and fanout, never resolve a stepResultId yourself during transmission. Pass refs verbatim. If you need to inspect a worker's output for debugging or retry analysis, call <code>mcp__orchestrator__read_step_result</code> — that's an explicit, auditable act."</em></p>
+
+<h2><span class="num">11.</span> Worked example — P1-fanout end-to-end</h2>
+
+<p>Concrete walk of the new flow for <code>run_X / produce / P1-fanout</code> with 4 approved Scripts.</p>
+
+<div class="diagram">┌─ conductor (the LLM running /produce or /loop) ────────────────────────────┐
+│                                                                            │
+│ 1. mcp__orchestrator__plan({ runId: "run_X" })                             │
+│    ─► { runId, step: {                                                     │
+│           kind: "fanout",                                                  │
+│           stepId: "P1-fanout",                                             │
+│           worker: "creative-director",                                     │
+│           units: [                                                         │
+│             { spawnPrompt: "... script s1, brief b1, hook bank ..." },     │
+│             { spawnPrompt: "... script s2, brief b2, hook bank ..." },    │
+│             { spawnPrompt: "... script s3, brief b3, hook bank ..." },    │
+│             { spawnPrompt: "... script s4, brief b4, hook bank ..." },    │
+│           ],                                                               │
+│         } }                                                                │
+│                                                                            │
+│ 2. dispatch 4 Task() calls in parallel, one per unit                      │
+│                                                                            │
+└─────────────┬──────────────────┬──────────────────┬──────────────────┬─────┘
+              │                  │                  │                  │
+              ▼                  ▼                  ▼                  ▼
+   ┌──────────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
+   │ creative-director│  │ creative-d.│  │ creative-d.│  │ creative-d.│
+   │ for script s1    │  │ for s2     │  │ for s3     │  │ for s4     │
+   │                  │  │            │  │            │  │            │
+   │ composes 4       │  │ ...        │  │ ...        │  │ ...        │
+   │ CreativeUnits    │  │            │  │            │  │            │
+   │                  │  │            │  │            │  │            │
+   │ write_step_result│  │ write_s_r  │  │ write_s_r  │  │ write_s_r  │
+   │   (runId,        │  │ (..., 1)   │  │ (..., 2)   │  │ (..., 3)   │
+   │    "P1-fanout",  │  │            │  │            │  │            │
+   │    unitIndex: 0, │  │            │  │            │  │            │
+   │    payload: cp)  │  │            │  │            │  │            │
+   │   → sr_01HZA9... │  │ → sr_01HZA…│  │ → sr_01HZA…│  │ → sr_01HZA…│
+   │                  │  │            │  │            │  │            │
+   │ final message:   │  │            │  │            │  │            │
+   │ {                │  │            │  │            │  │            │
+   │  "stepResultId": │  │            │  │            │  │            │
+   │  "sr_01HZA9..."  │  │            │  │            │  │            │
+   │ }                │  │            │  │            │  │            │
+   └─────────┬────────┘  └──────┬─────┘  └──────┬─────┘  └──────┬─────┘
+             │                  │               │               │
+             └──────────────────┴───────────────┴───────────────┘
+                                │
+                                ▼
+   ┌─ conductor again ──────────────────────────────────────────────────────┐
+   │                                                                        │
+   │ 3. result = [                                                          │
+   │      { stepResultId: "sr_01HZA9..." },                                 │
+   │      { stepResultId: "sr_01HZA9..." },                                 │
+   │      { stepResultId: "sr_01HZA9..." },                                 │
+   │      { stepResultId: "sr_01HZA9..." },                                 │
+   │    ]                                                                   │
+   │                                                                        │
+   │ 4. mcp__orchestrator__verify({ runId, stepId: "P1-fanout", result })   │
+   │      │                                                                 │
+   │      │  at MCP handler:                                                │
+   │      │    resolved = await resolveRefs(result)                         │
+   │      │      → fires 4 SELECT on orchestrator.step_results              │
+   │      │      → returns [cp1, cp2, cp3, cp4]                             │
+   │      │                                                                 │
+   │      ▼                                                                 │
+   │    engine.verify(runId, "P1-fanout", [cp1, cp2, cp3, cp4])             │
+   │      → uses produce.ts foldCreativePlan, then verifies                 │
+   │      → { ok: true, problems: [] }                                      │
+   │                                                                        │
+   │ 5. mcp__orchestrator__advance({ runId, stepId: "P1-fanout", result })  │
+   │      │                                                                 │
+   │      │  resolveRefs(result) again → [cp1, cp2, cp3, cp4]               │
+   │      │                                                                 │
+   │      ▼                                                                 │
+   │    engine.advance(...) → upsertStep stores RESOLVED array              │
+   │      → run_steps.result = JSON.stringify([cp1, cp2, cp3, cp4])         │
+   │      → downstream stage builders see fully-materialized via            │
+   │        stepResult&lt;CreativePlan[]&gt;()                                 │
+   │                                                                        │
+   └────────────────────────────────────────────────────────────────────────┘</div>
+
+<p>Total bytes the conductor reads / writes on this step: ~200 bytes of ref array, regardless of how big the actual CreativePlans are. The 50 KB harness cap is untouchable.</p>
+
+<h2><span class="num">12.</span> Future capability this unlocks (conductor-as-reasoner)</h2>
+
+<p>
+The conductor today is purely a transmission middleman. But the moment we ship <code>read_step_result</code>, a more capable conductor becomes feasible without further refactoring. The ref itself is just an opaque ID — anyone holding it can dereference. This unlocks:
+</p>
+
+<ul>
+  <li><strong>Failure-aware retry.</strong> When verify returns <code>{ok: false, problems: [...]}</code>, a smarter conductor can READ the worker's payload, diagnose the gap, and decide retry vs structural-stop with real evidence. Today's conductor flips a coin.</li>
+  <li><strong>Meta-orchestration.</strong> A future stage could spawn N workers, READ their refs, choose the best output (or merge top-K), and only then advance. The current architecture doesn't preclude this — it just requires the conductor to explicitly opt into materialization.</li>
+  <li><strong>Cross-stage reasoning.</strong> <code>/reflect</code> already grades prior-cycle Hypotheses against PerformanceReports. With READ, brain can also inspect the actual step_results from a prior content-stage run when calibrating its self-critique.</li>
+  <li><strong>Human debugging.</strong> A reviewer pastes a <code>stepResultId</code> into the review UI or a CLI and sees the exact bytes a worker emitted — no log diving, no harness-cap workaround.</li>
+</ul>
+
+<div class="callout new">
+  <span class="tag">In scope today:</span> the <code>read_step_result</code> tool ships now so these capabilities don't require a second contract change. The doctrine in <code>loop.md</code> is explicit that today's conductor must <em>not</em> call READ during normal transmission — it's reserved for the cases above, where the act of reading is itself the work.
+</div>
+
+<h2><span class="num">13.</span> Test surface</h2>
+
+<table>
+  <tr><th>Layer</th><th>Test</th><th>File</th></tr>
+  <tr>
+    <td>Postgres CRUD</td>
+    <td>round-trip insert + select-by-id; ID prefix enforcement at write; <code>size_bytes</code> audit field populated; nonexistent ID returns typed error</td>
+    <td><code>packages/orchestrator/src/postgres.test.ts</code> (NEW)</td>
+  </tr>
+  <tr>
+    <td>ULID generator</td>
+    <td>prefix is always <code>sr_</code>; monotonic; total length 29; collision-safe across 10k generates</td>
+    <td><code>packages/orchestrator/src/ulid.test.ts</code> (NEW)</td>
+  </tr>
+  <tr>
+    <td>resolve helper</td>
+    <td>spawn-shape (single ref) → payload; fanout-shape (array of refs) → array of payloads; mixed array errors; unknown / inline → pass-through; missing ref → typed error</td>
+    <td><code>mcp-servers/orchestrator/src/resolve.test.ts</code> (NEW)</td>
+  </tr>
+  <tr>
+    <td>per-kind enforcement</td>
+    <td>spawn step + inline result → handler rejects with shape error; fanout step + inline result → reject; write step + ref-shaped result → reject (back-pressure: refs only valid for spawn/fanout)</td>
+    <td><code>mcp-servers/orchestrator/src/index.test.ts</code> (extend)</td>
+  </tr>
+  <tr>
+    <td>end-to-end fanout</td>
+    <td>fixture workers write step_results; verify resolves; advance persists fully-materialized; downstream <code>stepResult&lt;T&gt;()</code> sees resolved payload</td>
+    <td><code>packages/orchestrator/src/engine.integration.test.ts</code> (extend)</td>
+  </tr>
+  <tr>
+    <td>contract test (failure shape)</td>
+    <td>worker that fails to write step_result must not return a stepResultId; if it does, verify dereferences missing row and surfaces a typed error</td>
+    <td><code>mcp-servers/orchestrator/src/resolve.test.ts</code> (same file as above)</td>
+  </tr>
+</table>
+
+<h2><span class="num">14.</span> Risks &amp; mitigations</h2>
+
+<table>
+  <tr><th>Risk</th><th>Mitigation</th></tr>
+  <tr>
+    <td>A worker fails to write step_result but still returns a ref-shaped object (e.g. fabricated ID)</td>
+    <td><code>loadPayload</code> on a missing ID throws a typed error; the MCP <code>verify</code> handler surfaces it as <code>{ ok: false, problems: ["stepResultId not found: sr_..."] }</code>. Conductor retries the same step once per loop.md rules. Contract test covers this.</td>
+  </tr>
+  <tr>
+    <td>Postgres unreachable when worker tries to persist</td>
+    <td>Worker's <code>write_step_result</code> call fails before the worker can return a final message. Worker errors out; orchestrator never sees a stale ref. Same failure semantics as a worker that errors today.</td>
+  </tr>
+  <tr>
+    <td>Two simultaneous loops accidentally write to the same <code>(runId, stepId)</code></td>
+    <td><code>id</code> is unique (ULID + monotonic). <code>(runId, stepId, unitIndex)</code> is intentionally not a unique constraint — retries are valid and the most-recent ref the conductor passes is the one resolve uses. No race.</td>
+  </tr>
+  <tr>
+    <td>Existing tests in the orchestrator package break on the schema tightening</td>
+    <td>Hard-cut on a feature branch. Update test fixtures to use the new pattern. Land on branch only after all tests green. Existing live runs (e.g. <code>run_1779553270</code>) can resume from snapshots after merge.</td>
+  </tr>
+  <tr>
+    <td>The HG3 run currently in flight (<code>run_1779557517</code>) is wedged on the harness cap</td>
+    <td>Land E-031, restore the Postgres snapshot at <code>data/snapshots/hg2-run_1779557517/</code>, re-run /produce from HG2 on the new shape. Snapshots already exist for exactly this reason.</td>
+  </tr>
+  <tr>
+    <td>Step results accumulate without cleanup → Postgres bloat over time</td>
+    <td>Out of scope this PR. Provisional E-033 files the sweep job. The <code>size_bytes</code> column + <code>created_at</code> column ship so the future sweep has the metadata it needs. At v1 cadence (~5 runs/week) accumulation is negligible.</td>
+  </tr>
+</table>
+
+<h2><span class="num">15.</span> Out of scope (deliberately)</h2>
+
+<ul>
+  <li>Migrating <code>runs</code> + <code>run_steps</code> from SQLite to Postgres — E-030.</li>
+  <li>TTL / sweep job for old step_results rows — provisional E-033.</li>
+  <li>Reducing per-worker token cost — E-032.</li>
+  <li>MCP Resources URI scheme — researched and rejected (§2 last paragraph).</li>
+  <li>Render-worker (P2-render) integration — audit during implementation, fold in only if needed.</li>
+  <li>Changing what workers produce — payload shapes are unchanged.</li>
+</ul>
+
+<h2><span class="num">16.</span> Verification</h2>
+
+<ol>
+  <li><strong>Unit tests:</strong> <code>pnpm --filter @engineerdad/orchestrator test</code>, <code>pnpm --filter @engineerdad/mcp-orchestrator test</code>. Cover resolve / pass-through / missing-ref / fanout array / per-kind enforcement.</li>
+  <li><strong>Migration:</strong> <code>pnpm orchestrator:push</code> applies <code>001_step_results.sql</code>. Verify with <code>docker exec engineerdad-postgres psql -U engineerdad -d engineerdad -c "\dt orchestrator.*"</code>.</li>
+  <li><strong>Sync agents:</strong> <code>pnpm sync:agents</code>. Confirm the 4 worker prompts pick up the new "write step_result before returning" instruction.</li>
+  <li><strong>Live cold-start walk:</strong> wipe DB, run <code>/loop-once</code> end-to-end through HG1 → /content → HG2 → /produce → HG3. Confirm:
+    <ul>
+      <li>Every worker's final message ≤ 200 bytes (final JSON = <code>{stepResultId}</code>).</li>
+      <li><code>orchestrator.step_results</code> rows: 1 from S1, 12 from B1, 4 from C1, 1 from C2, 4 from P1.</li>
+      <li><code>run_steps.result</code> in SQLite still contains fully-materialized JSON (downstream <code>stepResult&lt;T&gt;()</code> reads work unchanged).</li>
+      <li>P3-persist's <code>verifyProduce</code> ground-truth check passes — proving the resolved payload feeds the verifier correctly.</li>
+      <li>No harness "Output too large" persist-to-disk events during the run.</li>
+    </ul>
+  </li>
+  <li><strong>Doctrine alignment:</strong> manually attempt to pass an inline payload to <code>mcp__orchestrator__verify</code> for a fanout step — confirm the handler rejects with a typed error.</li>
+</ol>
+
+<h2><span class="num">17.</span> References</h2>
+
+<ul>
+  <li><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/claim-check">Claim-Check pattern — Azure Architecture Center</a></li>
+  <li><a href="https://softwarepatternslexicon.com/enterprise-integration-patterns/message-transformation/claim-check/">Claim Check — Enterprise Integration Patterns Lexicon</a></li>
+  <li><a href="https://simonwillison.net/2025/Jun/14/multi-agent-research-system/">Anthropic: How we built our multi-agent research system (Simon Willison's notes)</a></li>
+  <li><a href="https://forum.langchain.com/t/best-practices-for-parallel-nodes-fanouts/1900">LangGraph fanout best practices</a></li>
+  <li><a href="https://developers.googleblog.com/architecting-efficient-context-aware-multi-agent-framework-for-production/">Google ADK handle pattern</a></li>
+  <li><a href="https://modelcontextprotocol.io/specification/2025-11-25">MCP Specification 2025-11-25</a></li>
+  <li>ADR-021 (cap-honouring MCP precedent); ADR-020 (agentic cell architecture); ADR-011 (server-mint runId)</li>
+</ul>
+
+<footer class="doc">
+  <p>E-031 design SPEC · 2026-05-24 · drafted alongside ADR-022 · pre-implementation review gate.</p>
+</footer>
+
+</div>
+</body>
+</html>

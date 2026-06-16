@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Implementation Plan — Data-First Claim Binding</title>
+<style>
+  :root { --ink:#1a1a1a; --mut:#666; --line:#e2e2e2; --accent:#0b6; --box:#f7f8fa; --code:#f0f2f4; }
+  * { box-sizing:border-box; }
+  body { font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); max-width:880px; margin:0 auto; padding:40px 24px 120px; }
+  h1 { font-size:28px; line-height:1.2; margin:0 0 4px; }
+  h2 { font-size:21px; margin:38px 0 8px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  h3 { font-size:16px; margin:22px 0 6px; color:#333; }
+  p, li { margin:7px 0; }
+  ul { margin:8px 0; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font:13.5px/1.5 "SF Mono",Menlo,Consolas,monospace; }
+  pre { background:var(--box); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; font:13px/1.55 "SF Mono",Menlo,Consolas,monospace; }
+  .meta { color:var(--mut); font-size:14px; margin-bottom:22px; }
+  .gate { background:var(--box); border-left:4px solid var(--accent); border-radius:6px; padding:8px 14px; margin:12px 0; font-size:14.5px; }
+  hr { border:none; border-top:1px solid var(--line); margin:28px 0; }
+  .small { font-size:13.5px; color:var(--mut); }
+  input[type=checkbox]{ margin-right:8px; }
+</style>
+</head>
+<body>
+
+<h1>Implementation Plan — Data-First Claim Binding</h1>
+<div class="meta">
+  Spec: <code>docs/superpowers/specs/2026-06-02-data-first-claim-binding-design.html</code><br>
+  Branch: <code>feat/data-first-claim-binding</code> · Closes <strong>B-038</strong> (P0), folds in <strong>B-036</strong> · Mode C filed as sibling.
+</div>
+<p>Phases are dependency-ordered. Each ends at a green test gate. Build sequentially (<code>pnpm -r build</code>, never <code>--parallel</code>). Keep <code>DATABASE_URL</code> on the branch sandbox before any test run.</p>
+
+<h2>Phase 0 — Verify &amp; de-risk (no code changes)</h2>
+<p>The two open code-facts from the spec gate everything downstream. Resolve them first.</p>
+<ul>
+<li><input type="checkbox"> <strong>0.1 Audit consumers of <code>corpus/data/*.json</code>.</strong> <code>grep -rn "data/[a-z-]*\.json\|corpus/data/" mcp-servers packages apps corpus/templates .claude</code> (excl. <code>node_modules/dist/charts</code>). List every reader (path reads, prompt refs, loaders) → a migration checklist for 1.6. Flag any hardcoded path.</li>
+<li><input type="checkbox"> <strong>0.2 Determine <code>verify-content</code> gate semantics.</strong> Read <code>verify-content.ts</code> + the content→HG2 stage builder. Confirm whether a per-script reject blocks the whole stage or the gate advances with the approved subset. Output: "partial-advance works" or a precise change for 2.2.</li>
+<li><input type="checkbox"> <strong>0.3 Draft the ADR</strong> <code>docs/decisions/ADR-0XX-data-first-claim-binding.md</code> (next free number). Doctrine, locus, three enforcement layers, two-layer data model, amendments list. Mark <strong>Proposed</strong>.</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> migration checklist + gate-semantics answer recorded in the ADR context.</div>
+
+<h2>Phase 1 — Data model &amp; two-layer foundation</h2>
+<ul>
+<li><input type="checkbox"> <strong>1.1 Schema.</strong> Add <code>claim_bindings jsonb</code> (default <code>[]</code>, not null) to <code>scripts</code> in <code>schema.ts</code>. <code>pnpm db:sandbox</code> → <code>pnpm db:generate</code>; commit <code>schema.ts</code> + generated <code>packages/*/drizzle/</code> together (<code>pnpm lint:migrations</code>).</li>
+<li><input type="checkbox"> <strong>1.2 Zod.</strong> <code>ClaimBindingSchema</code> in <code>zod.ts</code> (<code>claim</code>, <code>kind</code> enum, <code>chartRef</code> nullable, <code>figures[]</code>, <code>takeaway</code>, <code>gapNote</code> nullable) with refinements: <code>data ⇒ chartRef set</code>; <code>gap ⇒ gapNote set, chartRef null</code>; <code>qualitative ⇒ chartRef null</code>. Wire onto Script shape. Unit tests per refinement.</li>
+<li><input type="checkbox"> <strong>1.3 Numeric-normalize util.</strong> New <code>packages/shared/src/numeric/normalize.ts</code> — parse RM/k/M/%/age/plain → canonical number; <code>tracesTo(figure, haystack, tol)</code>. Table-driven tests (RM1.2M→1_200_000, "age 60"→60, "41%"→0.41, rounding tolerance).</li>
+<li><input type="checkbox"> <strong>1.4 Chart-metadata loader.</strong> Reads a chart YAML → <code>{id,title,scenario,labels,valueRanges,source_citation}</code>. Tests over real YAMLs.</li>
+<li><input type="checkbox"> <strong>1.5 <code>corpus.list_charts</code> MCP.</strong> Add to <code>mcp-servers/corpus</code> + <code>packages/corpus/src/tools.ts</code> — <strong>live <code>readdir</code></strong> of <code>corpus/data/charts/</code> through the loader. NOT index-backed. Tests.</li>
+<li><input type="checkbox"> <strong>1.6 <code>datasets/</code> rename.</strong> <code>git mv corpus/data/*.json corpus/data/datasets/</code>. Update every consumer from 0.1. Add the provenance contract (new charts cite a dataset path; existing grandfathered). Re-run touched tests.</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> <code>pnpm -r build</code> clean; new unit suites green; <code>db:sandbox</code> applied.</div>
+
+<h2>Phase 2 — Authoring (content-writer, stays Sonnet)</h2>
+<ul>
+<li><input type="checkbox"> <strong>2.1 Prompt: step 4d + internal QA.</strong> Edit content-writer fragment in <code>packages/shared/src/prompts/*</code>: claim-binding step (enumerate financial-outcome claims → match via <code>list_charts</code> → <code>data</code>/<code>qualitative</code>/<code>gap</code>; author numbers from the YAML; never mis-pair) + mandatory pre-emit internal-QA stanza (mirror the hook-bank self-check). Persist <code>claim_bindings</code> on each Script write + in the C1 payload. <code>pnpm sync:agents</code>; <code>pnpm sync:agents:check</code>.</li>
+<li><input type="checkbox"> <strong>2.2 C1 validator.</strong> In <code>verify-content.ts</code>: (a) <strong>hard</strong> — every <code>data</code> binding → real chart id + figures trace (uses 1.3/1.4); (b) <strong>soft</strong> — numeric-token coverage scan minus the <strong>incidental allowlist</strong> (footer, age 25–60, durations, dates, step counts, CTA) → flag to HG2. Apply the 0.2 partial-advance change if needed. Tests incl. the B-038 fixture (RM1.2M vs <code>inflation-vs-savings</code> → fail).</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> <code>verify-content</code> tests green incl. B-038 regression; sync check passes.</div>
+
+<h2>Phase 3 — Staging enforcement (CD + P1 verifier)</h2>
+<ul>
+<li><input type="checkbox"> <strong>3.1 Prompt: CD pinned.</strong> Delete the Step-3c global inventory list; replace with "use ONLY the Script's <code>data</code> bindings; <code>explains := binding.takeaway</code>". Add CD self-QA before emit. <code>pnpm sync:agents</code>.</li>
+<li><input type="checkbox"> <strong>3.2 Render-worker prompts.</strong> Remove the inline global inventory list from <code>reel-render-worker.md</code> + <code>render-worker.md</code>; cite "bound only / missing → hard fail".</li>
+<li><input type="checkbox"> <strong>3.3 P1 verifier.</strong> In <code>verify-produce.ts</code>: plumb per-script <code>claim_bindings</code>; for <strong>every</strong> scene (all formats incl. Carousel/Feed) with a <code>chartRef</code>: ref ∈ Script <code>data</code> bindings (else reject); <code>explains</code> references bound figures/takeaway; concept visual has <strong>no digits</strong> (B-036). Tests incl. B-038 (carousel + reel) + B-036 fixtures.</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> <code>verify-produce</code> tests green; B-038 + B-036 blocked; sync check passes.</div>
+
+<h2>Phase 4 — Gap-fill utility (<code>/chart-gap</code> + <code>chart-author</code>)</h2>
+<ul>
+<li><input type="checkbox"> <strong>4.1 Agent.</strong> New <code>.claude/agents/chart-author.md</code> (model TBD — lean Opus). Tools: <code>Read, WebFetch, WebSearch, Bash, Write, static-renderer, store</code>. Procedure: read gap flags → understand missing data → ingest source → <strong>persist dataset JSON first</strong> → derive N chart YAML(s) citing it → write to <code>_pending/</code> + render preview. <code>verification_status</code> for image-derived series.</li>
+<li><input type="checkbox"> <strong>4.2 Command.</strong> New <code>.claude/commands/chart-gap.md</code> — human-invoked, out-of-loop. Surfaces open gaps (Scripts where <code>claim_bindings.kind = gap</code>), takes source inputs, dispatches <code>chart-author</code>, presents candidates for CLI approval.</li>
+<li><input type="checkbox"> <strong>4.3 Promote + re-bind.</strong> Deterministic helper: move <code>_pending/</code> → <code>corpus/data/{datasets,charts}/</code>, then UPDATE the held Script binding <code>gap → data</code> + re-run C1 figures-trace. <strong>No reindex.</strong> Tests for the gap→data transition.</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> end-to-end dry-run on the B-038 gap (supply EPF-drawdown source → dataset+chart → re-bind → data-bound); promote/re-bind tests green.</div>
+
+<h2>Phase 5 — Webapp HG2 surface</h2>
+<ul>
+<li><input type="checkbox"> <strong>5.1 Bindings display.</strong> HG2 Script page renders <code>claim_bindings</code>: each claim → bound chart (title + figures + source + lightweight preview), or a <strong>⛔ gap badge</strong>.</li>
+<li><input type="checkbox"> <strong>5.2 Held state + partial advance.</strong> Visible Held badge; gate advances the non-gap subset to produce while gap scripts park. (Reuse <code>Awaiting Approval</code> + gap flag unless 0.2 calls for an explicit status.)</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> manual walk on a seeded run — gap script shows Held; non-gap scripts approvable + flow to produce.</div>
+
+<h2>Phase 6 — Docs &amp; close-out</h2>
+<ul>
+<li><input type="checkbox"> <strong>6.1 ADR → Accepted</strong>; link from <code>ARCHITECTURE.md</code> <em>Where doctrine lives</em>.</li>
+<li><input type="checkbox"> <strong>6.2 ARCHITECTURE.md</strong> — two-layer data model (<code>datasets/</code> JSON facts vs <code>charts/</code> YAML specs + provenance contract); the data-first binding chain.</li>
+<li><input type="checkbox"> <strong>6.3 brand-contract §9</strong> — note concept-no-digits is now structurally enforced (B-036).</li>
+<li><input type="checkbox"> <strong>6.4 TASKS.md / DONE.md</strong> — close B-038 + B-036 (retain IDs); refresh Status header; file the Mode-C sibling.</li>
+<li><input type="checkbox"> <strong>6.5 Full suite</strong> — <code>pnpm test</code> green; <code>pnpm sync:agents:check</code>; <code>pnpm lint:migrations</code>.</li>
+</ul>
+<div class="gate"><strong>Gate:</strong> suite green; PR opened to <code>main</code>.</div>
+
+<hr>
+<h3>Sequencing &amp; risk notes</h3>
+<ul>
+<li><strong>Phase 0 is mandatory first</strong> — both code-facts can reshape 1.6 and 2.2.</li>
+<li>Phases 2 and 3 reviewable independently; 3 depends on 1 (bindings exist), best after 2.</li>
+<li>Phase 4 depends on 1 + 2; independent of 3/5.</li>
+<li><strong>DB discipline:</strong> branch sandbox before tests; commit <code>schema.ts</code> + generated drizzle together.</li>
+<li><strong>Defaults to confirm on review</strong> (spec §15): Sonnet content-writer; Held = status+flag; CLI candidate review; grandfather the 16 YAMLs; <code>chart-author</code> model.</li>
+</ul>
+
+<p class="small">Companion spec: <code>docs/superpowers/specs/2026-06-02-data-first-claim-binding-design.html</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Corpus Extraction Design — EPF Calculator + Public Mutual Fund Master · 2026-05-20</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+    --rule: #e5e1d8;
+    --accent: #b34a1f;
+    --accent-soft: #f3e6dc;
+    --code-bg: #f3efe7;
+    --green: #2f7a3a;
+    --amber: #b88410;
+    --red: #b03030;
+    --maxw: 920px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.6; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 56px 28px 96px; }
+
+  header.doc { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 40px; }
+  header.doc .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+  header.doc h1 { font-size: 32px; line-height: 1.2; margin: 0 0 14px;
+    font-family: "Iowan Old Style", "Charter", Georgia, serif; font-weight: 600; letter-spacing: -.005em; }
+  header.doc .meta { font-size: 13px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 18px; }
+  header.doc .meta b { color: var(--ink); font-weight: 600; }
+
+  h2 { font-family: "Iowan Old Style", "Charter", Georgia, serif;
+    font-size: 22px; margin: 56px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+    font-weight: 600; }
+  h3 { font-size: 17px; margin: 32px 0 10px; font-weight: 600; }
+  h4 { font-size: 14px; margin: 18px 0 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 22px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; line-height: 1.55;
+    border: 1px solid var(--rule); }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 3px solid var(--accent); margin: 14px 0; padding: 4px 16px;
+    color: var(--ink-soft); background: var(--accent-soft); border-radius: 0 4px 4px 0; }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+  tr:hover td { background: #f7f3eb; }
+
+  .flag { display: inline-block; padding: 1px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+  .flag.green { background: #dcefdf; color: var(--green); }
+  .flag.amber { background: #f5e5c4; color: var(--amber); }
+  .flag.red   { background: #f3d4d4; color: var(--red); }
+
+  .artifact {
+    border: 1px solid var(--rule); border-radius: 6px; padding: 18px 22px; margin: 18px 0;
+    background: #fff;
+  }
+  .artifact > .header { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; border-bottom: 1px dashed var(--rule); padding-bottom: 10px; margin-bottom: 10px; }
+  .artifact > .header h3 { margin: 0; }
+  .artifact > .header .path { font-family: "SF Mono", Menlo, monospace; font-size: 12px; color: var(--accent); }
+  .artifact .row { display: flex; gap: 18px; font-size: 13px; color: var(--ink-soft); margin: 6px 0 14px; flex-wrap: wrap; }
+  .artifact .row b { color: var(--ink); font-weight: 600; }
+
+  nav.toc { background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 16px 20px; margin: 28px 0 0; }
+  nav.toc h4 { margin: 0 0 8px; }
+  nav.toc ol { margin: 4px 0 0; padding-left: 22px; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  .compliance-line { background: var(--accent-soft); border-left: 3px solid var(--accent);
+    padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 12px 0; font-size: 14px; }
+
+  footer.doc { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <div class="eyebrow">Design Spec · Brainstorming Output</div>
+  <h1>Corpus Extraction — EPF Calculator + Public Mutual Fund Master</h1>
+  <div class="meta">
+    <span><b>Date</b> 2026-05-20</span>
+    <span><b>Status</b> Design approved; implementation pending</span>
+    <span><b>Author</b> EngineerDad Marketing OS</span>
+    <span><b>Branch</b> feat/organic-social-cadence</span>
+  </div>
+</header>
+
+<section>
+  <h2>Goal</h2>
+  <p>Widen the grounding surface for <code>content-gen</code> and <code>brain</code> by adding ten corpus artifacts derived from the EPF sustainability calculator and the Public Mutual Fund Master xlsx. Hold the compliance line: no public head-to-head fund recommendations, no forward projections framed as guarantees, no comparisons to named competitors.</p>
+
+  <h4>Sources</h4>
+  <ul>
+    <li><code>/Users/solid/Code/engineerdad-site/tools/epf-sustainability-calculator/index.html</code> — live calculator (v1.3.2 beta · 2026-03-26)</li>
+    <li><code>/Users/solid/Downloads/Funds/output/fundmasters/PublicMutual_FundMaster_Apr2026_v1.4.xlsx</code> — 174 rows × 73 columns; Feb &amp; Mar 2026 siblings exist</li>
+  </ul>
+
+  <nav class="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#conventions">Shared conventions</a></li>
+      <li><a href="#artifacts">Per-artifact spec — prose layer (items 1–10, item 7 deferred)</a></li>
+      <li><a href="#artifacts">Per-artifact spec — data layer (items A–G)</a></li>
+      <li><a href="#refresh">Build &amp; refresh scripts (3 scripts)</a></li>
+      <li><a href="#order">Write order</a></li>
+      <li><a href="#accept">Acceptance criteria</a></li>
+      <li><a href="#oos">Out of scope</a></li>
+    </ol>
+  </nav>
+</section>
+
+<section id="conventions">
+  <h2>Shared conventions</h2>
+
+  <h3>Frontmatter</h3>
+  <p>All <code>.md</code> files match the existing <code>proof/epf-baseline-tiers.md</code> shape:</p>
+<pre><code>---
+quote: "&lt;one-line headline statement&gt;"
+attribution: "&lt;source — e.g. KWSP Belanjawanku, Public Mutual MFR Apr 2026&gt;"
+permission_status: public
+persona: &lt;persona-tag&gt;
+dated_snapshot: true        # only on items 6, 8, 10
+snapshot_period: "Apr 2026" # only when dated_snapshot is true
+---</code></pre>
+
+  <h3>Bilingual policy (ADR-010)</h3>
+  <ul>
+    <li><b>EN + BM</b> — items 1, 2, 5 (consumer-facing methodology and proof)</li>
+    <li><b>EN only</b> — items 3, 4, 6, 8, 9, 10 (author-facing templates, aggregate snapshots, structured data)</li>
+    <li><b>EN only</b> — items A–G (pure data files, no consumer-facing prose)</li>
+    <li>Item 7 (fund-anomaly-cases) was originally EN+BM but is deferred from this iteration.</li>
+  </ul>
+
+  <h3>Naming</h3>
+  <ul>
+    <li>Kebab-case under the existing buckets (<code>courses/</code>, <code>proof/</code>, <code>templates/</code>, <code>data/</code>)</li>
+    <li>Date suffix only on <code>corpus/data/funds-apr2026.json</code>; other dated snapshots carry the date in frontmatter so the refresh script overwrites cleanly</li>
+  </ul>
+
+  <h3>Indexing &amp; retrieval</h3>
+  <p>After every write to <code>/corpus</code>, run <code>/ingest-corpus</code> to regenerate <code>corpus/.index/chunks.jsonl</code> and the BM25 sidecar. The chunker is language-aware — <code>## English</code> and <code>## Bahasa Malaysia</code> sections become separate chunks tagged by <code>lang</code>.</p>
+  <p>At runtime, agents call <code>mcp__corpus__search({ query, scope, lang, k })</code> — a BM25 lookup that returns only the <b>top-<code>k</code> chunks</b> relevant to the query (content-gen uses <code>k: 12</code>, per <code>content-gen.md</code>). Agents never read whole <code>.md</code> files; per-call context is bounded at roughly 12 × 800 tokens ≈ 10k tokens of grounding regardless of corpus size. Adding files grows the <em>searchable universe</em>, not the per-call context.</p>
+  <p><b>Indexer file types</b> — the chunker only ingests <code>.md</code>, <code>.pdf</code>, <code>.txt</code>, <code>.vtt</code>. Items 10 and A–G (everything under <code>corpus/data/</code>) are <em>not</em> BM25-indexed; consumers read them directly via the <code>Read</code> tool when they need specific facts. The aggregate-prose layer (items 6, 8) <em>is</em> indexed and surfaces those facts via search.</p>
+</section>
+
+<section id="artifacts">
+  <h2>Per-artifact spec</h2>
+
+  <!-- Item 1 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>1. EPF sustainability model (methodology)</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/courses/epf-sustainability-model.md</span>
+      <span><b>Language</b> EN + BM</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Documents the math behind the EPF Sustainability Calculator. Pairs with <code>proof/epf-baseline-tiers.md</code> (which carries the numerical tiers; this carries the engine that produces them).</p>
+    <p><b>Source</b> — <code>epf-sustainability-calculator/index.html</code>, constants block (lines 787–798) and the simulator function.</p>
+    <h4>Sections (EN + BM mirror)</h4>
+    <ul>
+      <li>Contribution math (employer 13% if salary &lt; RM5,000, else 12%; employee 11%)</li>
+      <li>Accumulation phase: monthly contributions × historical EPF dividend (assumption: 6% long-run nominal)</li>
+      <li>Drawdown phase: retirement spend = Belanjawanku Adequate tier inflated forward at 3%/yr</li>
+      <li>Sustainability test: balance after each retirement year must remain ≥ 0 until life-expectancy assumption</li>
+      <li>Investment alternative: 8% nominal long-run for unit-trust contribution math, with explicit volatility caveat</li>
+      <li><b>Assumption block</b> (one canonical place — referenced by item 2): EPF dividend 6%, salary growth 3%/yr, inflation 3%/yr, retirement age 60, life expectancy 80</li>
+    </ul>
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — frame all rates as <em>modelling assumptions</em>, never as guaranteed returns. Never claim PRS or unit-trust returns are "safer" or "beat" EPF. Cite Belanjawanku / KWSP as the source of the spend tier.
+    </div>
+  </div>
+
+  <!-- Item 2 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>2. EPF shortfall worked examples</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/proof/epf-shortfall-cases.md</span>
+      <span><b>Language</b> EN + BM</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Four concrete shortfall scenarios that content-gen can quote inline in hooks, carousel cards, and reels.</p>
+    <p><b>Source</b> — Each scenario's numbers are <em>looked up</em> from <code>corpus/data/epf-sustainability-simulations.json</code> (item G), which is harvested directly from the live EPF Sustainability Calculator (item 1 documents the underlying model). Starting EPF balances per age come from <code>corpus/data/kwsp-ria-benchmarks.json</code> (item C). The file does no math itself — it narrates rows from G.</p>
+
+    <h4>Scenario lineup</h4>
+    <table>
+      <thead><tr><th>#</th><th>Persona slug</th><th>Age</th><th>Salary</th><th>Current EPF (from item C)</th><th>Horizon</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>young_saver_25</code></td><td>25</td><td>RM4,000</td><td>RIA age-25 row</td><td>35 yrs</td></tr>
+        <tr><td>2</td><td><code>early_midcareer_30</code></td><td>30</td><td>RM6,000</td><td>RIA age-30 row</td><td>30 yrs</td></tr>
+        <tr><td>3</td><td><code>midcareer_wakeup_40</code></td><td>40</td><td>RM10,000</td><td>RIA age-40 row</td><td>20 yrs</td></tr>
+        <tr><td>4</td><td><code>latecareer_shortfall_50</code></td><td>50</td><td>RM12,000</td><td>RIA age-50 row</td><td>10 yrs</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Per-scenario block</h4>
+    <ul>
+      <li>Inputs (age, salary, current EPF balance with source = "item C")</li>
+      <li>Projected EPF balance at 60 — <em>looked up</em> from item G's grid</li>
+      <li>Gap to Basic / Adequate / Enhanced — from item G (which references item D's tiers)</li>
+      <li>Monthly PRS or UT contribution that closes the Adequate gap — looked up from item B</li>
+      <li>One-line brand framing — honest about the limits (e.g. scenario 4 frames "PRS alone won't close this; the conversation has to include lifestyle and timeline")</li>
+    </ul>
+
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — all projections labelled as illustrative, not personalised advice. Contribution figures are mathematical implications of the gap, not buy recommendations. No fund names. Every number traceable to a data file (G, C, B, D) — no in-prose arithmetic.
+    </div>
+  </div>
+
+  <!-- Item 3 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>3. Content recipes (append — EPF hook + FAQ bank)</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/courses/content-recipes.md (append)</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Add the calculator's hook ("Will Your EPF Be Enough to Retire On?") and 8 FAQ entries as a vetted hook bank + objection-handling scripts.</p>
+    <p><b>Form</b> — Appended subsection titled <code>## EPF Sustainability — Hook + FAQ Bank</code>. Hooks as a bulleted list. FAQ entries as <code>Q → A</code> pairs.</p>
+  </div>
+
+  <!-- Item 4 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>4. Calculator embed spec (author guide)</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/templates/calculator-embed-spec.md</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Tells Authority Articles <em>how</em> to reference the calculator — CTA wording, where the link points, what assumption disclaimers to surface above the embed.</p>
+    <h4>Sections</h4>
+    <ul>
+      <li>Link pattern</li>
+      <li>Suggested CTA copy (3 variants)</li>
+      <li>Pre-embed disclaimer template</li>
+      <li>Post-embed reflection prompt</li>
+    </ul>
+  </div>
+
+  <!-- Item 5 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>5. Weighted-alpha scoring (methodology)</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/courses/weighted-alpha-scoring.md</span>
+      <span><b>Language</b> EN + BM</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Documents the screening rubric used in the Fund Master. Companions <code>mfr-framework.md</code> (which is conceptual; this is mechanical).</p>
+    <h4>Sections (EN + BM mirror)</h4>
+    <ul>
+      <li>The weighting: YTD 5% · 1Y 15% · 3Y 40% · 5Y 25% · 10Y 15% — and <em>why</em> 3Y dominates (full cycle without overfit to ancient data)</li>
+      <li><code>Beat (%)</code> = share of measured periods the fund beat its benchmark on weighted alpha basis</li>
+      <li><code>Alpha Efficiency</code> = alpha ÷ tracking-error proxy; what high vs low AE means in practice</li>
+      <li>Drawdown from ATH as a risk lens — what's a "normal" drawdown by asset class</li>
+      <li>Qualified status: positive weighted alpha → qualified</li>
+    </ul>
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — methodology only; never name funds in this file. Frame as "how EngineerDad reads the universe", not as a recommendation engine.
+    </div>
+  </div>
+
+  <!-- Item 6 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>6. Fund universe stats snapshot (aggregate)</h3>
+      <span class="flag green">🟢 compliance-safe · dated</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/proof/fund-universe-stats-snapshot.md</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Yes (Apr 2026)</span>
+    </div>
+    <p><b>Purpose</b> — Aggregate state of the Public Mutual retail universe as of Apr 2026 — the kind of statement content-gen can quote ("of 171 retail funds, X qualified this month").</p>
+    <h4>Sections</h4>
+    <ul>
+      <li>Headline: N qualified / 171 total</li>
+      <li>Distribution by category (Equity / Mixed Asset / Fixed Income / Money Market): qualified ratio, median weighted alpha</li>
+      <li>Share with positive 3Y alpha</li>
+      <li>Share above ATH; aggregate drawdown distribution</li>
+      <li>Notable shifts vs the Mar 2026 snapshot (computed at refresh time)</li>
+    </ul>
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — aggregate-only. No named funds. Frontmatter marks it dated.
+    </div>
+  </div>
+
+  <!-- Item 7 — removed; anomaly cases deferred from this iteration -->
+
+  <!-- Item 8 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>8. Sector / geo rotation snapshot</h3>
+      <span class="flag green">🟢 compliance-safe · dated</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/proof/sector-geo-rotation-snapshot.md</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Yes (Apr 2026)</span>
+    </div>
+    <p><b>Purpose</b> — Cross-fund allocation lens — what sectors / geographies / holdings the qualified Public Mutual universe is collectively tilting toward this month.</p>
+    <h4>Sections</h4>
+    <ul>
+      <li>Top 5 sectors (aggregate weight across qualified funds)</li>
+      <li>Top 5 geographies</li>
+      <li>Top 10 holdings frequency (how many qualified funds count each in their top-5 holdings)</li>
+      <li>Notable shifts vs prior month</li>
+    </ul>
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — aggregate only. Text should never recommend tilting personal portfolios toward a sector or geo.
+    </div>
+  </div>
+
+  <!-- Item 9 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>9. MFR monthly recap template</h3>
+      <span class="flag green">🟢 compliance-safe</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/templates/mfr-monthly-recap-template.md</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Structural template for the monthly MFR carousel / reel / article. Tells content-gen the canonical section order, required numbers, disclaimer block, and CTA shape.</p>
+    <h4>Sections</h4>
+    <ul>
+      <li>Hook pattern</li>
+      <li>Methodology recap (sources item 5)</li>
+      <li>Aggregate-stats section (sources item 6)</li>
+      <li>Sector / geo pulse (sources item 8)</li>
+      <li>Compliance disclaimer block (sources <code>compliance/*.md</code> via <code>corpus.get_compliance_block</code>)</li>
+      <li>CTA pattern (consultation, never "buy this fund")</li>
+    </ul>
+    <p style="font-size:13px;color:#777;margin-top:8px;"><em>Note — earlier draft referenced an anomaly section sourced from a fund-anomaly-cases file; that artifact has been deferred from this iteration. When it lands later, this template gets a new "Anomaly" section between aggregate-stats and sector/geo pulse.</em></p>
+  </div>
+
+  <!-- Item 10 -->
+  <div class="artifact">
+    <div class="header">
+      <h3>10. Structured per-fund snapshot (JSON)</h3>
+      <span class="flag amber">🟡 facts only; consumer rules apply at content-gen time</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/funds-apr2026.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Yes (Apr 2026)</span>
+    </div>
+    <p><b>Purpose</b> — Machine-readable per-fund snapshot so content-gen can retrieve specific factual statements (size, risk level, allocation, alpha numbers) without me hand-shaping markdown for each fund.</p>
+
+    <h4>Shape</h4>
+<pre><code>{
+  "snapshot_period": "Apr 2026",
+  "source_file": "PublicMutual_FundMaster_Apr2026_v1.4.xlsx",
+  "generated_at": "&lt;ISO timestamp&gt;",
+  "compliance_note": "Facts only. Do not derive recommendations.",
+  "funds": [
+    {
+      "name": "PUBLIC ASIA PACIFIC FOCUS FUND",
+      "abbr": "PAPFF",
+      "shariah": false,
+      "type": "Equity",
+      "risk_level": 5,
+      "size_rm_m": 132.41,
+      "qualified": true,
+      "weighted_alpha": 19.55,
+      "alpha": { "ytd": 20.4, "1y": 45.26, "3y": 9.81, "5y": null, "10y": null },
+      "alpha_efficiency": { "ytd": ..., "1y": ..., "3y": ..., "5y": null, "10y": null },
+      "allocation": { "dom_equity": ..., "for_equity": ..., ... },
+      "geo": { "usa": ..., "taiwan": ..., ... },
+      "sector": { "industrial": ..., "technology": ..., ... },
+      "drawdown_pct": ...,
+      "ath_date": "..."
+    }
+  ]
+}</code></pre>
+    <p>Sits alongside <code>corpus/data/charts/</code>.</p>
+
+    <h4>Retrieval — read directly, not searched</h4>
+    <p>Unlike items 1–9, this file is <b>not BM25-indexed</b>. The corpus chunker only ingests <code>.md / .pdf / .txt / .vtt</code>. Consumers reach this data via the <code>Read</code> tool when they need per-fund facts:</p>
+    <ul>
+      <li><code>content-gen</code> calls <code>Read</code> on <code>corpus/data/funds-apr2026.json</code> when an angle requires specific allocation, alpha, or risk-level numbers</li>
+      <li>Or <code>brain</code> can pre-extract a narrow slice and pass it as context to the spawned subagent</li>
+      <li>Aggregate statements about the universe stay in item 6 (which <em>is</em> BM25-indexed) so search-based discovery still works</li>
+    </ul>
+
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — consumers must respect SC/FIMM rules at content-gen time — this file is facts, not recommendations.
+    </div>
+  </div>
+
+  <h2 style="margin-top:48px;">Data layer — items A–G</h2>
+  <p>Seven additional structured-data files under <code>corpus/data/</code>. They prevent content-gen from fabricating arithmetic by giving it pre-computed lookup tables and verified reference values. Like item 10, none of these are BM25-indexed — consumers reach them via the <code>Read</code> tool.</p>
+
+  <!-- Item A -->
+  <div class="artifact">
+    <div class="header">
+      <h3>A. Compounding table</h3>
+      <span class="flag green">🟢 evergreen · script-generated</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/compounding-table.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Pre-computed future-value-of-annuity table. Prevents fabrication of "RM X/mo at 8% over 20 yrs = ?" claims that show up in education-fund and retirement-shortfall posts.</p>
+    <p><b>Grid:</b> annual rate ∈ {6%, 7%, 8%, 10%} × years ∈ {5, 10, 15, 20, 25, 30, 35} × monthly contribution ∈ {RM100, 200, 300, 500, 750, 1000, 1500, 2000}.</p>
+    <p><b>Generator:</b> <code>scripts/build-derivative-tables.mjs</code>. <b>Source assumptions:</b> <code>corpus/courses/epf-sustainability-model.md</code> (item 1).</p>
+  </div>
+
+  <!-- Item B -->
+  <div class="artifact">
+    <div class="header">
+      <h3>B. Monthly contribution required table</h3>
+      <span class="flag green">🟢 evergreen · script-generated</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/monthly-contribution-required.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> No</span>
+    </div>
+    <p><b>Purpose</b> — Inverse of item A. Given a target gap and a horizon, what monthly contribution closes it? The lookup item 2 uses for its monthly-contribution numbers.</p>
+    <p><b>Grid:</b> target FV ∈ {RM50k, 100k, 200k, 300k, 500k, 750k, 1M, 1.5M} × years ∈ {5, 10, 15, 20, 25, 30, 35} × rate ∈ {6%, 7%, 8%, 10%}.</p>
+    <p><b>Generator:</b> <code>scripts/build-derivative-tables.mjs</code> (same script as A).</p>
+  </div>
+
+  <!-- Item C -->
+  <div class="artifact">
+    <div class="header">
+      <h3>C. KWSP RIA age-tier benchmarks</h3>
+      <span class="flag amber">🟡 needs verification · low churn</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/kwsp-ria-benchmarks.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Annually (carries <code>verified_at</code>)</span>
+    </div>
+    <p><b>Purpose</b> — KWSP's published Retirement Income Adequacy benchmarks — the age → expected-EPF-balance table. Lets item 2 drop "placeholder" status: scenarios pull their starting balance from this file by age.</p>
+    <p><b>Shape:</b></p>
+<pre><code>{
+  "verified_at": "2026-05-20",
+  "source": "&lt;KWSP RIA publication URL or document title&gt;",
+  "tiers": [
+    { "age": 25, "ria_balance_rm": 0 },
+    { "age": 30, "ria_balance_rm": 0 },
+    /* ... through retirement age */
+  ]
+}</code></pre>
+    <p><b>Source:</b> hand-authored once from KWSP's published RIA framework; the implementer fills the actual numbers from the latest KWSP publication during execution.</p>
+  </div>
+
+  <!-- Item D -->
+  <div class="artifact">
+    <div class="header">
+      <h3>D. Belanjawanku tier matrix</h3>
+      <span class="flag amber">🟡 needs verification · low churn</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/belanjawanku-tiers.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Annually</span>
+    </div>
+    <p><b>Purpose</b> — Companion to existing <code>proof/epf-baseline-tiers.md</code>. That .md carries the three retirement-target headline numbers (RM390k / 650k / 1.3M); this JSON carries the full monthly-cost matrix by household composition (single elderly, couple, with-dependants × Basic / Adequate / Enhanced).</p>
+    <p><b>Source:</b> hand-authored from KWSP Belanjawanku publication. Carries <code>base_year</code> + <code>source</code> + <code>verified_at</code>.</p>
+  </div>
+
+  <!-- Item E -->
+  <div class="artifact">
+    <div class="header">
+      <h3>E. EPF dividend history</h3>
+      <span class="flag amber">🟡 append-only · annual refresh</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/epf-dividend-history.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Annually (one new row per year)</span>
+    </div>
+    <p><b>Purpose</b> — Per-year EPF declared dividend rates (conventional + Shariah where split). Grounds claims like "EPF averaged X% over the last decade" with the actual published numbers.</p>
+    <p><b>Source:</b> KWSP annual report. The author seeds the historical series at first write (back to ~10 years); subsequent years append one row each.</p>
+  </div>
+
+  <!-- Item F -->
+  <div class="artifact">
+    <div class="header">
+      <h3>F. Tax reliefs (current year)</h3>
+      <span class="flag amber">🟡 dated · annual budget refresh</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/tax-reliefs-2026.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> Yes (year in filename)</span>
+    </div>
+    <p><b>Purpose</b> — PRS RM3,000 cap, deferred annuity, lifestyle reliefs, and any other LHDN-listed reliefs that appear in PRS / unit-trust content. Highest-rot data file in this design — refresh after each Budget.</p>
+    <p><b>Source:</b> LHDN Budget publication / official tax-relief schedule. Carries <code>year</code> + <code>verified_at</code>.</p>
+    <p><b>Naming convention:</b> year in filename (e.g. <code>tax-reliefs-2026.json</code>) so future years sit alongside without overwriting. Content-gen always reads the highest-year file unless a historical reference is needed.</p>
+  </div>
+
+  <!-- Item G -->
+  <div class="artifact">
+    <div class="header">
+      <h3>G. EPF sustainability simulations (calculator-harvested)</h3>
+      <span class="flag green">🟢 cached calculator output</span>
+    </div>
+    <div class="row">
+      <span class="path">corpus/data/epf-sustainability-simulations.json</span>
+      <span><b>Language</b> EN</span>
+      <span><b>Dated</b> By calculator version (carries <code>calculator_version</code>)</span>
+    </div>
+    <p><b>Purpose</b> — Pre-computed simulation outputs from the live EPF Sustainability Calculator across an input grid. Eliminates fabrication risk: every "if you input X, the calculator says Y" statement is a literal lookup, not arithmetic re-derivation.</p>
+
+    <h4>Grid</h4>
+    <ul>
+      <li><b>Age:</b> 25, 30, 35, 40, 45, 50, 55</li>
+      <li><b>Salary RM/mo:</b> 3000, 5000, 7500, 10000, 15000, 20000</li>
+      <li><b>Current EPF balance bucket:</b> 0% / 50% / 100% / 150% of item C's RIA value for that age</li>
+      <li><b>Retirement age:</b> 55, 60, 65</li>
+      <li><b>Lifestyle tier:</b> Basic / Adequate / Enhanced</li>
+    </ul>
+    <p>~1,512 tuples. JSON handles it fine.</p>
+
+    <h4>Per-tuple output</h4>
+    <ul>
+      <li>Projected EPF balance at retirement age</li>
+      <li>Years sustainable at the chosen lifestyle tier</li>
+      <li>Monthly drawdown supported</li>
+      <li>Gap to chosen tier (RM)</li>
+      <li>Monthly contribution at 8% nominal needed to close that gap</li>
+    </ul>
+
+    <h4>Harvesting (not re-implementation)</h4>
+    <p>Produced by <code>scripts/harvest-epf-simulations.mjs</code> — Playwright-driven against a local HTTP-served copy of <code>engineerdad-site/tools/epf-sustainability-calculator/</code>. The JSON is a cached snapshot of the live calculator at version <code>APP_VERSION</code>; if the version drifts, re-harvest.</p>
+
+    <h4>Shape</h4>
+<pre><code>{
+  "calculator_version": "v1.3.2 beta · 2026-03-26",
+  "harvested_at": "2026-05-20T...",
+  "grid_definition": { /* the axes above */ },
+  "simulations": [
+    {
+      "inputs": { "age": 25, "salary_rm": 4000, "current_epf_rm": 30000,
+                  "retire_age": 60, "lifestyle": "Adequate" },
+      "outputs": { "projected_balance_at_retire_rm": ..., "years_sustainable": ...,
+                   "monthly_drawdown_rm": ..., "gap_to_tier_rm": ...,
+                   "monthly_top_up_at_8pct_rm": ... }
+    }
+    /* ... ~1,512 entries */
+  ]
+}</code></pre>
+
+    <div class="compliance-line">
+      <b>Compliance discipline</b> — every figure traceable to the live calculator. No claim derivable from this file may be presented as "guaranteed"; carry the same illustrative-only framing item 1 mandates.
+    </div>
+  </div>
+
+</section>
+
+<section id="refresh">
+  <h2>Build &amp; refresh scripts</h2>
+  <p>Three scripts now sit at <code>scripts/</code>, each with a distinct cadence:</p>
+
+  <h3>1. <code>scripts/refresh-funds-corpus.mjs</code> — monthly</h3>
+  <p><b>Produces:</b> items 6, 8, 10. <b>Cadence:</b> monthly when a new MFR xlsx drops.</p>
+  <ol>
+    <li>Locate the most recent <code>PublicMutual_FundMaster_*.xlsx</code> in <code>~/Downloads/Funds/output/fundmasters/</code> by mtime</li>
+    <li>Parse Master sheet → in-memory fund records</li>
+    <li>Write <code>corpus/data/funds-&lt;period&gt;.json</code> (period derived from filename)</li>
+    <li>Write <code>corpus/proof/fund-universe-stats-snapshot.md</code> + <code>corpus/proof/sector-geo-rotation-snapshot.md</code>; include a <code>vs_prior</code> diff if a prior snapshot exists in git history</li>
+    <li>Print summary; exit 0</li>
+    <li>Does <em>not</em> run <code>/ingest-corpus</code> — deliberate human step</li>
+  </ol>
+  <p><b>Dependency:</b> <code>exceljs</code>. <b>Invoked via:</b> <code>pnpm refresh:funds</code>.</p>
+
+  <h3>2. <code>scripts/harvest-epf-simulations.mjs</code> — when calculator version changes</h3>
+  <p><b>Produces:</b> item G — <code>corpus/data/epf-sustainability-simulations.json</code>. <b>Cadence:</b> rare (only when <code>APP_VERSION</code> in the calculator changes).</p>
+  <ol>
+    <li>Spawn a local HTTP server in <code>engineerdad-site/tools/epf-sustainability-calculator/</code> (e.g. <code>python3 -m http.server</code> on a free port via <code>child_process</code>)</li>
+    <li>Drive headless Chromium via the Playwright MCP tools to open the calculator</li>
+    <li><b>Preferred path</b> — <code>browser_evaluate</code> calls the calculator's internal simulator function directly (e.g. <code>window.simulator(inputs)</code>) for each grid tuple; pure JS calls, ~milliseconds each</li>
+    <li><b>Fallback path</b> — <code>browser_fill_form</code> + click "Calculate" + read DOM output if the calculator doesn't expose a JS-callable entry point</li>
+    <li>Iterate the grid (~1,500 tuples): age × salary × current-balance bucket × retirement age × lifestyle tier</li>
+    <li>Write JSON including <code>calculator_version</code> (from <code>APP_VERSION</code>) and <code>harvested_at</code> ISO timestamp</li>
+    <li>Tear down the HTTP server; exit 0</li>
+  </ol>
+  <p><b>Boundary discipline</b> — driving the calculator via Playwright, not re-implementing its math, keeps us on the right side of ADR-016 (we don't import source from a sibling repo; we consume it as a runtime artifact). The JSON is a cached snapshot of the calculator's output for a fixed grid.</p>
+  <p><b>Invoked via:</b> <code>pnpm harvest:epf</code>.</p>
+
+  <h3>3. <code>scripts/build-derivative-tables.mjs</code> — when item 1's assumption block changes</h3>
+  <p><b>Produces:</b> items A (compounding-table.json) and B (monthly-contribution-required.json). <b>Cadence:</b> rare (only when canonical assumption block in item 1 changes).</p>
+  <ol>
+    <li>Hardcode the assumption set with a comment pointing to <code>corpus/courses/epf-sustainability-model.md</code> as the canonical source</li>
+    <li>Compute FV-of-annuity grid at 6% / 7% / 8% / 10% × 5/10/15/20/25/30/35 yrs × monthly contribution rates → item A</li>
+    <li>Compute inverse (required monthly pmt to reach FV) over the same grid → item B</li>
+    <li>Write both JSONs with <code>assumption_source: "corpus/courses/epf-sustainability-model.md"</code></li>
+  </ol>
+  <p><b>Invoked via:</b> <code>pnpm build:tables</code>.</p>
+</section>
+
+<section id="order">
+  <h2>Write order</h2>
+<pre><code>Phase 1 — evergreen methodology (no deps)
+  1. courses/epf-sustainability-model.md
+  2. courses/weighted-alpha-scoring.md
+
+Phase 2 — data layer (depends on Phase 1)
+  3. scripts/build-derivative-tables.mjs
+     → corpus/data/compounding-table.json        (item A)
+     → corpus/data/monthly-contribution-required.json          (item B)
+  4. corpus/data/kwsp-ria-benchmarks.json        (item C — hand-authored)
+  5. corpus/data/belanjawanku-tiers.json         (item D — hand-authored)
+  6. corpus/data/epf-dividend-history.json       (item E — hand-authored)
+  7. corpus/data/tax-reliefs-2026.json           (item F — hand-authored)
+  8. scripts/harvest-epf-simulations.mjs
+     → corpus/data/epf-sustainability-simulations.json   (item G — Playwright-driven)
+
+Phase 3 — evergreen proof (depends on item G + item C)
+  9. proof/epf-shortfall-cases.md                (item 2 — reads from G + C)
+
+Phase 4 — refresh script + dated snapshots
+  10. scripts/refresh-funds-corpus.mjs
+  11. Run once to produce:
+      - proof/fund-universe-stats-snapshot.md    (item 6)
+      - proof/sector-geo-rotation-snapshot.md    (item 8)
+      - data/funds-apr2026.json                  (item 10)
+
+Phase 5 — templates + recipes
+  12. courses/content-recipes.md (append)       (item 3)
+  13. templates/calculator-embed-spec.md         (item 4)
+  14. templates/mfr-monthly-recap-template.md    (item 9)
+
+Phase 6 — index + commit
+  15. /ingest-corpus
+  16. Single commit covering all of the above
+
+Deferred — item 7 (fund-anomaly-cases.md); will land in a later iteration.</code></pre>
+</section>
+
+<section id="accept">
+  <h2>Acceptance criteria</h2>
+
+  <h3>Prose layer (items 1–6, 8, 9, 10)</h3>
+  <ul>
+    <li>Nine artifacts exist at the paths listed (item 7 deferred)</li>
+    <li>All <code>.md</code> files carry conformant frontmatter; dated ones carry <code>dated_snapshot: true</code> + <code>snapshot_period</code></li>
+    <li>Items 1, 2, 5 have working bilingual EN + BM sections</li>
+    <li>No file recommends a specific fund or compares competitor funds</li>
+    <li>No file presents projected returns as guarantees</li>
+    <li>Every numerical claim in item 2 is traceable to a row in item G, item C, item B, or item D — no in-prose arithmetic</li>
+    <li>Item 9 omits the anomaly section (with a note pointing to its future addition); other sections present and sourced</li>
+  </ul>
+
+  <h3>Data layer (items A–G)</h3>
+  <ul>
+    <li>Seven data files exist under <code>corpus/data/</code></li>
+    <li>Items A + B generated deterministically by <code>scripts/build-derivative-tables.mjs</code></li>
+    <li>Item G generated by <code>scripts/harvest-epf-simulations.mjs</code> — Playwright-driven against the live calculator, JSON carries <code>calculator_version</code> matching the calculator's <code>APP_VERSION</code></li>
+    <li>Item G parity spot-check — at least 3 random tuples produce outputs that match the live calculator UI when input manually</li>
+    <li>Items C, D, E, F carry <code>verified_at</code> + <code>source</code> fields; F also carries <code>year</code></li>
+    <li>None of A–G are BM25-indexed (corpus chunker doesn't ingest <code>.json</code>)</li>
+  </ul>
+
+  <h3>Scripts &amp; infra</h3>
+  <ul>
+    <li><code>scripts/refresh-funds-corpus.mjs</code> runs end-to-end against the Apr 2026 xlsx and produces items 6, 8, 10 deterministically</li>
+    <li><code>scripts/build-derivative-tables.mjs</code> runs and produces items A, B</li>
+    <li><code>scripts/harvest-epf-simulations.mjs</code> runs and produces item G</li>
+    <li><code>pnpm test</code> passes</li>
+    <li><code>/ingest-corpus</code> runs cleanly after the write phase; BM25 index grows by at minimum the chunks-worth of items 1, 2, 5, 6, 8 (the BM25-indexed additions in this iteration)</li>
+    <li>Nothing pushed without separate approval</li>
+  </ul>
+</section>
+
+<section id="oos">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Item 7 — fund anomaly cases (deferred to a later iteration)</li>
+    <li>A web UI for the corpus refresh</li>
+    <li>MCP tools wrapping any of the three scripts (they're <code>pnpm</code> tasks, not MCP servers)</li>
+    <li>Migrating other xlsx artifacts in <code>/Users/solid/Downloads/Funds/</code> (only the most-recent <code>output/fundmasters/*.xlsx</code> is read)</li>
+    <li>Per-fund recommendation files (FIMM / SC-banned)</li>
+    <li>Backfilling Feb 2026 and Mar 2026 snapshots — the script can do it on demand later, but the design ships with Apr 2026 only</li>
+    <li>Backfilling historical years for items E (dividend history) and F (tax reliefs) beyond a sensible 10-year seed</li>
+  </ul>
+</section>
+
+<footer class="doc">
+  Generated 2026-05-20 from <code>/superpowers:brainstorming</code> session ·
+  <code>docs/superpowers/specs/2026-05-20-corpus-extraction-design.html</code>
+</footer>
+
+</div>
+</body>
+</html>

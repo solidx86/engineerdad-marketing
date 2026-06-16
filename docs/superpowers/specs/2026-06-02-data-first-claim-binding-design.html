@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data-First Claim Binding — Design Spec</title>
+<style>
+  :root { --ink:#1a1a1a; --mut:#666; --line:#e2e2e2; --accent:#0b6; --warn:#c40; --box:#f7f8fa; --code:#f0f2f4; }
+  * { box-sizing:border-box; }
+  body { font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); max-width:880px; margin:0 auto; padding:40px 24px 120px; }
+  h1 { font-size:30px; line-height:1.2; margin:0 0 4px; }
+  h2 { font-size:22px; margin:42px 0 10px; padding-bottom:6px; border-bottom:2px solid var(--line); }
+  h3 { font-size:17px; margin:26px 0 8px; }
+  p, li { margin:8px 0; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font:13.5px/1.5 "SF Mono",Menlo,Consolas,monospace; }
+  pre { background:var(--box); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; font:13px/1.55 "SF Mono",Menlo,Consolas,monospace; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; }
+  th, td { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:var(--box); }
+  .meta { color:var(--mut); font-size:14px; margin-bottom:22px; }
+  .tag { display:inline-block; background:#eef; color:#338; border-radius:4px; padding:1px 7px; font-size:12px; margin-right:6px; }
+  .box { background:var(--box); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; padding:12px 16px; margin:16px 0; }
+  .warn { border-left-color:var(--warn); }
+  .lede { font-size:18px; color:#333; }
+  blockquote { margin:12px 0; padding:8px 16px; border-left:3px solid var(--line); color:var(--mut); }
+  hr { border:none; border-top:1px solid var(--line); margin:30px 0; }
+  .small { font-size:13.5px; color:var(--mut); }
+</style>
+</head>
+<body>
+
+<h1>Data-First Claim Binding</h1>
+<div class="meta">
+  Design spec · 2026-06-02 · branch <code>feat/data-first-claim-binding</code><br>
+  <span class="tag">P0</span> Closes <strong>B-038</strong> · folds in <strong>B-036</strong> · files mode-C (composition drift) as a sibling.<br>
+  New doctrine — warrants a dedicated ADR. Amends <code>creative-director.md</code>, both render-worker prompts, brand-contract §9.
+</div>
+
+<p class="lede">A quantitative claim ships a chart-backed visual <strong>only</strong> if a vetted dataset depicts that claim's scenario and numbers. The claim↔data binding is authored where the claim is authored (content-writer), reviewed by the human (HG2), executed — never invented — downstream (creative-director), and enforced deterministically (C1 + P1 verifiers). When no dataset exists, the claim is <strong>held</strong> until a human-invoked utility derives one from real source material.</p>
+
+<h2>1. Problem</h2>
+
+<p>The <code>chartRef</code> — the claim↔data binding — is currently <strong>born at the creative-director</strong>, at produce time, <em>after</em> HUMAN GATE 2. The Script carries <code>proofRefs</code> (prose proof files) but no chart link and no structured claim→dataset binding. So CD reverse-engineers a chart from the script prose, picking by <em>topical adjacency</em> from a fixed ~16-YAML inventory. Nobody ever asserts "<em>this claim is backed by this dataset</em>." The binding is a downstream guess, created last, after the only human gate that could catch a mismatch.</p>
+
+<div class="box warn">
+<strong>B-038 (the trigger, P0).</strong> The TOFU script <em>"A Million in EPF Still Ran Dry at 72"</em> (<code>scriptId 32da66d3…</code>) claims <em>"even RM1.2M at 60 runs out around age 72 at the Adequate lifestyle"</em> — an <strong>EPF retirement drawdown</strong>. CD bound it to <code>inflation-vs-savings-real-value</code> (RM100k in a 2% savings account eroding to RM59k over 18 years — an <strong>accumulation-phase</strong> argument). The chart rendered <em>faithfully to its YAML</em>; the defect is the <em>pairing</em>. The static (Carousel) path had <strong>no editorial catch</strong> — the mis-paired chart shipped into a finished, real-looking asset. For a FIMM-registered consultant this is trust-destroying. <strong>B-036</strong> (numbers leaking into a concept visual) is the same class of defect, caught only by render-worker luck.
+</div>
+
+<h3>Failure taxonomy</h3>
+<table>
+<tr><th>#</th><th>Failure</th><th>Lives at</th><th>Catch today</th></tr>
+<tr><td>A</td><td>Mis-pairing — right chart exists, CD picks the wrong one</td><td>CD selection</td><td>none on static; reel lucky</td></tr>
+<tr><td>B</td><td>Supply gap — no correct chart exists → forced mis-pair</td><td>corpus inventory</td><td>none</td></tr>
+<tr><td>C</td><td>Composition drift — reel arc / carousel slide-flow / caption↔slide</td><td>CD storyboard</td><td>none — <em>filed as sibling, OUT of this spec</em></td></tr>
+</table>
+
+<h2>2. Doctrine — data-first</h2>
+<p>The bound dataset is <strong>authoritative</strong>; the narration conforms to the data's actual numbers and scenario — never the reverse. This makes drift structurally impossible: you cannot narrate "RM1.2M to age 72" off a YAML that says "RM100k savings erosion," because the words are read <em>from</em> the dataset, not matched to it afterward.</p>
+<p>The full chain becomes <strong>machine-traceable</strong>:</p>
+<pre><code>claim  →  chart YAML  →  dataset (JSON)  →  verified external source</code></pre>
+
+<h2>3. Data flow — before / after</h2>
+<h3>Before</h3>
+<pre><code>brain → brief-writer → 12 Briefs ──[HG1]──►
+  content-writer ── Script PROSE only (proofRefs = prose files; NO chart link) ──►
+                              ──[ HG2 : human reads PROSE only ]──            (chart not decided)
+  creative-director ── picks chartRef by TOPICAL ADJACENCY from the global 16-chart inventory
+                       ✗ no dataset for the claim? → picks the nearest-looking one anyway
+  deriveSpecs → render-worker → assets ──[ HG3 ]──► SHIP
+       static: NO editorial catch  ·  reel: catches only by luck</code></pre>
+
+<h3>After</h3>
+<pre><code>brain → brief-writer → 12 Briefs ──[HG1]──►
+  content-writer ── reads chart inventory (corpus.list_charts, live dir read) ──►
+     per quantitative claim → match a dataset (scenario + numbers):
+        ├─ match      → kind:DATA  (chartRef + figures + takeaway) · prose ⟵ the YAML
+        ├─ no number  → kind:QUAL  (concept visual; never a chart)
+        └─ no dataset → kind:GAP   (gapNote = the dataset needed) → claim HELD ⛔
+     ┌── internal QA (pre-emit, mandatory): every number bound? every DATA figure traces? no leaks? ──┐
+     └─────────────────────────────────────────────────────────────────────────────────────────────────┘
+     → Scripts (+ claim_bindings[])
+     → C1 validator: declared bindings trace to YAML (HARD) + numeric coverage scan (FLAG)
+                              ──[ HG2 : human reviews CLAIM + BOUND CHART ; GAP claims = ⛔ HELD ]──
+  creative-director ── may use ONLY the Script's bound chartRefs · explains := binding.takeaway
+                       owns scene order / format / palette / hooks · self-QA before emit
+     P1 verifier ── HARD GATE ── chartRef ∈ bindings? figures match? concept = no digits?  → reject
+  deriveSpecs → render-worker → assets ──[ HG3 ]──► SHIP
+
+  GAP loop (out-of-loop, human-paced):  kind:GAP ──/chart-gap utility──► dataset+chart authored
+                                          ──human review──► promote ──► re-bind GAP→DATA ──► ships</code></pre>
+
+<h2>4. Two-layer data model</h2>
+<p>The two formats under <code>corpus/data/</code> are <strong>not</strong> redundant — they are distinct layers and both stay.</p>
+<table>
+<tr><th></th><th><code>datasets/*.json</code> (renamed from <code>corpus/data/*.json</code>)</th><th><code>charts/*.yaml</code></th></tr>
+<tr><td>Role</td><td><strong>Facts / source-of-record</strong></td><td><strong>A chart</strong> — one derived visualization</td></tr>
+<tr><td>Shape</td><td>grids / tables (<code>grid_definition</code>, <code>simulations[]</code>, tiers)</td><td><code>chart_type</code>, <code>labels</code>, <code>series</code> + <code>semantic_role</code></td></tr>
+<tr><td>Provenance</td><td>rich (<code>source</code>, <code>verified_at</code>, <code>verification_status</code>, caveats)</td><td>a <code>source_citation</code> string</td></tr>
+<tr><td>Bilingual / captions</td><td>none</td><td>yes (<code>title_en/ms</code>, <code>caption_en/ms</code>)</td></tr>
+<tr><td>Views</td><td>many — one dataset feeds N charts</td><td>one curated narrative</td></tr>
+</table>
+<p><code>epf-sustainability-simulations.json</code> is a grid of EPF drawdown sims (ages × salaries × balances × retire-ages × lifestyles). The EPF-drawdown chart B-038 needed is <strong>one cell of that grid</strong> rendered as a YAML.</p>
+
+<div class="box">
+<strong>In scope (folded in):</strong>
+<ul>
+<li><strong>Rename</strong> <code>corpus/data/*.json</code> → <code>corpus/data/datasets/*.json</code> (symmetry with <code>charts/</code>; natural home for ingested sources). <em>Step 0 = audit + update all consumers of the old paths.</em></li>
+<li><strong>Provenance contract:</strong> a chart YAML's <code>source_citation</code> names its upstream dataset (<code>corpus/data/datasets/&lt;x&gt;.json</code> or a course doc). The chart-author stamps this; new charts must carry it.</li>
+<li><strong>Grandfather the 16 existing YAMLs</strong> — do not force-backfill provenance now (their free-text citations don't reference JSON paths, so the rename doesn't break them). Backfill later if desired.</li>
+</ul>
+</div>
+
+<h2>5. The <code>ClaimBinding</code> (new <code>claim_bindings</code> jsonb on Scripts)</h2>
+<pre><code>{
+  claim:    string,                          // "RM1.2M at 60 runs dry by ~72 at Adequate lifestyle"
+  kind:     "data" | "qualitative" | "gap",
+  chartRef: string | null,                   // vetted id, iff kind === "data"
+  figures:  string[],                        // ["RM1.2M","age 60","age 72"] — must trace to the YAML
+  takeaway: string,                          // ≤12 words; becomes CD's `explains` anchor
+  gapNote:  string | null                    // iff kind === "gap": the dataset that's missing
+}</code></pre>
+<p>A Script may carry 0..n bindings (zero = pure brand/qualitative — valid). <code>figures</code> is the load-bearing field — it is what the deterministic trace validates.</p>
+<p><strong>Kind is determined by one question: <em>does the statement assert a financial number?</em></strong></p>
+<ul>
+<li><strong>Yes</strong> → <code>data</code> (dataset exists) or <code>gap</code> (held). <em>There is no reword-to-keep-the-number escape</em> — a persuasive figure may not ship without its data.</li>
+<li><strong>No</strong> (genuinely conceptual) → <code>qualitative</code> → concept visual, ships. <code>qualitative</code> is <em>not</em> a downgrade hatch for numeric claims.</li>
+</ul>
+
+<h2>6. content-writer changes (authoring · stays Sonnet)</h2>
+<ul>
+<li><strong>New input surface:</strong> the chart inventory via a new <code>mcp__corpus__list_charts</code> (mirrors <code>list_proof</code>) returning per chart: <code>id</code>, title, scenario fingerprint, <code>labels</code>, value-ranges, <code>source_citation</code>. Implemented as a <strong>live directory read</strong> of <code>corpus/data/charts/</code> (the BM25 index never carries YAML — see §9).</li>
+<li><strong>New step 4d — claim binding:</strong> per Script, enumerate the quantitative claims → match a dataset → bind (<code>data</code>), classify <code>qualitative</code>, or raise a <code>gap</code>. Author the body's numbers <em>from</em> the matched YAML. Never mis-pair.</li>
+<li><strong>Internal QA (pre-emit, mandatory)</strong> — mirrors the existing hook-bank self-check (see §8).</li>
+</ul>
+
+<h2>7. creative-director changes (staging, pinned)</h2>
+<ul>
+<li>Reads the Script's <code>claim_bindings</code> (already fetches the Script).</li>
+<li>May set a scene <code>chartRef</code> <strong>only</strong> to a chartRef in the Script's <code>data</code> bindings. The Step-3c <em>global</em> chart inventory list in <code>creative-director.md</code> is <strong>deleted</strong> and replaced with "bound chartRefs only."</li>
+<li>Data-scene <code>explains</code> := the binding's <code>takeaway</code>; voiceover segments the already-conformant body. CD keeps scene order, format, palette, hook rotation, and <em>where</em> the chart lands.</li>
+<li>Binding is <strong>permission, not obligation</strong> — CD may render a bound chart 0..N times; the verifier only rejects <em>unbound</em> chart scenes.</li>
+</ul>
+
+<h2>8. Enforcement — three layers</h2>
+<p><strong>The split:</strong> the LLM reasons <em>which</em> statements are claims and picks the chart; code <em>proves</em> the numbers trace and catches misses. Model can't hand-wave figures; code can't read prose.</p>
+<ol>
+<li><strong>Layer 0 — content-writer internal QA (pre-emit, mandatory).</strong> Re-read body; enumerate every quantitative token; confirm each maps to exactly one binding (uncovered ⇒ not done); for each <code>data</code> binding re-open the chart metadata and confirm <code>figures</code> trace + scenario matches (else downgrade to <code>gap</code> or fix body); confirm no qualitative/concept claim smuggles chart-numbers. Emit only when all pass.</li>
+<li><strong>Layer 1 — C1 deterministic validator</strong> (<code>verify-content.ts</code>, before HG2): every <code>data</code> binding references a real chart id <em>and</em> its <code>figures</code> trace to the YAML (HARD); a numeric-token <strong>coverage scan</strong> over the body flags RM/%/figure tokens not covered by any binding and not on the incidental allowlist → escalates to HG2 (SOFT).</li>
+<li><strong>Layer 2 — P1 produce verifier</strong> (<code>verify-produce.ts</code>, the P0 hard gate, runs over <strong>all</strong> formats incl. Carousel/Feed): every scene with a <code>chartRef</code> → that ref ∈ parent Script's <code>data</code> bindings, else reject; scene <code>explains</code> references the bound figures/takeaway; concept visual (visualBrief, null chartRef) contains <strong>no digits</strong> (folds in B-036).</li>
+</ol>
+
+<h3>The incidental-number allowlist (claim detection)</h3>
+<p>A <em>claim</em> = a quantitative assertion about a <strong>financial outcome</strong> (returns, balances, shortfalls, inflation, fees, compounding timeframes). The coverage scan ignores incidental numbers: the compliance footer, targeting age (25–60), durations (30s), step counts, dates/years, CTA figures.</p>
+
+<h3>figures↔YAML trace algorithm</h3>
+<p>Each required figure must appear in the YAML's <code>labels</code> / <code>values</code> / <code>title</code> / <code>source</code> after numeric normalization (<code>RM</code>/<code>k</code>/<code>M</code>/<code>%</code>/age), with a rounding tolerance. <em>Derived</em> assertions (e.g. "41% loss") are validated against a value computed from the series (within tolerance) or flagged for HG2. A figure that does not trace ⇒ the binding is invalid ⇒ <code>gap</code> or body fix. (B-038's "RM1.2M" is absent from <code>inflation-vs-savings</code> → fails here.)</p>
+
+<h2>9. Promotion needs no reindex</h2>
+<p>Verified in code: <code>reindex</code> (<code>packages/corpus/src/reindex.ts</code>) indexes only <code>.md/.txt/.vtt/.pdf</code> under <code>compliance/courses/proof/knowledge</code>; <code>.yaml</code> and <code>data/</code> are skipped. Charts are read <strong>by path, live</strong> (<code>Read corpus/data/charts/&lt;ref&gt;.yaml</code> in <code>_chart-rules.md</code> + both render-worker prompts). So <strong>promotion = write the git-tracked file</strong> (the git commit is itself a human-gated checkpoint); <code>list_charts</code> reads the directory live. <code>reindex</code> matters only if an ingested <em>prose</em> source lands in <code>corpus/courses</code> or <code>corpus/proof</code>.</p>
+
+<h2>10. Gap policy — held, data-first</h2>
+<p>A <code>gap</code> claim <strong>parks (held)</strong> at HG2 while its non-gap siblings flow through to produce. There is no ship-with-an-unbacked-number path. A gap resolves only by: (a) the chart-author derives the dataset+chart (→ <code>data</code>), or (b) the human rejects the chart and the claim stays held / the script is revised at authoring. A gap whose numbers <strong>cannot be grounded</strong> in any real source means the claim was never factual → it is dropped (a deeper data-first win).</p>
+
+<h2>11. Gap-fill — the <code>/chart-gap</code> utility (human-invoked, out-of-loop)</h2>
+<p>Not a pipeline stage and not auto-triggered. A human-invoked utility, like a maintenance command. The human brings the authoritative source; the agent only transcribes + structures it — <strong>zero fabrication</strong>.</p>
+<pre><code>content-writer flags gaps → gap-scripts HELD at HG2 → non-gap scripts flow on ──►
+
+   ┄┄ later, human-paced, OUTSIDE the loop ┄┄
+  YOU run:  /chart-gap   (+ source: PDF · Excel/CSV · image of a chart · text · URL)
+            │
+  chart-author subagent (Sonnet/Opus TBD — see open items):
+     1. reads the gap flags → understands WHAT data is lacking (scenario + figures)
+     2. ingests your source(s): parse PDF/Excel · read/OCR a chart image · fetch URL · read text
+     3. persists a DATASET (JSON) first  → then derives N chart YAMLs from it
+            (both stamped with honest provenance; image-derived = verification_status: unverified)
+            │
+   ──[ HUMAN reviews dataset + chart YAML(s) + rendered preview → approve / edit / reject ]──   (CLI / file-staging)
+            │ approve
+     promote: write corpus/data/datasets/&lt;id&gt;.json + corpus/data/charts/&lt;id&gt;.yaml  (git-tracked; NO reindex)
+     → UPDATE the held Script's claim binding  (gap → data, chartRef set) · re-run C1 figures-trace
+            │
+     gap-script now DATA-bound → approvable at HG2 → CD → produce → ship ✅</code></pre>
+<ul>
+<li><strong>New slash command</strong> <code>/chart-gap</code> backed by a new <code>chart-author</code> subagent. Tools: <code>Read</code> (PDF/image/text), <code>WebFetch/WebSearch</code>, <code>Bash</code> (Excel/CSV parse), <code>Write</code> (candidate dataset+chart), <code>static-renderer</code> (preview), <code>store</code> (read gap flags + update bindings). No <code>corpus.reindex</code>.</li>
+<li><strong>Ingest → dataset → chart</strong>: raw facts persist as a reusable JSON dataset; the chart YAML is derived from it and cites it (the provenance contract, §4).</li>
+<li><strong>Candidate staging</strong>: <code>corpus/data/{datasets,charts}/_pending/</code> + a rendered preview; human approves via CLI confirm. Promotion moves files out of <code>_pending/</code> and re-binds.</li>
+<li><strong>Honesty caveat</strong>: data read off a chart <em>image</em> is best-effort; <code>verification_status</code> records <code>transcribed-from-figure-unverified</code>; prefer tabular sources; the human is the backstop at review.</li>
+</ul>
+
+<h2>12. Webapp UI/UX changes (in scope)</h2>
+<ul>
+<li><strong>HG2 Scripts page</strong> renders <code>claim_bindings</code> beside the prose: each claim → its bound chart (title + key figures + source, lightweight preview), or a <strong>⛔ gap badge</strong> ("no vetted chart — held"). Human reviews claim + chart together.</li>
+<li><strong>Held state</strong>: a visible Held badge on gap-bearing scripts; the gate <strong>partially advances</strong> (gap scripts park; non-gap scripts flow to produce). Status model: reuse <code>approvalStatus: "Awaiting Approval"</code> + a gap flag (a distinct <code>"Held"</code> status only if auditability is wanted — open item).</li>
+</ul>
+
+<h2>13. Scope</h2>
+<p><strong>In:</strong> the data-first binding (content-writer authoring + <code>claim_bindings</code> column), CD pinned to bindings, the three enforcement layers, the gap=held policy, the <code>/chart-gap</code> utility + <code>chart-author</code> subagent (ingest→dataset→chart→review→promote→re-bind), the two-layer data model + provenance contract + the <code>datasets/</code> rename, the HG2 webapp surface + Held state, a new ADR.</p>
+<p><strong>Out:</strong> <strong>Mode C</strong> (composition / narrative-flow coherence — carousel slide-flow, reel arc, caption↔slide) — filed as a sibling, layers on the same P1-verifier/HG seam later. Force-backfilling provenance into the 16 existing YAMLs (grandfathered).</p>
+
+<h2>14. Build surface (files)</h2>
+<table>
+<tr><th>Area</th><th>Change</th></tr>
+<tr><td><code>schema.ts</code></td><td>+ <code>claim_bindings</code> jsonb on <code>scripts</code> → <code>db:sandbox</code> + <code>db:generate</code>, commit together</td></tr>
+<tr><td><code>packages/shared/src/zod.ts</code></td><td>+ <code>ClaimBinding</code> schema; Script-shape addition</td></tr>
+<tr><td>corpus MCP</td><td>+ <code>list_charts</code> (live dir read + chart-metadata distiller); chart-metadata loader util</td></tr>
+<tr><td><code>verify-content.ts</code></td><td>+ figures-trace (hard) + numeric coverage scan (flag) + allowlist</td></tr>
+<tr><td><code>verify-produce.ts</code></td><td>+ chartRef ∈ bindings, explains-matches, concept-no-digits; receives per-script bindings</td></tr>
+<tr><td>numeric-normalize util</td><td>new — RM/k/M/%/age parsing + tolerance</td></tr>
+<tr><td>prompt fragments</td><td><code>content-writer</code> (step 4d + internal QA), <code>creative-director</code> (delete global inventory, pin to bindings) → <code>pnpm sync:agents</code></td></tr>
+<tr><td>render-worker prompts</td><td><code>reel-render-worker.md</code> + <code>render-worker.md</code>: delete the inline global inventory list (cite "bound only")</td></tr>
+<tr><td>new agent + command</td><td><code>.claude/agents/chart-author.md</code> + <code>.claude/commands/chart-gap.md</code></td></tr>
+<tr><td>data move</td><td><code>corpus/data/*.json</code> → <code>corpus/data/datasets/*.json</code> (after consumer audit)</td></tr>
+<tr><td>webapp</td><td>HG2 Script page: bindings display + gap/Held badge + partial-advance</td></tr>
+<tr><td>docs</td><td>new ADR; <code>ARCHITECTURE.md</code> two-layer data model; <code>TASKS.md</code>/<code>DONE.md</code> B-038/B-036</td></tr>
+</table>
+
+<h2>15. Open items</h2>
+<h3>Defaults adopted (correct on review)</h3>
+<ul>
+<li>content-writer stays <strong>Sonnet</strong>; internal-QA + C1 validator are the backstop.</li>
+<li>Held status = <code>"Awaiting Approval"</code> + gap flag (partial-advance); explicit <code>"Held"</code> status optional.</li>
+<li>Candidate review = CLI / file-staging (not a webapp entity).</li>
+<li>16 existing YAMLs grandfathered (no provenance backfill).</li>
+<li>Binding = permission not obligation; verifier rejects only unbound chart scenes.</li>
+<li><code>chart-author</code> model (Sonnet vs Opus) — TBD; leans Opus for data-derivation fidelity, but human review backstops.</li>
+</ul>
+<h3>Must-verify-in-code before building</h3>
+<ul>
+<li><strong>Who reads <code>corpus/data/*.json</code> today?</strong> The <code>datasets/</code> rename is cheap only if consumers read by path and nothing hardcodes the old path. JSON is not in the BM25 index — but audit code + prompt references first (step 0 of the rename).</li>
+<li><strong>Does <code>verify-content</code> block the whole content stage on any reject, or pass-with-subset?</strong> Determines whether "partial advance" (held scripts park, rest flow) already works or needs a change.</li>
+</ul>
+
+<h2>16. Risks</h2>
+<ul>
+<li><strong>Coverage scan precision</strong> — too strict ⇒ noisy false-positive holds on incidental numbers; too loose ⇒ misses a claim. Mitigated by the allowlist + HG2 human backstop (flag, not hard-block).</li>
+<li><strong>Sonnet figure-tracing reliability</strong> — mitigated by deterministic C1 validator (the hard gate is code, not the model).</li>
+<li><strong>Image-transcription fidelity</strong> — mitigated by <code>verification_status</code> + human review at promotion.</li>
+<li><strong>Held backlog</strong> — gap scripts could accumulate if the human never runs <code>/chart-gap</code>; surfaced in content-writer notes + Brain's Decision Memo self-critique (like <code>proofRatio</code>).</li>
+</ul>
+
+<hr>
+<p class="small">Converged via brainstorming session 2026-06-01→02. Companion plan: <code>docs/superpowers/plans/2026-06-02-data-first-claim-binding.{html,md}</code>.</p>
+
+</body>
+</html>

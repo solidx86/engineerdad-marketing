@@ -1,0 +1,33 @@
+{
+  "verified_at": "2026-06-11",
+  "verification_status": "verified",
+  "volatility": "stable",
+  "source": "Per-fact citations below. External: PIDM deposit-insurance FAQ (pidm.gov.my) and FIMM corporate pages (fimm.com.my), both fetched 2026-06-11. Owned structure facts: corpus/compliance/sc-malaysia.md, corpus/compliance/fimm.md, corpus/knowledge/a-trust-deed-prospectus-map.md (each carries its own primary-source citations).",
+  "notes": "Structural/regulatory facts backing the T1-2/T1-3 objection entries (d1-ut-is-a-scam, d1-can-lose-everything) as prose — no chart. Framing rules for consumers of this dataset: these facts establish that unit trusts are a regulated, supervised, trustee-custodied product category — they must NEVER be spun as a claim that unit trusts are 'safe', 'guaranteed', or 'protected' (banned-phrases.yaml sections A/B); fund values can fall. The PIDM fact cuts both ways and must be presented as honest disclosure: bank deposits carry a statutory deposit-insurance guarantee that unit trusts do not have — that is a genuine advantage of deposits, conceded, while the unit trust's protections are structural (regulation, SRO oversight, segregated trustee custody), not a guarantee against market loss.",
+  "data": [
+    {
+      "id": "regulator-sc-cmsa",
+      "fact": "Unit trust funds and Private Retirement Schemes in Malaysia are regulated by the Securities Commission Malaysia (SC) under the Capital Markets and Services Act 2007 (CMSA). Persons marketing and distributing them must be licensed or registered under the CMSA (registered persons under s.76; SC guidelines binding on intermediaries are issued under s.377, e.g. the SC Advertising Guidelines SC-GL/ADV-2020 R1-2025).",
+      "volatility": "stable",
+      "source": "Owned: corpus/compliance/sc-malaysia.md (governing-references section, citing CMSA 2007 s.76/s.377 and SC-GL/ADV-2020 (R1-2025) at https://www.sc.com.my/regulation/guidelines/advertising-and-promotion)"
+    },
+    {
+      "id": "sro-fimm",
+      "fact": "The Federation of Investment Managers Malaysia (FIMM) is the SC-recognised self-regulatory organisation (SRO) for the industry: 'a self-regulatory organisation (SRO) that regulates the marketing and distribution of Unit Trust Schemes (UTS) and Private Retirement Schemes (PRS)' (FIMM's own description, verbatim). Consultants must be FIMM-registered, and FIMM disciplines registered persons (public reprimands, fines, suspension, deregistration).",
+      "volatility": "stable",
+      "source": "https://www.fimm.com.my/corporate-info/about-fimm/ and https://www.fimm.com.my/index.php/investors/faqs-for-investors/ (both fetched 2026-06-11); owned: corpus/compliance/fimm.md (FIMM Code of Ethics 4th ed., FIMM Consolidated Rules, disciplinary regime Chapter 5)"
+    },
+    {
+      "id": "trustee-custody",
+      "fact": "A Malaysian unit trust fund's assets are held by an independent trustee appointed under the fund's trust deed — the trustee holds legal title to the fund's assets on behalf of unit holders, segregated from the fund manager's own corporate assets, so the manager could become insolvent without investor assets being attached to its liabilities. The trustee can compel the manager to remedy mandate breaches and reports to the SC if it fails to; material trust-deed amendments require trustee consent and SC approval.",
+      "volatility": "stable",
+      "source": "Owned: corpus/knowledge/a-trust-deed-prospectus-map.md ('What the trustee enforces' section; grounded in the PMB Master Prospectus structure/legal-framework sections and the SC Guidelines on Unit Trust Funds)"
+    },
+    {
+      "id": "pidm-not-covered",
+      "fact": "PIDM (Perbadanan Insurans Deposit Malaysia) deposit insurance protects eligible bank deposits up to RM250,000 per depositor per member bank — and explicitly does NOT cover unit trusts: 'unit trusts, stocks and shares, as well as gold-related investment products or accounts are not protected by PIDM' and 'No. Unit trusts, stocks and shares are not eligible for deposit insurance protection' (PIDM FAQ, verbatim). A unit trust has no deposit-insurance backstop; its investor protections are structural (SC regulation, FIMM SRO oversight, independent trustee custody) and do not prevent the fund's value from falling.",
+      "volatility": "stable",
+      "source": "https://www.pidm.gov.my/general/faqs/deposit-insurance-system (fetched 2026-06-11)"
+    }
+  ]
+}

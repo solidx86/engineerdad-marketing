@@ -1,0 +1,29 @@
+{
+  "verified_at": "2026-06-11",
+  "verification_status": "verified",
+  "volatility": "stable",
+  "source": "Department of Statistics Malaysia (DOSM) — OpenDOSM data catalogue 'Annual CPI Inflation by Division (2-digit)', division 'overall' (headline). Catalogue page: https://open.dosm.gov.my/data-catalogue/cpi_annual_inflation; machine-readable API: https://api.data.gov.my/data-catalogue?id=cpi_annual_inflation. Catalogue last updated 2026-01-22 (includes full-year 2025); fetched 2026-06-11. Values are the catalogue's year-over-year percentage change of the headline Consumer Price Index.",
+  "notes": "Annual headline CPI inflation (%), Malaysia, as published in DOSM's machine-readable table; values rounded here to 2 dp from the catalogue's full-precision figures. Historical prints do not change retroactively (volatility: stable); a new year is appended each January. Long-run averages computed from this series — trailing 15y window (2011-2025): arithmetic mean = (3.18+1.66+2.11+3.14+2.10+2.08+3.80+0.97+0.66-1.14+2.48+3.38+2.49+1.83+1.38)/15 = 30.12/15 = 2.01%; geometric mean of compounded factors = (prod(1+i_t/100))^(1/15)-1 = 2.00%. Trailing 10y window (2016-2025): arithmetic mean = 17.93/10 = 1.79%; geometric mean = 1.78%. The 15y geometric mean (2.0%) is the inflation figure used by corpus/data/charts/general-inflation-vs-savings-real-value.yaml; the chart and any consumer must name the window, because different windows give different results (e.g. the trailing 10y average is lower).",
+  "data": [
+    { "year": 2006, "headline_inflation_pct": 3.62 },
+    { "year": 2007, "headline_inflation_pct": 2.04 },
+    { "year": 2008, "headline_inflation_pct": 5.42 },
+    { "year": 2009, "headline_inflation_pct": 0.60 },
+    { "year": 2010, "headline_inflation_pct": 1.62 },
+    { "year": 2011, "headline_inflation_pct": 3.18 },
+    { "year": 2012, "headline_inflation_pct": 1.66 },
+    { "year": 2013, "headline_inflation_pct": 2.11 },
+    { "year": 2014, "headline_inflation_pct": 3.14 },
+    { "year": 2015, "headline_inflation_pct": 2.10 },
+    { "year": 2016, "headline_inflation_pct": 2.08 },
+    { "year": 2017, "headline_inflation_pct": 3.80 },
+    { "year": 2018, "headline_inflation_pct": 0.97 },
+    { "year": 2019, "headline_inflation_pct": 0.66 },
+    { "year": 2020, "headline_inflation_pct": -1.14 },
+    { "year": 2021, "headline_inflation_pct": 2.48 },
+    { "year": 2022, "headline_inflation_pct": 3.38 },
+    { "year": 2023, "headline_inflation_pct": 2.49 },
+    { "year": 2024, "headline_inflation_pct": 1.83 },
+    { "year": 2025, "headline_inflation_pct": 1.38 }
+  ]
+}

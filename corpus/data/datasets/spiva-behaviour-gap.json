@@ -1,0 +1,100 @@
+{
+  "verified_at": "2026-06-15",
+  "verification_status": "verified",
+  "volatility": "stable",
+  "source": "Per-row citations below. SPIVA active-vs-index underperformance rates fetched 2026-06-15 from S&P Dow Jones Indices SPIVA U.S. Year-End 2025 scorecard (https://www.spglobal.com/spdji/en/spiva/article/spiva-us/) and the same edition's regional companions (SPIVA MENA Mid-Year 2025; SPIVA Japan Mid-Year 2025), loaded via headless browser (spglobal.com returns HTTP 403 to non-browser fetches). Behaviour-gap figures from Morningstar 'Mind the Gap' U.S. 2025 (https://www.morningstar.com/business/insights/research/mind-the-gap and the US_Mind_the_Gap_2025.pdf), period 10 years ended 31 Dec 2024.",
+  "notes": "STEELMAN evidence for the 'active funds underperform, why pay for active management' objection (serves T2-2 steelman) and the behaviour-gap point (serves T2-8). These figures are presented honestly AGAINST active management — the brand's credibility comes from conceding the strongest counter-evidence, not hiding it. Two parts: (1) SPIVA underperformance rates — the share of actively managed funds that trailed their benchmark over each horizon, which rises with horizon and is high across every market S&P measures; (2) the behaviour gap — the shortfall between the return a fund delivered and the return the average invested dollar actually earned, caused by investors' buy/sell timing. IMPORTANT REGIONAL CAVEAT: S&P does NOT publish a SPIVA Malaysia (or Asia ex-Japan) scorecard, so none of these rows measure Malaysian or Public Mutual funds directly — they are US, MENA and Japan market evidence about active management as a general discipline. The Malaysia-specific counterpoint is EngineerDad's own published weighted-alpha screen (owned corpus/proof/fund-universe-stats-snapshot.md): in Apr 2026, 73.2% of Public Mutual equity funds and 77.6% of funds with a 3-year record posted POSITIVE alpha against benchmark — a materially different picture from US large-cap SPIVA, which is the honest nuance (the US large-cap index is an unusually hard benchmark to beat; results differ by market and category). The behaviour gap is the more universal lesson and the consultant's real value proposition: even when a fund does well, investors capture less of it through bad timing, and the ~1.2%/yr gap is itself comparable to a fund's annual fee. Figures flagged volatility 'stable' (research findings, not market prices) but are EDITION-DATED — cite the named edition and refresh when a newer scorecard is published; methodology caveats are recorded per row.",
+  "data": [
+    {
+      "id": "spiva-us-largecap-1y-2025",
+      "metric": "Active funds underperforming benchmark",
+      "market": "US large-cap equity vs S&P 500",
+      "horizon": "1-year (calendar 2025)",
+      "underperformance_pct": 79,
+      "edition": "SPIVA U.S. Year-End 2025",
+      "context": "Worse than the 65% rate in 2024; the fourth-worst year for active large-cap managers in the 25-year SPIVA history. S&P 500 finished 2025 up 18%.",
+      "methodology_caveat": "Share of active US large-cap funds trailing the S&P 500 over the single calendar year; survivorship-adjusted in the full scorecard. Single-year figures are noisier than long-horizon ones.",
+      "volatility": "stable",
+      "as_at": "Year-End 2025 edition, fetched 2026-06-15",
+      "source": "S&P Dow Jones Indices, SPIVA U.S. Year-End 2025 (https://www.spglobal.com/spdji/en/spiva/article/spiva-us/, headless browser 2026-06-15): '79% of all active large-cap U.S. equity funds underperformed the S&P 500, worse than the 65% rate observed in 2024 and the fourth-worst year ... over the 25-year history'"
+    },
+    {
+      "id": "spiva-us-categories-1y-2025",
+      "metric": "Active funds underperforming benchmark",
+      "market": "US mid-cap / small-cap / bond (cross-category) vs respective S&P benchmarks",
+      "horizon": "1-year (calendar 2025)",
+      "underperformance_pct": {
+        "mid_cap": 55,
+        "small_cap": 41,
+        "bond_cross_category_avg": 70,
+        "general_investment_grade_bond": 82
+      },
+      "edition": "SPIVA U.S. Year-End 2025",
+      "methodology_caveat": "Single calendar year; varies widely by category and year (small-cap was relatively low in 2025). Not a long-horizon figure.",
+      "volatility": "stable",
+      "as_at": "Year-End 2025 edition, fetched 2026-06-15",
+      "source": "S&P Dow Jones Indices, SPIVA U.S. Year-End 2025 (headless browser 2026-06-15): '55% of All Mid-Cap funds and 41% of All Small-Cap funds underperformed'; bond cross-category average underperformance 70%, General Investment-Grade 82%"
+    },
+    {
+      "id": "spiva-mena-10y-2025",
+      "metric": "Active funds underperforming benchmark",
+      "market": "MENA equity vs S&P Pan Arab benchmarks",
+      "horizon": "10-year",
+      "underperformance_pct": 86,
+      "edition": "SPIVA MENA Mid-Year 2025",
+      "context": "Active underperformance increased over longer horizons; only 47% of MENA funds survived the full 10 years.",
+      "methodology_caveat": "MENA (Middle East/North Africa) market, not Malaysia. 10-year survivorship 47% — non-surviving funds are counted as underperformers, which is methodologically correct but inflates the rate relative to a survivors-only view.",
+      "volatility": "stable",
+      "as_at": "Mid-Year 2025 edition, fetched 2026-06-15",
+      "source": "S&P Dow Jones Indices, SPIVA MENA Mid-Year 2025 (via the SPIVA U.S. Year-End 2025 page, headless browser 2026-06-15): 'Over a 10-year period, 86% of active MENA equity funds underperformed both benchmarks ... only 47% survived over the 10-year period'"
+    },
+    {
+      "id": "spiva-japan-longhorizon-2025",
+      "metric": "Active funds underperforming benchmark",
+      "market": "Japan equity (various categories) vs S&P/TOPIX & S&P World benchmarks",
+      "horizon": "10-15 year",
+      "underperformance_pct": {
+        "japan_large_cap_10_15y": "exceeding 80%",
+        "japan_international_equity_15y": 100,
+        "japan_emerging_equity_10y": 100
+      },
+      "edition": "SPIVA Japan Mid-Year 2025",
+      "context": "Despite some categories showing record-low SHORT-term underperformance in H1 2025, a firm majority of funds across all categories underperformed over the past 15 years. Over 15 years, 53% of all funds failed to survive.",
+      "methodology_caveat": "Japan market, not Malaysia. Demonstrates the consistent finding that the active-underperformance rate rises with horizon across regions; short-term category results can look very different from the long-run pattern.",
+      "volatility": "stable",
+      "as_at": "Mid-Year 2025 edition, fetched 2026-06-15",
+      "source": "S&P Dow Jones Indices, SPIVA Japan Mid-Year 2025 (via the SPIVA U.S. Year-End 2025 page, headless browser 2026-06-15): Japanese Large-Cap 'underperformance rates rose for longer time frames, exceeding 80% over the 10- and 15-year horizons'; International Equity 'reaching 100% over a 15-year period'; Emerging Equity '100% of funds underperformed by a 10-year time horizon'; 'Over a 15-year period, 53% of all funds failed to survive'"
+    },
+    {
+      "id": "behaviour-gap-morningstar-2025",
+      "metric": "Investor return gap (behaviour gap)",
+      "market": "US mutual funds & ETFs (all asset classes, aggregate)",
+      "horizon": "10-year, ended 31 Dec 2024",
+      "gap_pct_per_year": 1.2,
+      "investor_dollar_weighted_return_pct": 7.0,
+      "fund_total_return_pct": 8.2,
+      "share_of_return_lost_pct": 15,
+      "detail": "The average invested dollar earned 1.2 percentage points per year LESS than the funds themselves returned, because of the timing and size of investors' purchases and sales — about 15% of the funds' total return given up to bad timing. Funds with the most stable cash flows had a gap of only 0.8%/yr; the most volatile had a gap ~1 percentage point wider. The ~1.2%/yr gap is in line with the 10-year periods ended 2020-2023.",
+      "edition": "Morningstar 'Mind the Gap' U.S. 2025",
+      "methodology_caveat": "Dollar-weighted (investor) return vs total (time-weighted) fund return, US mutual funds & ETFs over the 10 years ended 31 Dec 2024. A US dataset; the behavioural mechanism (timing drag) is general, the specific magnitude is US-market and period-specific.",
+      "volatility": "stable",
+      "as_at": "2025 edition, period to 31 Dec 2024, fetched 2026-06-15",
+      "source": "Morningstar 'Mind the Gap' U.S. 2025 (https://www.morningstar.com/business/insights/research/mind-the-gap; US_Mind_the_Gap_2025.pdf, fetched 2026-06-15): average dollar earned 7.0% p.a. vs the funds' 8.2% aggregate annual total return over the 10 years ended 31 Dec 2024 — a 1.2pp/yr gap, ~15% of total return; stable-cash-flow funds' gap 0.8%/yr"
+    },
+    {
+      "id": "malaysia-counterpoint-owned",
+      "metric": "Malaysia-specific active-management counterpoint (NOT a SPIVA figure)",
+      "market": "Public Mutual retail fund universe vs EngineerDad weighted-alpha benchmark screen",
+      "horizon": "snapshot Apr 2026 (and 3-year alpha)",
+      "positive_alpha_pct": {
+        "equity_funds": 73.2,
+        "all_funds_3y_record": 77.6
+      },
+      "context": "Included so the SPIVA rows are not laundered into a claim about Malaysian funds. This is EngineerDad's own published research screen, NOT an S&P SPIVA result, and uses a different benchmark methodology (weighted-alpha screen, see corpus/courses/weighted-alpha-scoring.md). It shows a materially different active-success picture in this universe than US large-cap SPIVA — the honest nuance is that active outcomes vary by market and category.",
+      "methodology_caveat": "EngineerDad's own weighted-alpha screen, not an independent SPIVA scorecard; aggregate statistics only, no fund named or recommended (FIMM). 'Positive alpha' is a research signal, not investment advice; past alpha does not predict future alpha.",
+      "volatility": "stable",
+      "as_at": "Apr 2026 screen",
+      "source": "Owned corpus/proof/fund-universe-stats-snapshot.md (Apr 2026): equity 73.2% qualified / median weighted alpha +2.04; 128 of 165 funds (77.6%) with a 3-year record posted positive 3-year alpha"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Medical-cost inflation vs general inflation — the compounding gap on one RM10,000 unit
+# of medical treatment over 20 years. Hero = the medical line at an illustrative 12%/yr
+# (a CHOSEN rate that sits WITHIN the ~9-15% range Malaysia has recorded, NOT an official
+# statistic and NOT a computed average); comparison = the same unit under 2%/yr general
+# inflation (DOSM CPI).
+# Dataset-of-record: corpus/data/datasets/medical-inflation-vs-general.json (BNM/Aon/Mercer
+# rate series [verified] + the derived compounding model [illustrative]). The 12% line and
+# RM10,000 base are derived/illustrative, not measured; the 2024 BNM actual was higher at
+# 15%; medical inflation runs ~6-8x general CPI.
+# Used by media-production when a scene argues "medical costs are quietly outrunning your
+# salary", "why a medical/health buffer can't sit in cash", "the silent gap in a family's
+# plan", or any Money Psychology hook that opens on healthcare cost shock.
+
+id: medical-inflation-vs-general
+title_en: "Medical-cost inflation vs general inflation — one RM10,000 treatment compounding over 20 years"
+title_ms: "Inflasi kos perubatan vs inflasi am — satu rawatan RM10,000 yang berganda selama 20 tahun"
+chart_type: line
+x_label_en: "Years from today"
+x_label_ms: "Tahun dari sekarang"
+y_label_en: "Cost of the same treatment (RM)"
+y_label_ms: "Kos rawatan yang sama (RM)"
+labels: [0, 5, 10, 15, 20]
+series:
+  - name_en: "Medical cost at an illustrative 12%/yr"
+    name_ms: "Kos perubatan pada 12%/tahun ilustrasi"
+    legend_label_en: "Medical ~12% (illustrative)"
+    legend_label_ms: "Perubatan ~12% (ilustrasi)"
+    semantic_role: hero          # the headline argument — costs compounding far faster than CPI
+    values: [10000, 17600, 31100, 54700, 96500]
+  - name_en: "Same cost at 2%/yr general inflation"
+    name_ms: "Kos sama pada inflasi am 2%/tahun"
+    legend_label_en: "General 2%"
+    legend_label_ms: "Am 2%"
+    semantic_role: comparison    # the general-CPI baseline most people assume their costs follow
+    values: [10000, 11000, 12200, 13500, 14900]
+caption_en: "An illustrative RM10,000 of medical treatment today becomes about RM96,500 in 20 years if it compounds at ~12%/yr — while the same RM10,000 grows to only about RM14,900 at 2%/yr general inflation. That is the gap a family plan has to cover. The 12%/yr here is a chosen illustrative rate, not an official statistic: it sits within the ~9-15% range Malaysia has recorded (2023 ~12.6%; 2024 actual was higher, at 15% — Bank Negara Malaysia), and Malaysian medical inflation has run roughly 6-8x general CPI. The RM10,000 is an illustrative unit, not a specific bill. Illustrative model output only — not personalised advice, not guaranteed or assured; actual costs and inflation vary."
+caption_ms: "Rawatan perubatan ilustrasi bernilai RM10,000 hari ini menjadi kira-kira RM96,500 dalam 20 tahun jika ia berganda pada ~12%/tahun — sementara RM10,000 yang sama hanya menjadi kira-kira RM14,900 pada inflasi am 2%/tahun. Itulah jurang yang perlu ditampung oleh pelan keluarga. Kadar 12%/tahun di sini ialah kadar ilustrasi yang dipilih, bukan statistik rasmi: ia berada dalam julat ~9-15% yang Malaysia telah rekodkan (2023 ~12.6%; angka sebenar 2024 lebih tinggi, pada 15% — Bank Negara Malaysia), dan inflasi perubatan Malaysia telah berjalan kira-kira 6-8x inflasi am (CPI). RM10,000 ialah unit ilustrasi, bukan bil khusus. Keluaran model ilustrasi sahaja — bukan nasihat peribadi, tidak dijamin; kos dan inflasi sebenar berbeza-beza."
+source_citation: "Rate series (published): medical-cost inflation from Bank Negara Malaysia (2024 actual = 15%; 2023 ~12.6%; 2013-2018 avg ~9-10%), Aon Global Medical Trend Rates Report (2025 Malaysia projected ~12.6%; global ~10%, APAC ~11%), and Mercer Marsh Benefits Health Trends 2026 (APAC 2026 projected ~14%); general-inflation comparator from DOSM Consumer Price Index (~1.8% 2024, ~2% recent). The compounding lines are a derived illustration, NOT published or measured figures: a chosen illustrative ~12%/yr (sitting within Malaysia's recorded ~9-15% range, below the 2024 BNM actual of 15%) applied to an illustrative RM10,000 unit vs 2%/yr general inflation over 20 years — not a sourced specific bill. Illustrative only — not personalised advice, not guaranteed or assured; actual costs, inflation, and timelines vary."

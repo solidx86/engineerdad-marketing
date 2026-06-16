@@ -1,0 +1,43 @@
+# Compounding curves — RM300/month over 30 years
+# Source: standard compound-interest math (FV of monthly annuity).
+# Numbers rounded to nearest RM1,000 for chart readability.
+# Used by media-production when scene argues "long-horizon retirement growth",
+# "compound interest is the engine", or "I can't afford to start"
+# (objection myth d0-cant-afford-to-start).
+
+id: compounding-30y
+title_en: "RM300/month, compounded over 30 years"
+title_ms: "RM300/sebulan, dikompaun selama 30 tahun"
+chart_type: line
+x_label_en: "Years"
+x_label_ms: "Tahun"
+y_label_en: "Portfolio value (RM)"
+y_label_ms: "Nilai portfolio (RM)"
+labels: [0, 5, 10, 15, 20, 25, 30]
+series:
+  - name_en: "8% annual return (equity index)"
+    name_ms: "Pulangan tahunan 8% (indeks ekuiti)"
+    legend_label_en: "8% equity"        # short form for the HTML legend; full name lives in the caption
+    legend_label_ms: "8% ekuiti"
+    semantic_role: hero          # the headline series — emphasized in tone-mapping
+    values: [0, 22000, 55000, 104000, 177000, 285000, 447000]
+  - name_en: "4% annual return (fixed deposit)"
+    name_ms: "Pulangan tahunan 4% (simpanan tetap)"
+    legend_label_en: "4% FD"
+    legend_label_ms: "4% simpanan tetap"
+    semantic_role: comparison    # the "safe but slow" baseline
+    values: [0, 20000, 44000, 74000, 110000, 154000, 208000]
+  - name_en: "0% (no investment, just savings)"
+    name_ms: "0% (tanpa pelaburan, hanya simpanan)"
+    legend_label_en: "0% savings"
+    legend_label_ms: "0% simpanan"
+    semantic_role: floor          # the "do nothing" line
+    values: [0, 18000, 36000, 54000, 72000, 90000, 108000]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+# Compares the hero series (8% equity) against the comparison series (4% FD) at year 30:
+# RM447k vs RM208k ≈ 2×. The 0% floor is the do-nothing baseline, NOT the comparison.
+callout_en: "8% vs 4%: ~2× as much by year 30"
+callout_ms: "8% vs 4%: ~2× ganda menjelang tahun ke-30"
+caption_en: "Same RM300/month. Different return assumption. The gap at year 30 is the cost of leaving money in low-yield savings."
+caption_ms: "RM300/sebulan yang sama. Andaian pulangan berbeza. Jurang pada tahun ke-30 ialah kos meninggalkan wang dalam simpanan pulangan rendah."
+source_citation: "Calculated assuming monthly contributions, annual compounding. Illustrative only — actual fund returns vary year to year. Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS)."

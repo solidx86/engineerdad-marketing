@@ -1,0 +1,33 @@
+# EPF Savings Schedule by age — KWSP RIA Basic / Adequate / Enhanced targets, age 18-60
+# Source: corpus/data/datasets/kwsp-ria-benchmarks.json `savings_schedule_by_age` (KWSP Table 1,
+# "New Basic, Adequate and Enhanced Savings Levels", kwsp.gov.my, extracted 2026-06-07).
+# Used by media-production when a scene argues "EPF won't be enough", "how much should I
+# have by my age", "am I on track for retirement", "the gap PRS / unit-trust top-up
+# closes", or any Necessity-tier (TOFU) retirement-anchor hook (objection myth
+# d0-epf-will-cover-me).
+
+id: epf-savings-by-age
+title_en: "How much you should have by your age — KWSP RIA Savings Schedule"
+title_ms: "Berapa anda patut ada mengikut umur — Jadual Simpanan RIA KWSP"
+chart_type: line
+x_label_en: "Age"
+x_label_ms: "Umur"
+y_label_en: "Target EPF savings (RM)"
+y_label_ms: "Sasaran simpanan EPF (RM)"
+labels: [18, 25, 30, 35, 40, 45, 50, 55, 60]
+series:
+  - name_en: "Adequate (realistic target — RM650,000 at 60)"
+    name_ms: "Mencukupi (sasaran realistik — RM650,000 pada 60)"
+    semantic_role: hero          # the line most members are measured against
+    values: [1500, 19000, 47500, 90000, 149000, 231000, 339000, 476000, 650000]
+  - name_en: "Enhanced (comfortable — RM1,300,000 at 60)"
+    name_ms: "Ditingkatkan (selesa — RM1,300,000 pada 60)"
+    semantic_role: comparison
+    values: [2500, 30700, 85400, 165000, 279000, 438000, 652000, 935000, 1300000]
+  - name_en: "Basic (survival — RM390,000 at 60)"
+    name_ms: "Asas (bertahan — RM390,000 pada 60)"
+    semantic_role: floor
+    values: [1400, 15900, 38000, 68100, 107000, 156000, 217000, 294000, 390000]
+caption_en: "KWSP's Retirement Income Adequacy schedule says what you should have saved at each age to land at the three age-60 targets. By 40 the Adequate line is already ~RM149,000; by 50, ~RM339,000. The honest question isn't whether EPF invests for you — it does — it's whether your EPF projection actually meets the Adequate line. For most members it doesn't, and the gap is what PRS and unit-trust accumulation are meant to close. Targets are KWSP guidelines in today's ringgit; a longer horizon means the real number is higher after inflation."
+caption_ms: "Jadual Kecukupan Pendapatan Persaraan KWSP menyatakan berapa anda patut simpan pada setiap umur untuk mencapai tiga sasaran usia-60. Menjelang 40, garisan Mencukupi sudah ~RM149,000; menjelang 50, ~RM339,000. Soalan sebenarnya bukan sama ada EPF melabur untuk anda — ya — tetapi sama ada unjuran EPF anda benar-benar mencapai garisan Mencukupi. Bagi kebanyakan ahli ia tidak, dan jurang itulah yang PRS dan pengumpulan amanah saham bertujuan untuk menutup. Sasaran ialah garis panduan KWSP dalam ringgit nilai hari ini; ufuk lebih panjang bermakna jumlah sebenar lebih tinggi selepas inflasi."
+source_citation: "KWSP 'New Basic, Adequate and Enhanced Savings Levels' (Table 1), kwsp.gov.my — EPF Releases Belanjawanku 2024/2025 and Retirement Income Adequacy Framework; extracted 2026-06-07 into corpus/data/datasets/kwsp-ria-benchmarks.json. Age-60 anchors: Basic RM390,000, Adequate RM650,000, Enhanced RM1,300,000. Chart plots 5-year age marks from the full age 18-60 schedule. KWSP guideline targets in present-day ringgit, not a guarantee; a future retirement horizon must be inflation-adjusted upward. Personal target depends on lifestyle, dependents, horizon, and healthcare assumptions — a licensed Consultant can model the personalised number."

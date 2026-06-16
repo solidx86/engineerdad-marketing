@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:        #1B2B6B;
+    --navy-dark:   #111c45;
+    --orange:      #F07621;
+    --teal:        #00B4A6;
+    --teal-light:  #e6f8f7;
+    --offwhite:    #F7F8FC;
+    --warm-white:  #FEFEFE;
+    --text:        #1a1a2e;
+    --muted:       #6b7280;
+    --border:      #e5e7f0;
+    --font-head: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1920px;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--offwhite);
+  }
+  /* central safe column: top 14% (269px), bottom 20% (384px), right 12% (130px) clear */
+  .stage {
+    position: absolute;
+    top: 280px;
+    left: 80px;
+    right: 140px;
+    bottom: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kicker {
+    font-family: var(--font-body);
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin: 0 0 18px 0;
+  }
+  .headline {
+    font-family: var(--font-head);
+    font-size: 80px;
+    font-weight: 900;
+    line-height: 1.08;
+    color: var(--navy-dark);
+    margin: 0 0 48px 0;
+  }
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 560px;
+    margin-bottom: 48px;
+  }
+  #chart { display: block; }
+  .callout {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--orange);
+    color: var(--warm-white);
+    border-radius: 18px;
+    padding: 20px 30px;
+    box-shadow: 0 10px 30px rgba(240,118,33,0.35);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .callout .big {
+    font-family: var(--font-head);
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .callout .lbl {
+    font-family: var(--font-body);
+    font-size: 28px;
+    font-weight: 500;
+    margin-top: 6px;
+    line-height: 1.15;
+  }
+  .caption {
+    font-family: var(--font-body);
+    font-size: 36px;
+    font-weight: 500;
+    line-height: 1.32;
+    color: var(--text);
+    margin: 0 0 28px 0;
+  }
+  .source {
+    font-family: var(--font-body);
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: var(--muted);
+    margin: 0;
+  }
+  .logo-mark {
+    margin-top: 36px;
+    align-self: flex-end;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .logo-text {
+    font-family: var(--font-head);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .logo-text .engineer { color: var(--navy); }
+  .logo-text .dad      { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <p class="kicker">Compound Growth</p>
+    <h1 class="headline">Same RM300/month.<br>A RM239K gap.</h1>
+    <div class="chart-wrapper">
+      <canvas id="chart" width="860" height="560"></canvas>
+      <div class="callout">
+        <div class="big">+RM239K</div>
+        <div class="lbl">8% vs 4% at year 30</div>
+      </div>
+    </div>
+    <p class="caption">Same RM300/month. Different return assumption. The gap at year 30 is the cost of leaving money in low-yield savings.</p>
+    <p class="source">Calculated assuming monthly contributions, annual compounding. Illustrative only — actual fund returns vary year to year. Public Mutual fund-specific projections must come from each fund's Master Prospectus and Product Highlights Sheet (PHS).</p>
+    <div class="logo-mark">
+      <div class="logo-text"><span class="engineer">Engineer</span><span class="dad">Dad</span></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    window.__chartsReady = false;
+
+    const chartYaml = {
+      chart_type: 'line',
+      x_label_en: 'Years',
+      y_label_en: 'Portfolio value (RM)',
+      labels: [0, 5, 10, 15, 20, 25, 30],
+      series: [
+        { name_en: '8% annual return (equity index)', semantic_role: 'hero',       values: [0, 22000, 55000, 104000, 177000, 285000, 447000] },
+        { name_en: '4% annual return (fixed deposit)', semantic_role: 'comparison', values: [0, 20000, 44000, 74000, 110000, 154000, 208000] },
+        { name_en: '0% (no investment, just savings)', semantic_role: 'floor',      values: [0, 18000, 36000, 54000, 72000, 90000, 108000] },
+      ],
+    };
+
+    // hero full --orange; comparison/floor dimmed (muted/low-opacity navy)
+    const tokens = { hero: '#F07621', comparison: '#1B2B6B', floor: '#6b7280', tick: '#6b7280', grid: '#e5e7f0' };
+
+    function colorFor(role, t) {
+      switch (role) { case 'hero': return t.hero; case 'comparison': return t.comparison; case 'floor': return t.floor; default: return t.comparison; }
+    }
+    function buildChartConfig(y, t, { lang = 'en' } = {}) {
+      const L = (b) => y[`${b}_${lang}`] ?? y[`${b}_en`];
+      const isLine = y.chart_type === 'line';
+      const datasets = y.series.map((s) => {
+        const color = colorFor(s.semantic_role, t);
+        const isHero = s.semantic_role === 'hero';
+        const isFloor = s.semantic_role === 'floor';
+        return {
+          label: s[`name_${lang}`] ?? s.name_en,
+          data: s.values,
+          borderColor: isHero ? color : (isFloor ? 'rgba(107,114,128,0.55)' : 'rgba(27,43,107,0.45)'),
+          backgroundColor: color,
+          borderWidth: isHero ? 7 : 4,
+          pointRadius: isHero ? 7 : 5,
+          pointHoverRadius: 7,
+          tension: 0.3,
+          borderDash: isFloor ? [8, 6] : [],
+          fill: false,
+          order: isHero ? 0 : 1,
+        };
+      });
+      return {
+        type: y.chart_type,
+        data: { labels: y.labels, datasets },
+        options: {
+          responsive: false, animation: false, maintainAspectRatio: false,
+          layout: { padding: { top: 8, bottom: 16, left: 8, right: 16 } },
+          plugins: {
+            legend: { position: 'top', align: 'start', labels: { font: { family: "'Inter', sans-serif", size: 28, weight: '500' }, color: t.tick, padding: 16, boxWidth: 28, usePointStyle: isLine } },
+            tooltip: { enabled: false },
+          },
+          scales: {
+            x: { title: { display: true, text: L('x_label'), font: { family: "'Inter', sans-serif", size: 28, weight: '500' }, color: t.tick, padding: { top: 14 } }, ticks: { font: { family: "'Inter', sans-serif", size: 28 }, color: t.tick }, grid: { color: t.grid } },
+            y: { title: { display: true, text: L('y_label'), font: { family: "'Inter', sans-serif", size: 28, weight: '500' }, color: t.tick }, ticks: { font: { family: "'Inter', sans-serif", size: 28 }, color: t.tick }, grid: { color: t.grid }, beginAtZero: true },
+          },
+        },
+      };
+    }
+
+    new Chart(document.getElementById('chart'), buildChartConfig(chartYaml, tokens));
+    setTimeout(() => { window.__chartsReady = true; }, 400);
+  </script>
+</body>
+</html>

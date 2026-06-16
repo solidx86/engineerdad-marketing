@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADR-024 — The orchestrator stages worker input; spawnPrompts carry refs</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .strike { color: var(--muted); text-decoration: line-through; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>ADR-024 — The orchestrator stages worker input; spawnPrompts carry refs</h1>
+  <p class="subtitle">The third and final cap surface. The orchestrator persists per-unit worker input to <code>orchestrator.step_results</code> at fanout-construction time and embeds only the ref in each <code>spawnPrompt</code>. Workers call <code>read_step_result</code> on entry to fetch their bulk input. ADR-022's claim-check mirror, applied to the input direction.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-25</dd>
+    <dt>Status</dt><dd><span class="pill">Draft spec — awaiting approval before ADR + plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill p1">P1</span> — live walk-blocker. <code>run_1779670351</code> P1-fanout's <code>plan()</code> response was 83 KB / 46 lines, halting the cold-start cold walk through HG3.</dd>
+    <dt>Branch</dt><dd><code>feat/adr-024-spawnprompt-refs</code> (new, off <code>main</code> at <code>703f908</code>)</dd>
+    <dt>Tracker</dt><dd>E-034 (TASKS.md)</dd>
+    <dt>Builds on</dt><dd>ADR-022 (claim-check substrate) · ADR-023 (orchestrator-resident execution)</dd>
+    <dt>Patterns</dt><dd>Claim-Check pattern, input direction (Hohpe EIP) · Memory-handle / lead-agent staging (Anthropic multi-agent research system) · Artifact-handle (Google ADK) · Reference-Based Messaging (mirror of ADR-022)</dd>
+    <dt>Related</dt><dd>ADR-021 (cap-honouring MCP) · E-027 (fanout) · E-033 (critic step — composes cleanly)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context — a third cap, the mirror surface</h2>
+
+<p>
+ADR-022 / E-031 fixed the <em>worker → conductor</em> cap (a worker's final output too large for the conductor's inline channel). ADR-023 / E-033... no — ADR-023 fixed the <em>orchestrator → conductor</em> cap on the <em>output</em> direction (write-step calls transmitted back through the conductor). Two boundaries down, one to go.
+</p>
+
+<p>
+On 2026-05-25, the ADR-023 Phase H.4 cold-start walk on <code>run_1779670351</code> drove tracking → analytics → synthesize → brief → content through HG2 cleanly — every write step ran inside <code>plan()</code>, every worker output flowed via claim-check refs. At P1-fanout, the orchestrator built spawnPrompts for the 12 creative-director workers. Each spawnPrompt embedded the brief's full hook bank (~30 hooks × bilingual EN/MS text) — about 7 KB of per-unit reference data. Twelve units × 7 KB ≈ 84 KB. The conductor received:
+</p>
+
+<pre>Error: result (83,795 characters across 46 lines) exceeds maximum allowed tokens.
+Tool: mcp__orchestrator__plan</pre>
+
+<p>
+The cap that bit is the same cap E-031 and ADR-023 already addressed. The boundary is new: it's <em>orchestrator → conductor</em> on the <em>input</em> direction. Each fanout unit's <code>spawnPrompt</code> carries the bulk data the spawned worker will operate on. The orchestrator was the source of bulk; the conductor was the cap-sensitive carrier; the worker was the consumer. Three roles, mirror-image of ADR-022, same fix shape.
+</p>
+
+<div class="callout new">
+<span class="tag">The deeper pattern.</span> ADR-022, ADR-023, ADR-024 are three local fixes for the same global rule: <em>bulk data does not pass through the conductor's tool channel.</em> The conductor carries refs; bulk lives in <code>orchestrator.step_results</code>. ADR-024 closes the last open direction (orchestrator → worker, via the conductor's transmission).
+</div>
+
+<h2><span class="num">2.</span> Boundary inventory — three transmission directions</h2>
+
+<p>
+Every bulk-data hop in a closed-loop run sits at one of three boundaries between the orchestrator, the conductor, and a spawned worker. The conductor is the cap-sensitive transmission stop in all three.
+</p>
+
+<table>
+<thead><tr>
+  <th style="width: 36px;">#</th>
+  <th>Direction</th>
+  <th>Origin</th>
+  <th>Conductor's role</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td class="n">1</td>
+  <td>Worker → conductor (output)</td>
+  <td>Worker's final message after doing its work</td>
+  <td>Pass output verbatim to <code>verify</code> / <code>advance</code></td>
+  <td><strong>Fixed by ADR-022.</strong> Worker writes its output to <code>step_results</code>; emits <code>{stepResultId}</code>; conductor carries the ref; MCP server dereferences server-side.</td>
+</tr>
+<tr>
+  <td class="n">2</td>
+  <td>Orchestrator → conductor (output)</td>
+  <td>Engine's <code>step.calls[]</code> in a write step</td>
+  <td>Execute each call against named MCP tools</td>
+  <td><strong>Fixed by ADR-023.</strong> Orchestrator self-executes write steps via library imports of <code>packages/&lt;name&gt;</code>; conductor sees only spawn / fanout / terminal-gate / done / halt.</td>
+</tr>
+<tr>
+  <td class="n">3</td>
+  <td>Orchestrator → conductor (input)</td>
+  <td>Per-unit <code>spawnPrompt</code> embedding bulk worker-input data</td>
+  <td>Dispatch <code>Task</code> with the spawnPrompt verbatim</td>
+  <td><strong>Open — this ADR.</strong> Orchestrator persists bulk worker-input to <code>step_results</code> at fanout-construction time; spawnPrompt carries the ref; worker calls <code>read_step_result</code> on entry.</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+Direction #1 is worker-emitted output. Direction #2 is orchestrator-emitted execution work. Direction #3 is orchestrator-emitted dispatch context. The three together exhaust the bulk hops in a fanout cycle.
+</p>
+
+<h2><span class="num">3.</span> Industry precedent — staged input via shared substrate</h2>
+
+<p>
+The pattern of <em>"lead agent stages context before dispatching subagents"</em> is settled in 2026's production multi-agent systems. The pattern always uses a shared persistence substrate that both writer (lead) and reader (subagent) can name.
+</p>
+
+<table>
+<thead><tr>
+  <th>Framework</th>
+  <th>Substrate</th>
+  <th>Mechanism</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><strong>Anthropic multi-agent research system</strong></td>
+  <td>Memory (persistent store)</td>
+  <td>"The LeadResearcher begins by thinking through the approach and saving its plan to Memory to persist the context, since if the context window exceeds 200,000 tokens it will be truncated." Plan is staged before subagents are dispatched. Subagents have their own context windows and can re-read the plan as needed.</td>
+</tr>
+<tr>
+  <td><strong>Google ADK</strong></td>
+  <td>artifact_service (named, versioned binary store)</td>
+  <td>Agents call <code>save_artifact(filename, data)</code>; downstream agents call <code>load_artifact(filename)</code>. First-class staging — saving an artifact is an explicit, async, audited operation.</td>
+</tr>
+<tr>
+  <td><strong>Claude Code Task tool (this OS's runtime)</strong></td>
+  <td>(N/A — by-convention)</td>
+  <td>Docs warn directly: <em>"every token in the prompt is paid for whether the subagent references it or not... scope the prompt to the task and keep the output contract tight."</em> The harness itself bills inline bulk. The recommended pattern is thin prompts; bulk fetched on demand.</td>
+</tr>
+<tr>
+  <td><strong>LangGraph Send()</strong></td>
+  <td>State store (per-graph)</td>
+  <td>Routing functions can be async and write to state. The Send() per-target payload is technically unbounded but the convention is to pass small dispatch info and have nodes read shared state via the state store.</td>
+</tr>
+<tr>
+  <td><strong>Apache Airflow XCom</strong> (orchestration analog)</td>
+  <td>XCom backend (default: small-message DB; custom: S3 / blob)</td>
+  <td>Large payloads use a custom XCom backend pointing at external storage. Same shape: small ref via XCom, bulk via the backend.</td>
+</tr>
+</tbody>
+</table>
+
+<div class="callout ok">
+<span class="tag">Consensus.</span> Production multi-agent systems (Anthropic, Google ADK) and orchestration analogs (Airflow custom XCom) all converge on the same primitive: <strong>a shared persistence substrate that lead and worker can both name</strong>. Inline staging is the anti-pattern; ref-passing is the doctrine.
+</div>
+
+<p>
+We already have the substrate. <code>orchestrator.step_results</code> shipped with ADR-022. The ref shape (<code>sr_</code>-prefixed ULID) is established. The read tool (<code>mcp__orchestrator__read_step_result</code>) exists. ADR-024 is the doctrine that says: <em>use it from the input side too.</em>
+</p>
+
+<h2><span class="num">4.</span> The doctrine</h2>
+
+<p>
+When an orchestrator stage step constructs a <code>fanout</code> (or a <code>spawn</code>) whose units require bulk per-unit reference data, the stage's <code>build()</code>:
+</p>
+
+<ol>
+  <li>Writes each unit's bulk input to <code>orchestrator.step_results</code> via <code>writeStepResult</code>, with a deterministic <code>(runId, stepId, unitIndex)</code> identity that makes re-planning idempotent.</li>
+  <li>Embeds the returned <code>stepResultId</code> in the unit's <code>spawnPrompt</code>, alongside a thin task contract (objective, output format, task boundaries — per Anthropic's "four required ingredients").</li>
+  <li>Includes a small set of unique-per-unit fields directly in the prompt (entity ids, run id) so the worker has handles to fetch any other context it needs.</li>
+</ol>
+
+<p>
+Worker contract (agent prompts):
+</p>
+
+<ol>
+  <li><strong>First action on entry:</strong> call <code>mcp__orchestrator__read_step_result({ stepResultId })</code> to fetch the bulk input the orchestrator staged.</li>
+  <li>Operate on the resolved payload. Never assume the prompt itself carries the full reference data.</li>
+  <li>Persist final output to <code>step_results</code> via <code>write_step_result</code> (per ADR-022) and return only the <code>stepResultId</code>.</li>
+</ol>
+
+<h3>What <code>build()</code> is allowed to do (the new discipline)</h3>
+
+<p>
+Making <code>build()</code> async unlocks I/O at step-construction time. The doctrine constrains what's allowed:
+</p>
+
+<table>
+<thead><tr><th>Allowed</th><th>Not allowed</th></tr></thead>
+<tbody>
+<tr>
+  <td>
+    <ul>
+      <li>Write to <code>orchestrator.step_results</code> (our own substrate)</li>
+      <li>Read from <code>orchestrator.step_results</code> for prior staged inputs</li>
+      <li>Compute / shape the prompt body (pure logic)</li>
+    </ul>
+  </td>
+  <td>
+    <ul>
+      <li>Call external MCPs (would violate ADR-005 no-MCP-mesh)</li>
+      <li>Write entity rows (Briefs, Scripts, etc.) — that's the compliance scanner's lane, owned by write steps</li>
+      <li>Call external APIs (Meta, OpenAI, etc.) — those are step-execution work, not step-construction</li>
+      <li>Cause observable run-state changes beyond the substrate write</li>
+    </ul>
+  </td>
+</tr>
+</tbody>
+</table>
+
+<p>
+The single allowed write is auditable (every entry in <code>step_results</code> carries <code>run_id</code>, <code>step_id</code>, <code>unit_index</code>, <code>size_bytes</code>, <code>created_at</code>), capped in size by application convention, and addressable via the existing <code>read_step_result</code> tool. The discipline keeps <code>build()</code> from becoming a place where arbitrary side effects accumulate while opening exactly enough room for the staging pattern.
+</p>
+
+<h2><span class="num">5.</span> The mechanism — async <code>build</code> and the Promise ripple</h2>
+
+<p>
+Today's <code>StepSpec.build</code> is sync:
+</p>
+
+<pre>// packages/orchestrator/src/types.ts (today)
+export interface StepSpec {
+  id: string;
+  kind: "spawn" | "fanout" | "write" | "gate";
+  build: (run: RunState) =&gt; Step;
+  verify?: (run: RunState, result: unknown) =&gt; VerifyResult;
+}</pre>
+
+<p>
+After ADR-024:
+</p>
+
+<pre>// packages/orchestrator/src/types.ts (after)
+export interface StepSpec {
+  id: string;
+  kind: "spawn" | "fanout" | "write" | "gate";
+  build: (run: RunState, ctx: BuildContext) =&gt; Promise&lt;Step&gt; | Step;
+  verify?: (run: RunState, result: unknown) =&gt; VerifyResult;
+}
+
+export interface BuildContext {
+  /** Persist a per-unit input payload; returns the ref to embed in the prompt. */
+  stageInput(unitIndex: number | null, payload: unknown): Promise&lt;string&gt;;
+}</pre>
+
+<p>
+Three changes:
+</p>
+
+<ul>
+  <li><strong>Return type widened</strong> to <code>Promise&lt;Step&gt; | Step</code>. Stages that don't need to stage anything keep sync semantics; stages that do return a promise. The engine awaits regardless (<code>await Promise.resolve(syncReturn)</code> is a no-op).</li>
+  <li><strong>New <code>ctx</code> parameter</strong> (<code>BuildContext</code>) carries the only piece of effectful capability <code>build()</code> needs: <code>stageInput(unitIndex, payload)</code>. The implementation wraps <code>writeStepResult</code> with the current run/step ids closed over. Constraining the capability surface to one named method is what makes the discipline enforceable.</li>
+  <li><strong>Engine call sites</strong> in <code>plan()</code> become <code>await spec.build(run, ctx)</code>. The orchestrator MCP's <code>runEagerLoop</code> is already async (since Phase B of ADR-023); no signature change there.</li>
+</ul>
+
+<h3>Idempotency — re-planning safety</h3>
+
+<p>
+A pure <code>build()</code> is safe to call any number of times for the same state. ADR-024's effectful <code>build()</code> writes to Postgres — running it twice for the same fanout would create duplicate rows. Two mechanisms restore idempotency:
+</p>
+
+<ol>
+  <li><strong>Deterministic identity.</strong> <code>stageInput</code> derives the row's primary key from <code>(runId, stepId, unitIndex)</code> rather than a fresh ULID. A re-plan on the same fanout finds the existing row and skips the insert (Postgres <code>ON CONFLICT DO NOTHING</code>). The returned <code>stepResultId</code> is the existing row's id.</li>
+  <li><strong>Step-completion shortcut.</strong> <code>plan()</code> already skips <code>build()</code> for steps marked <code>done</code> in <code>run_steps</code>. A re-plan after the fanout's <code>advance</code> never re-enters <code>build()</code> for that step at all. The idempotency concern only applies during the brief window between <code>build()</code> writing refs and the conductor dispatching workers.</li>
+</ol>
+
+<p>
+Together: re-planning during the dispatch window finds the existing rows and returns the same refs; re-planning after advance never re-enters build. <code>build()</code> is at-most-once effectively, even though its body contains writes.
+</p>
+
+<h2><span class="num">6.</span> Architecture diagram + conductor's day</h2>
+
+<div class="diagram">
+                            ┌──────────────────────┐
+                            │  Postgres substrate  │
+                            │                      │
+                            │  orchestrator.       │
+                            │  step_results        │
+                            │  (ADR-022 table)     │
+                            └────────▲─────────────┘
+                                     │
+            ┌────────────────────────┼────────────────────────┐
+            │ (a) stageInput()       │ (b) read_step_result   │
+            │     during build()     │     on worker entry    │
+            │                        │                        │
+   ┌────────┴───────────┐    ┌───────┴────────┐      ┌────────┴────────┐
+   │ Orchestrator MCP    │   │  Conductor     │      │   Spawned       │
+   │ (plan handler)      │   │   (/loop)      │      │   Worker        │
+   │                     │   │                │      │  (subagent)     │
+   │ stage.build(run,    │──▶│  receives:     │─────▶│ first action:   │
+   │   ctx)              │   │  fanout step   │ Task │  read_step_     │
+   │  ├─ ctx.stageInput  │   │  with N units, │      │   result(sr_X)  │
+   │  │   per unit       │   │  each carrying │      │                 │
+   │  └─ embed sr_ ref   │   │  a tiny sr_    │      │ does the work,  │
+   │     in spawnPrompt  │   │  ref + thin    │      │ writes output   │
+   │                     │   │  task contract │      │  to step_results│
+   │ returns Step        │   │  (≤200 bytes)  │      │  emits sr_Y     │
+   │  with thin prompts  │   │                │      │                 │
+   └─────────────────────┘   └────────────────┘      └─────────────────┘
+
+   build() does I/O      conductor stays thin     worker reads bulk
+   (capability via ctx)  carries refs only        via read_step_result
+</div>
+
+<h3>The conductor's day (post-ADR-024)</h3>
+
+<pre class="flow">function conductorLoop() {
+  let runId, step;
+  while (true) {
+    ({ runId, step } = mcp__orchestrator__plan({ runId }));
+    // step is now &lt;= 2-3 KB even for a 12-unit fanout:
+    // every spawnPrompt is "do X, your input ref is sr_01H..."
+    // not "do X, here are 7 KB of hooks inline"
+
+    if (step.kind === "spawn")  dispatchTask(step);     // unchanged
+    if (step.kind === "fanout") dispatchTasks(step);    // unchanged shape, smaller prompts
+    if (step.kind === "gate")   { print(step.message); return; }
+    if (step.kind === "done")   { print(step.message); return; }
+    if (step.kind === "halt")   { print(step.reason);  return; }
+
+    // verify + advance per ADR-022
+  }
+}</pre>
+
+<p>
+The conductor's contract is unchanged. The prompts are smaller. The workers do an extra <code>read_step_result</code> on entry.
+</p>
+
+<h2><span class="num">7.</span> Engine API + MCP envelope shapes</h2>
+
+<h3>StepSpec.build</h3>
+<pre>build: (run: RunState, ctx: BuildContext) =&gt; Promise&lt;Step&gt; | Step</pre>
+
+<h3>BuildContext</h3>
+<pre>interface BuildContext {
+  /**
+   * Persist a payload to orchestrator.step_results under the deterministic
+   * key (runId, stepId, unitIndex). Re-calls with the same key return the
+   * existing row's id (ON CONFLICT DO NOTHING). Returns the stepResultId
+   * string to embed in a spawnPrompt.
+   */
+  stageInput(unitIndex: number | null, payload: unknown): Promise&lt;string&gt;;
+}</pre>
+
+<h3>engine.plan</h3>
+<pre>// Today (sync, would-be name)
+function plan(input, registry): { runId, step }
+
+// After ADR-024
+async function plan(input, registry): Promise&lt;{ runId, step }&gt;</pre>
+
+<h3>writeStepResult — new optional <code>idempotencyKey</code></h3>
+<pre>function writeStepResult(args: {
+  runId: string;
+  stepId: string;
+  unitIndex?: number | null;
+  payload: unknown;
+  /** When set, derives the row id from this key + run/step; re-calls
+   *  return the existing id rather than creating a new row. */
+  idempotencyKey?: string;
+}): Promise&lt;string&gt;</pre>
+
+<p>
+The <code>idempotencyKey</code> defaults to <code>"${stepId}:${unitIndex ?? -1}"</code> when <code>BuildContext.stageInput</code> calls in. Other callers (worker output writes per ADR-022) keep the existing fresh-ULID behaviour.
+</p>
+
+<h3>No new MCP tools, no new step kind, no schema change</h3>
+
+<p>
+ADR-024 reuses the existing substrate. <code>step_results</code> already has the columns it needs. <code>read_step_result</code> already does the dereference. The only schema delta is an optional unique index on <code>(run_id, step_id, unit_index, payload_kind)</code> to make the idempotency mechanism enforceable at the database layer (belt-and-suspenders with the application-level conflict-handler).
+</p>
+
+<h2><span class="num">8.</span> Worker prompt protocol — the new entry contract</h2>
+
+<p>
+Workers that consume staged input get a one-line addition to their agent prompt frontmatter (<code>.claude/agents/&lt;agent&gt;.md</code>) and a mandatory first action.
+</p>
+
+<h3>Today (creative-director Single-Script mode)</h3>
+<pre>"Run ${runId}: you are creative-director in Single-Script worker mode.
+Your FIRST action: call mcp__store__get({ entity: 'Scripts', id: '...' })
+to fetch your Script.
+...
+HOOK BANK for brief abc123:
+[{en: '...', ms: '...', register: 'fear'}, ... × 30 hooks]"</pre>
+
+<h3>After ADR-024</h3>
+<pre>"Run ${runId}: you are creative-director in Single-Script worker mode.
+
+Your FIRST action: call mcp__orchestrator__read_step_result({
+  stepResultId: 'sr_01HZ...' })
+to fetch your staged input. It contains: scriptId, briefId, hookBank.
+
+Then call mcp__store__get for the Script and Brief, and operate on
+exactly one Script.
+
+Produce 4 distinct CreativeUnits (Reel, Feed, YT-Long, Carousel),
+rotating 4 distinct hooks from the staged hook bank. Return
+{scriptId, creatives} as your final JSON."</pre>
+
+<p>
+Length: ~280 bytes vs ~7,200 bytes per unit. Twelve-unit fanout drops from 84 KB to ~3.4 KB.
+</p>
+
+<h2><span class="num">9.</span> Worked example — P1-fanout, before vs after</h2>
+
+<h3>Before (current behaviour, what blew the cap on 2026-05-25)</h3>
+
+<pre>// packages/orchestrator/src/stages/produce.ts (today)
+const p1Fanout: StepSpec = {
+  id: "P1-fanout",
+  kind: "fanout",
+  build: (run): Step =&gt; {
+    const scripts = approvedScriptsFor(run);
+    return {
+      kind: "fanout",
+      stepId: "P1-fanout",
+      worker: "creative-director",
+      units: scripts.map((script) =&gt; {
+        const hookBank = hookBankForBrief(run, script.briefId); // ~7 KB
+        return {
+          spawnPrompt: [
+            `Run ${run.runId}: you are creative-director...`,
+            `...fetch Script id=${script.id}, Brief id=${script.briefId}...`,
+            `HOOK BANK for brief ${script.briefId}:`,
+            JSON.stringify(hookBank), // ← embeds 7 KB inline
+          ].join("\n"),
+        };
+      }),
+    };
+  },
+  // ...
+};</pre>
+
+<p>Envelope: 12 × ~7 KB = <strong>83,795 bytes</strong> in the <code>plan()</code> response. Hits the harness cap.</p>
+
+<h3>After (ADR-024)</h3>
+
+<pre>// packages/orchestrator/src/stages/produce.ts (after)
+const p1Fanout: StepSpec = {
+  id: "P1-fanout",
+  kind: "fanout",
+  build: async (run, ctx): Promise&lt;Step&gt; =&gt; {
+    const scripts = approvedScriptsFor(run);
+    const units = await Promise.all(
+      scripts.map(async (script, i) =&gt; {
+        const hookBank = hookBankForBrief(run, script.briefId);
+        const inputRef = await ctx.stageInput(i, {
+          scriptId: script.id,
+          briefId: script.briefId,
+          hookBank,
+        });
+        return {
+          spawnPrompt: [
+            `Run ${run.runId}: you are creative-director...`,
+            `Your FIRST action: call mcp__orchestrator__read_step_result({`,
+            `  stepResultId: "${inputRef}"`,
+            `}) to fetch your staged input.`,
+            `...produce 4 CreativeUnits, return {scriptId, creatives}...`,
+          ].join("\n"),
+        };
+      }),
+    );
+    return { kind: "fanout", stepId: "P1-fanout", worker: "creative-director", units };
+  },
+  // ...
+};</pre>
+
+<p>Envelope: 12 × ~280 bytes = <strong>~3,400 bytes</strong> in the <code>plan()</code> response. Twenty-five× reduction; well under the cap with headroom.</p>
+
+<h3>Run sequence comparison</h3>
+
+<table>
+<thead><tr><th></th><th>Today</th><th>After ADR-024</th></tr></thead>
+<tbody>
+<tr><td><code>plan()</code> response size at P1-fanout</td><td>83,795 bytes (cap-blown)</td><td>~3,400 bytes</td></tr>
+<tr><td>Worker tool-uses to start</td><td>2 (store.get Script + store.get Brief)</td><td>3 (read_step_result + store.get × 2)</td></tr>
+<tr><td>Cross-MCP tools the orchestrator uses during build</td><td>0</td><td>0 (only its own substrate)</td></tr>
+<tr><td>Per-unit prompt size</td><td>~7,200 bytes</td><td>~280 bytes</td></tr>
+<tr><td><code>step_results</code> rows per fanout</td><td>0 (input rows); N (output rows)</td><td>N (input rows) + N (output rows)</td></tr>
+<tr><td>Re-plan during dispatch</td><td>Pure recompute</td><td>Hits existing input rows via idempotency key; no duplicate writes</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">10.</span> Substrate — what reuses, what extends</h2>
+
+<h3>Reused without change</h3>
+<ul>
+  <li><code>orchestrator.step_results</code> table (Postgres, JSONB <code>payload</code>, ADR-022 schema). Worker input rows live alongside worker output rows; the row's role is implicit from who wrote it (build vs worker).</li>
+  <li><code>mcp__orchestrator__read_step_result</code> tool. Workers call it the same way they would for any ref.</li>
+  <li><code>sr_</code>-prefixed ULID format. No change.</li>
+  <li>The <code>resolveRefs</code> helper at the MCP verify/advance boundary — unaffected, since spawn-prompt refs aren't passed back through verify/advance (they're consumed by the worker).</li>
+</ul>
+
+<h3>Extended (minor)</h3>
+<ul>
+  <li><code>writeStepResult</code> gains an optional <code>idempotencyKey</code> param. Default behaviour (fresh ULID) preserved for non-build callers.</li>
+  <li>Optional new column <code>payload_kind</code> (text, nullable) on <code>step_results</code> to tag rows as <code>"input"</code> vs <code>"output"</code> for audit clarity. Not load-bearing — derivable from "who wrote it" — but useful for the <code>/status</code> dashboard and for future TTL policy (input rows can be GC'd as soon as the fanout's advance lands; output rows have a longer retention).</li>
+  <li>Unique index on <code>(run_id, step_id, unit_index, payload_kind)</code> to enforce idempotency at the DB layer.</li>
+</ul>
+
+<h3>New</h3>
+<ul>
+  <li><code>BuildContext</code> interface in <code>packages/orchestrator/src/types.ts</code>.</li>
+  <li><code>createBuildContext(runId, stepId)</code> factory in <code>packages/orchestrator/src/exec.ts</code> (close-over <code>writeStepResult</code> with the run/step ids set).</li>
+  <li>Engine's <code>plan</code> awaits <code>build()</code>; signature change ripples through <code>packages/orchestrator</code> + the orchestrator MCP server's <code>runEagerLoop</code> (already async).</li>
+</ul>
+
+<h2><span class="num">11.</span> Auditing P2-render and any other stages</h2>
+
+<p>
+P1-fanout was the trigger, but the same pattern may apply to other stages. The audit during implementation:
+</p>
+
+<table>
+<thead><tr><th>Stage step</th><th>Per-unit bulk input today?</th><th>Action</th></tr></thead>
+<tbody>
+<tr><td><strong>P1-fanout</strong> (creative-director)</td><td>~7 KB hook bank per unit</td><td><strong>Stage via ctx.stageInput.</strong> Primary trigger for this ADR.</td></tr>
+<tr><td><strong>P2-render</strong> (render-worker)</td><td>Per-unit render spec — script title + format + variant copy + asset URLs. Estimated ~2 KB per unit. 24 units (12 scripts × 2 formats) ≈ 48 KB envelope — borderline.</td><td><strong>Audit, likely stage.</strong> Even if it fits today, the same shape risk grows with brief count.</td></tr>
+<tr><td>C1-fanout (content-writer Single-Brief)</td><td>Just the brief id (the worker fetches the Brief via <code>store.get</code>). No bulk in prompt.</td><td>No change needed. The pattern is already correct.</td></tr>
+<tr><td>S1-reason (brain spawn)</td><td>Analytics signal JSON, ~2 KB. Single spawn, not fanout.</td><td>No change needed (single-unit; well under cap).</td></tr>
+<tr><td>B1-write (brief-writer spawn)</td><td>Decision Memo JSON, ~2 KB. Single spawn.</td><td>No change needed.</td></tr>
+<tr><td>C2-articles (content-writer Article mode)</td><td>Brief id list, ~200 bytes.</td><td>No change needed.</td></tr>
+<tr><td>X3-write (experiment)</td><td>Write step; no spawn prompt.</td><td>N/A — not a fanout/spawn.</td></tr>
+</tbody>
+</table>
+
+<p>
+The rule of thumb: <em>if a fanout step's <code>spawnPrompt</code> contains anything other than the unit's distinguishing ids + a task contract, that input is a candidate for staging.</em>
+</p>
+
+<h2><span class="num">12.</span> Implementation order (phase summary)</h2>
+
+<p>
+A detailed plan ships as <code>docs/superpowers/plans/2026-05-25-adr-024-orchestrator-staged-input.md</code> alongside this spec. The phase outline:
+</p>
+
+<ol>
+  <li><strong>Phase 0</strong> — ADR + spec + plan; status notes on ADR-022 + ADR-023 pointing at ADR-024 as the closing piece of the trilogy.</li>
+  <li><strong>Phase A</strong> — Schema delta (optional <code>payload_kind</code> column + unique index). Migration file in <code>packages/orchestrator/src/migrations/postgres/002_input_refs.sql</code>. Backward-compatible.</li>
+  <li><strong>Phase B</strong> — <code>writeStepResult</code> gains <code>idempotencyKey</code> param + tests for the conflict-handler behaviour.</li>
+  <li><strong>Phase C</strong> — <code>StepSpec.build</code> signature widens to <code>Promise&lt;Step&gt; | Step</code>; <code>BuildContext</code> + <code>createBuildContext</code> land; engine's <code>plan()</code> becomes async; <code>runEagerLoop</code> already async. All existing build functions adapted (most stay sync; the engine awaits unconditionally).</li>
+  <li><strong>Phase D</strong> — P1-fanout refactored to use <code>ctx.stageInput</code>; <code>.claude/agents/creative-director.md</code> updated with the new entry contract; tests + sync:agents.</li>
+  <li><strong>Phase E</strong> — P2-render audit; refactor if needed using the same pattern.</li>
+  <li><strong>Phase F</strong> — Resume the Phase H.4 cold-start walk on a new run; drive through HG3 cleanly; verification scoreboard met.</li>
+  <li><strong>Phase G</strong> — ADR-024 flipped Proposed → Accepted; PR opened + squashed to main.</li>
+</ol>
+
+<h2><span class="num">13.</span> Out of scope</h2>
+
+<ul>
+  <li><strong>Promoting <code>build()</code> to do general-purpose I/O.</strong> The discipline (§4) limits build to <code>orchestrator.step_results</code> writes. Other I/O remains in step execution (write steps, worker tool calls). ADR-024 widens the type signature but not the semantics envelope.</li>
+  <li><strong>TTL / cleanup for input-kind step_results rows.</strong> Filed as a follow-up alongside ADR-022's TTL task. Input rows are GC-able sooner (immediately after the fanout's advance), but cleanup design is independent.</li>
+  <li><strong>Cross-run input refs.</strong> A future stage might want to stage data once and reuse it across runs. Not in scope; would need its own ADR.</li>
+  <li><strong>Worker → worker direct refs.</strong> Workers today never read each other's outputs directly. They could, via <code>read_step_result</code> + a shared ref-id channel, but that pattern is unmotivated and out of scope.</li>
+  <li><strong>Encryption-at-rest for staged input.</strong> The substrate is the same Postgres instance as entity rows; same encryption posture; not in scope to harden separately here.</li>
+</ul>
+
+<h2><span class="num">14.</span> Verification scoreboard (Phase F gate)</h2>
+
+<table>
+<thead><tr><th>Metric</th><th>Today</th><th>After ADR-024 (acceptance)</th></tr></thead>
+<tbody>
+<tr><td>P1-fanout <code>plan()</code> response size</td><td>83,795 bytes (cap-blown)</td><td>&lt; 5 KB</td></tr>
+<tr><td>Per-unit P1 spawnPrompt size</td><td>~7,200 bytes</td><td>&lt; 400 bytes</td></tr>
+<tr><td>Cold-start cycle reaches HG3</td><td>blocked at P1-fanout</td><td>HG3 reached, no cap events</td></tr>
+<tr><td>Conductor tool calls (4-brief flow, cold start to HG3)</td><td>N/A (blocked)</td><td>≤ 30</td></tr>
+<tr><td>step_results rows per fanout</td><td>N (output only)</td><td>2N (input + output), input rows idempotent across replans</td></tr>
+<tr><td>Re-plan during dispatch window writes duplicate input rows</td><td>(N/A)</td><td>0 duplicates (idempotency key + DB unique index)</td></tr>
+<tr><td>Tests</td><td>~555 passing</td><td>~565+ passing, no regressions</td></tr>
+</tbody>
+</table>
+
+<h2><span class="num">15.</span> Risks &amp; mitigations</h2>
+
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr>
+  <td><code>build()</code> async-ness becomes a slippery slope; future contributors stage Meta API calls or corpus reads in build()</td>
+  <td>Discipline section codified in ADR-024 with explicit allow/deny list. <code>BuildContext</code> exposes <em>only</em> <code>stageInput</code> — no general-purpose tool surface. Adding a new capability requires an ADR amendment.</td>
+</tr>
+<tr>
+  <td>Idempotency key collides across stages with the same step id (e.g., two stages both have a "C1-fanout"?)</td>
+  <td><code>run_steps.step_id</code> is already unique-per-run by registry construction. The idempotency key composes <code>runId + stepId + unitIndex</code>; collision would require two registry entries with the same step id in the same stage, which the registry-validation tests already forbid.</td>
+</tr>
+<tr>
+  <td>Re-plan during the dispatch window dispatches a different set of refs than the conductor expects</td>
+  <td>Idempotency guarantees: a re-plan returns the <em>same</em> refs for the same <code>(runId, stepId, unitIndex)</code>. Conductor compares the unit count it received to the unit count it dispatches; mismatch is a halt (no silent partial dispatch).</td>
+</tr>
+<tr>
+  <td>Engine signature change breaks downstream consumers</td>
+  <td>Phase C lands the signature change once across the workspace: <code>packages/orchestrator</code> + all stage definitions + tests. Build-and-typecheck must be green before Phase D begins. The <code>Promise&lt;Step&gt; | Step</code> union allows sync-return stages to stay sync — the engine awaits unconditionally.</td>
+</tr>
+<tr>
+  <td>Worker forgets to call <code>read_step_result</code> first and acts on the thin prompt alone</td>
+  <td>Worker agent prompts (<code>.claude/agents/creative-director.md</code>) carry a hard rule with a sample first action; <code>sync:agents</code> keeps the fragment in lockstep. Workers that omit the read produce zero output and fail their verifier (no hooks → empty creative units → verify-produce rejects).</td>
+</tr>
+<tr>
+  <td>Latency: build() now does writes, slowing every plan() call</td>
+  <td><code>writeStepResult</code> is a single Postgres insert per unit. P1 (12 units) adds ~12 inserts × ~1 ms = ~12 ms to a plan() that already takes hundreds of ms across the eager loop. Imperceptible.</td>
+</tr>
+<tr>
+  <td>Input-row pollution of <code>step_results</code> table</td>
+  <td>Optional <code>payload_kind</code> tag separates input from output rows in queries. Future TTL job can sweep input rows aggressively (they're disposable post-advance) while keeping output rows for the run's full lifetime.</td>
+</tr>
+</tbody>
+</table>
+
+<h2><span class="num">16.</span> References</h2>
+
+<ul>
+  <li>ADR-022 — Claim-check / Reference-Based Messaging (<code>docs/decisions/022-claim-check-worker-output.md</code>) — the substrate this ADR rides on.</li>
+  <li>ADR-023 — Orchestrator-resident execution (<code>docs/decisions/023-orchestrator-resident-execution.md</code>) — the doctrine ADR-024 closes.</li>
+  <li>ADR-005 — Thin-adapter / no-MCP-mesh (<code>docs/decisions/005-mcp-architecture.md</code>) — the architectural constraint.</li>
+  <li>E-031 spec — 2026-05-24 claim-check design (<code>docs/superpowers/specs/2026-05-24-e-031-claim-check-design.html</code>) — the design rationale for the substrate.</li>
+  <li>ADR-023 spec — 2026-05-24 orchestrator-resident execution (<code>docs/superpowers/specs/2026-05-24-adr-023-orchestrator-resident-execution.html</code>) — the doctrine spec ADR-024 follows in shape.</li>
+  <li>Anthropic — How we built our multi-agent research system (Simon Willison's notes, 2025-06-14) — the Memory primitive precedent.</li>
+  <li>Google ADK — Artifacts &amp; artifact_service (<code>google.github.io/adk-docs/artifacts/</code>) — first-class staging substrate precedent.</li>
+  <li>Claude Code — Subagent token-cost guidance (<code>code.claude.com/docs/en/sub-agents</code>) — the harness-level rationale.</li>
+  <li>Hohpe — Enterprise Integration Patterns: Claim Check — the EIP root pattern, here applied mirrored.</li>
+</ul>
+
+<footer class="doc">
+  ADR-024 spec · 2026-05-25 · The third and final cap surface · Closes the trilogy that began with E-031 / ADR-022.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# EPF drawdown depletion — RM1.2M at age 60 runs dry by age 72 at the Adequate spend level
+# Dataset (source-of-record): corpus/data/datasets/epf-drawdown-rm1.2m-age60-72.json
+# Derived from epf-sustainability-simulations.json item G (Case 1, Adequate) +
+# epf-sustainability-model.md Step 3 depletion rule. EPF Sustainability Calculator v1.3.2.
+# Used by media-production when a scene argues "even a big EPF balance runs out before life does",
+# "the longevity gap", "a million isn't enough", or the held Script "A Million in EPF Still Ran Dry at 72".
+
+id: epf-drawdown-rm1.2m-age60-72
+title_en: "RM1.2M EPF at 60, drawn to replace 70% of working income — runs dry around age 72"
+title_ms: "EPF RM1.2J pada 60, dikeluarkan untuk ganti 70% pendapatan kerja — kehabisan sekitar usia 72"
+chart_type: line
+x_label_en: "Age"
+x_label_ms: "Umur"
+y_label_en: "EPF balance remaining (RM)"
+y_label_ms: "Baki EPF berbaki (RM)"
+labels: [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
+series:
+  - name_en: "EPF balance remaining"
+    name_ms: "Baki EPF berbaki"
+    semantic_role: hero
+    values: [1247032, 1183600, 1114300, 1038700, 956500, 867300, 770600, 666200, 553600, 432200, 301700, 161500, 0]
+# Optional spotlight callout — rendered verbatim by the worker (never invented/recomputed).
+callout_en: "RM1.2M at 60 → RM0 by 72"
+callout_ms: "RM1.2J pada 60 → RM0 menjelang 72"
+caption_en: "An EPF balance of RM1.2M at age 60 sounds like enough. But to replace just 70% of his RM3,000 working income — RM2,100/month in today's money, which inflation carries to about RM8,287/month by age 60 (the remainder earning 3%) — the balance drains a little faster every year and reaches zero around age 72. Against a life expectancy of 80, that leaves roughly eight years unfunded. Even a million ringgit runs out before life does."
+caption_ms: "Baki EPF RM1.2J pada usia 60 kedengaran mencukupi. Tetapi untuk menggantikan hanya 70% daripada pendapatan kerjanya RM3,000 — RM2,100/sebulan dalam nilai hari ini, yang dibawa inflasi kepada kira-kira RM8,287/sebulan menjelang usia 60 (bakinya memperoleh 3%) — baki itu susut sedikit lebih cepat setiap tahun dan mencapai sifar sekitar usia 72. Berbanding jangka hayat 80, itu meninggalkan kira-kira lapan tahun tanpa dana. Walaupun sejuta ringgit kehabisan sebelum hayat berakhir."
+source_citation: "Modelled with the KWSP / EPF Sustainability Calculator (v1.3.2): a RM1.2M projected EPF balance at age 60 drawn down to replace 70% of the member's current RM3,000 working income (the calculator's income-replacement input — RM2,100/month today, RM8,287/month at age 60 after 4%/yr inflation), with the remainder earning 3%/yr. NOTE: this 70%-of-income figure is the calculator's own 'Adequate' tier and is distinct from the Belanjawanku household reference budget and from KWSP's RIA savings targets, which carry the same word with different meanings. Dataset of record: corpus/data/datasets/epf-drawdown-rm1.2m-age60-72.json. Illustrative model output — not personalised financial advice, and not a guaranteed or assured result. Actual EPF dividends, inflation, returns, and individual spending vary year to year; a licensed Consultant can model the personalised number."

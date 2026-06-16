@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 5 — Decompose media-production</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .badge.review { background: var(--warn); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 5 — Decompose <code>media-production</code></h1>
+  <p class="meta">
+    Implementation plan · phase 5 of 7 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phase 4 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">Roadmap split — confirmed 2026-05-22</span>
+    The original Phase 5 silently bundled two bodies of work. It is now split:
+    <strong>Phase 5 (this doc)</strong> decomposes <code>media-production</code> into a taste-only
+    agent + pure spec code + render workers — the produce <em>pipeline</em>. <strong>Phase 6</strong>
+    builds the three missing agentic-cell stages (<code>synthesize</code>, <code>brief</code>,
+    <code>content</code>), assembles the ordered live registry, upgrades HG4, and deletes the
+    replaced agents. <strong>Phase 7</strong> trims <code>brain.md</code> + writes ADR-020. The
+    roadmap moves 6 → 7 phases.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Three decisions baked in</span>
+    <strong>1 — the taste/code line.</strong> <code>creative-director</code> (agent) owns only
+    judgement: storyboard decomposition, hook rotation across the 4 distinct creatives,
+    thumbnail briefs, <code>chartRef</code> reasoning, palette emphasis. Everything mechanical —
+    the 5-row format matrix, <code>Channels</code>, the deterministic <code>variantId</code>,
+    Meta/YouTube/organic copy specs, cost roll-up — is pure code in <code>deriveSpecs</code>.
+    Litmus: if two careful people would write the same value, it is code.<br>
+    <strong>2 — most atomics already exist.</strong> Phase 1 already shipped
+    <code>deriveChannels</code>, <code>metaCtaType</code>, <code>youtubeCategoryId</code>,
+    <code>variantId</code>, <code>slugify</code>, <code>readingTime</code>, <code>topicTag</code>,
+    <code>extractKeywords</code>, <code>truncateAtWord</code>. <code>deriveSpecs</code> and
+    <code>deriveArticlePackaging</code> <em>compose</em> them — they are thin.<br>
+    <strong>3 — the contract becomes a unit test.</strong> The 706-line agent's F2 / G10 / G11 /
+    Step-7.0 self-policing prose is <em>superseded</em> by <code>verifyProduce</code> — reading
+    Notion + the events table for ground truth. C1 holds: the produce stage is wired to its real
+    agent here, but the live registry stays fixture-only and <code>media-production.md</code> is
+    not deleted until the Phase 6 cutover — deleting it now would dangle <code>brain.md</code> §E.
+  </div>
+
+  <p><strong>Goal:</strong> Replace the 706-line <code>media-production.md</code> with a ~80-line
+    taste-only <code>creative-director</code> agent, a pure <code>deriveSpecs</code> /
+    <code>deriveArticlePackaging</code> spec layer, render-worker prompts, and a
+    <code>verifyProduce</code> that reads ground truth — so the produce stage runs end-to-end
+    against real code.</p>
+  <p><strong>Architecture:</strong> The produce stage keeps its Phase 2 shape
+    (P1 spawn → P2 fanout → P3 write → P4 gate). Phase 5 makes each step real: P1 spawns the new
+    <code>creative-director</code>, P2 fans out <code>render-worker</code> units, P3 runs
+    <code>deriveSpecs</code> + the article pass, the verifier reads Notion. No engine change.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM), vitest. New deps: none. Execution:
+    <strong>TBD</strong> — this doc is for review first.</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/shared/src/derive/specs.ts</code></td><td><code>deriveSpecs</code> — CreativePlan → per-variant <code>VariantSpec[]</code> (matrix expansion, Channels, Meta/YT/organic copy); pure</td></tr>
+      <tr><td><code>packages/shared/src/derive/article-packaging.ts</code></td><td><code>deriveArticlePackaging</code> — AuthorityArticle substance → packaging fields; pure</td></tr>
+      <tr><td><code>packages/shared/src/derive/index.ts</code> <em>(modify)</em></td><td>Re-export the two new modules</td></tr>
+      <tr><td><code>.claude/agents/creative-director.md</code></td><td>~80-line taste-only agent — storyboards, hook rotation, thumbnail briefs, <code>chartRef</code></td></tr>
+      <tr><td><code>corpus/templates/worker-prompts/render-worker.md</code></td><td>The static-asset render-worker prompt (supersedes <code>static-asset.md</code>)</td></tr>
+      <tr><td><code>packages/orchestrator/src/verifiers/verify-produce.ts</code> <em>(modify)</em></td><td>Accept real Notion rows + the events-table count as ground truth</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/produce.ts</code> <em>(modify)</em></td><td>P1 prompt enriched; P3 runs <code>deriveSpecs</code> + article pass; a Notion-read feeds verify</td></tr>
+      <tr><td><code>.mcp.json</code> / agent registry <em>(modify)</em></td><td>Register <code>creative-director</code>. <code>media-production.md</code> is superseded but stays on disk — deleted in Phase 6 with the other replaced agents (C1)</td></tr>
+      <tr><td><code>*.test.ts</code></td><td>Colocated vitest suites</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Not in Phase 5:</strong> the <code>synthesize</code> / <code>brief</code> /
+    <code>content</code> stages, the live-registry assembly, the HG4 upgrade, and deleting the
+    replaced agents — <code>tracking</code>, <code>analytics</code>, <code>distribution</code>,
+    <code>experiment-os</code>, <strong><code>media-production</code></strong> — all Phase 6.
+    <code>brain.md</code> trim + ADR-020 — Phase 7.</p>
+
+  <h2><span class="num">1.</span> Locked interfaces</h2>
+
+  <h3>1.1 — <code>CreativePlan</code> — the creative-director's return shape</h3>
+  <p>One <code>CreativeUnit</code> per <em>distinct</em> creative (4 per Script — the Carousel
+    pair is one creative). It carries the taste output <em>and</em> the source Script/Brief fields
+    <code>deriveSpecs</code> needs, so <code>deriveSpecs</code> takes only the plan + render results.</p>
+<pre>export interface SceneCard {
+  scene: number; durationSec: number; visual: string;
+  onScreenText: string; voiceover: string; shotNotes: string;
+  chartRef: string | null;
+}
+export interface CreativeUnit {
+  scriptId: string;
+  format: "Reel" | "Feed" | "YT-Long" | "Carousel";
+  hook: { en: string; ms: string; register: string };
+  shotlistEn: SceneCard[];          // 3–8 cards
+  shotlistBm: SceneCard[];          // parallel, same scene count
+  thumbnailBrief: string;
+  paletteEmphasis: string;
+  estCostMyr: number;               // 4c midpoint table
+  source: {                         // copied from Script + parent Brief
+    scriptBodyEn: string; scriptBodyMs: string;
+    ctaEn: string; ctaMs: string;
+    funnelStage: "TOFU" | "MOFU" | "BOFU";
+    persona: string; topic: string; targetQuery: string;
+    primaryLang: "en" | "ms";
+  };
+}
+export interface CreativePlan { runId: string; creatives: CreativeUnit[]; }</pre>
+
+  <h3>1.2 — <code>VariantSpec</code> + <code>deriveSpecs</code> (<code>derive/specs.ts</code>)</h3>
+<pre>export interface MetaCopySpec {
+  primaryTextEn: string; primaryTextMs: string;   // ≤180, regulator phrase baked in
+  headlineEn: string; headlineMs: string;         // ≤40
+  descriptionEn: string; descriptionMs: string;   // ≤30
+  ctaType: string;                                // metaCtaType()
+  targetingJson: string;                          // persona → broad-targeting JSON
+}
+export interface YtCopySpec {
+  title: string; description: string; tags: string[]; category: string;
+}
+export interface OrganicCopySpec {
+  language: "EN" | "BM";
+  captionEn: string; captionMs: string;
+  hashtagsIg: string[]; hashtagsFb: string[];
+}
+export interface VariantSpec {
+  variantId: string;                 // variantId(scriptId, format, aspect)
+  scriptId: string; format: string; aspect: string;
+  channels: string[];                // deriveChannels()
+  estCostMyr: number;
+  shotlistEn: SceneCard[]; shotlistBm: SceneCard[]; thumbnailBrief: string;
+  assetFiles: { url: string; sha256: string }[];   // joined from render results
+  meta: MetaCopySpec | null;         // when channels ∋ Meta-*
+  yt: YtCopySpec | null;             // when channels ∋ YouTube*
+  organic: OrganicCopySpec | null;   // when channels ∋ Meta-organic
+}
+
+export interface RenderResult { variantId: string; url: string; sha256: string; }
+
+/** Expand each CreativeUnit into the 5-row format matrix (Carousel → 4:5 + 1:1),
+ *  derive Channels + per-channel copy, join asset files. Pure. */
+export function deriveSpecs(plan: CreativePlan, renders: RenderResult[]): VariantSpec[]</pre>
+  <p>The 5-row matrix (Reel 9:16 · Feed 4:5 · YT-Long 16:9 · Carousel 4:5 · Carousel 1:1) is the
+    fixed expansion; the Carousel pair shares one <code>CreativeUnit</code>'s shotlist. Each
+    branch is keyed off <code>Channels</code> — exactly the media-production §5.7/§5.8 conditionals,
+    now in code.</p>
+
+  <h3>1.3 — <code>deriveArticlePackaging</code> (<code>derive/article-packaging.ts</code>)</h3>
+<pre>export interface ArticleSubstance {
+  titleEn: string; topic: string; targetQuery: string; bodyEn: string;
+}
+export interface ArticlePackaging {
+  slug: string; description: string; readingTime: string;
+  keywords: string[]; topicTag: string; ogImageUrl: string;
+}
+/** Compose the Phase-1 atomics into AEO/GEO packaging. Pure — fill-only-if-empty
+ *  is applied by the caller (the produce stage), not here. */
+export function deriveArticlePackaging(a: ArticleSubstance): ArticlePackaging</pre>
+
+  <h3>1.4 — <code>verifyProduce</code> — real-Notion signature</h3>
+  <p>Phase 2 shipped the pure core (arrays in, no I/O). Phase 5 keeps the pure function but
+    re-types its inputs as the <em>actual</em> Notion CreativeVariants rows + the analytics
+    events-table render count — ground truth the agent cannot author (design §6).</p>
+<pre>export function verifyProduce(
+  scripts: ProduceScript[],          // approved Scripts queried from Notion
+  variants: ProduceVariant[],        // CreativeVariants rows queried from Notion
+  reportedTotalMyr: number,
+  renderWorkersRan: number,          // from the analytics events table, not the agent
+): VerifyResult                       // signature unchanged; the produce stage now
+                                      // feeds it Notion reads, not P1's self-report</pre>
+
+  <h3>1.5 — <code>creative-director</code> agent contract</h3>
+<pre>in   spawnPrompt: runId + approved scriptIds
+out  CreativePlan (§1.1) as its final JSON message
+does storyboards, hook rotation, thumbnail briefs, chartRef, palette — taste only
+not  no Notion writes, no spec derivation, no rendering, never spawns</pre>
+
+  <h2><span class="num">2.</span> Tasks</h2>
+  <p>TDD: write the test(s), run red, implement, run green, commit. Commit prefix
+    <code>feat(shared):</code> for T1–T5, <code>feat(orchestrator):</code> for T8–T9,
+    <code>feat:</code> / <code>docs:</code> for the agent + worker-prompt + roadmap tasks
+    (T6, T7, T10).</p>
+
+  <div class="task">
+    <h3>T1 — <code>deriveSpecs</code>: Meta copy branch</h3>
+    <p><span class="lbl">Files</span> <code>derive/specs.ts</code> + <code>specs.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> The §1.2 types + the Meta branch — primary text from
+      <code>Script.&lt;lang&gt;</code> via <code>truncateAtWord</code> (≤180) with a canonical
+      regulator disclaimer appended when absent; headline from the hook (≤40); description from
+      CTA (≤30); <code>ctaType</code> via the existing <code>metaCtaType</code>; targeting JSON
+      from persona (age-band lookup).</p>
+    <p><span class="lbl">Test</span> A MOFU unit → <code>SIGN_UP</code>, primary text ≤180 and
+      contains a regulator phrase, headline ≤40; a BOFU consult CTA → <code>WHATSAPP_MESSAGE</code>;
+      <code>young_parents_25_35</code> → targeting <code>age_min:25, age_max:35</code>.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm vitest run packages/shared</code> green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — <code>deriveSpecs</code>: YouTube copy branch</h3>
+    <p><span class="lbl">Files</span> <code>derive/specs.ts</code>, <code>specs.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> Title from the hook (≤100, <code>truncateAtWord</code>);
+      description = body + CTA line + footer; tags from persona + funnel stage + topic +
+      <code>extractKeywords</code>, joined-length ≤500; category via <code>youtubeCategoryId</code>
+      with a Topic-keyword auto-detect.</p>
+    <p><span class="lbl">Test</span> A YT-Long unit → <code>YtCopySpec</code> with title ≤100,
+      tags joined ≤500, category id mapped; a how-to Topic → <code>"Howto &amp; Style"</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — <code>deriveSpecs</code>: organic copy branch</h3>
+    <p><span class="lbl">Files</span> <code>derive/specs.ts</code>, <code>specs.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> <code>OrganicCopySpec</code> — language from
+      <code>source.primaryLang</code>; captions from body + hook (≤2,200); IG hashtags 8–15, FB
+      hashtags 1–3 (fixed brand/topical sets — caption <em>prose</em> is the agent's job, hashtag
+      <em>counts</em> are mechanical).</p>
+    <p><span class="lbl">Test</span> An organic unit → 8–15 IG tags, 1–3 FB tags, language keyed
+      off <code>primaryLang</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — <code>deriveSpecs</code>: entry point — matrix expansion</h3>
+    <p><span class="lbl">Files</span> <code>derive/specs.ts</code>, <code>specs.test.ts</code> (extend);
+      <code>derive/index.ts</code> (re-export).</p>
+    <p><span class="lbl">Build</span> The entry function — expand each <code>CreativeUnit</code>
+      into 5 <code>VariantSpec</code>s (Carousel → 4:5 + 1:1 sharing one shotlist),
+      <code>Channels</code> via <code>deriveChannels</code>, <code>variantId</code> via the
+      existing helper, asset files joined from <code>renders</code> by <code>variantId</code>,
+      Meta/YT/organic attached only when <code>Channels</code> intersects.</p>
+    <p><span class="lbl">Test</span> One CreativeUnit → exactly 5 VariantSpecs; the Carousel pair
+      shares a shotlist, differs in aspect; a YT-Long variant has <code>yt</code> set,
+      <code>meta</code> null; an unrendered static variant → empty <code>assetFiles</code>.</p>
+    <p><span class="lbl">Verify</span> suite green; <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — <code>deriveArticlePackaging</code></h3>
+    <p><span class="lbl">Files</span> <code>derive/article-packaging.ts</code> +
+      <code>article-packaging.test.ts</code>; <code>derive/index.ts</code> (re-export).</p>
+    <p><span class="lbl">Build</span> Compose <code>slugify</code> / <code>readingTime</code> /
+      <code>extractKeywords</code> / <code>topicTag</code> + a markdown-stripped Description
+      (≤200, <code>truncateAtWord</code>) + the default OG image URL.</p>
+    <p><span class="lbl">Test</span> A complete article → kebab slug, <code>"&lt;N&gt; min read"</code>,
+      ≤10 keywords, <code>topicTag</code> ≤60 chars, Description ≤200 with markdown stripped.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — <code>creative-director.md</code> agent</h3>
+    <p><span class="lbl">Files</span> <code>.claude/agents/creative-director.md</code> (new);
+      <code>.mcp.json</code> / agent registration as needed.</p>
+    <p><span class="lbl">Build</span> ~80 lines, taste only — storyboard decomposition (§1.1
+      <code>SceneCard</code>), hook rotation across the 4 distinct creatives with distinct
+      registers, thumbnail briefs, <code>chartRef</code> reasoning (inventory-bounded),
+      <code>paletteEmphasis</code>. Tools: <code>Read</code>, <code>mcp__corpus__*</code>,
+      <code>mcp__notion__query</code> (read Scripts/Briefs only). Returns <code>CreativePlan</code>.
+      No Notion writes, no rendering, never spawns.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm sync:agents:check</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — <code>render-worker.md</code> worker prompt</h3>
+    <p><span class="lbl">Files</span> <code>corpus/templates/worker-prompts/render-worker.md</code>.</p>
+    <p><span class="lbl">Build</span> The static-asset render-worker prompt — HTML composition
+      under the brand contract, <code>static-renderer</code> + <code>asset-store</code> calls,
+      the JSON return shape <code>P2-render</code> expects (<code>{ variantId, url, sha256 }</code>
+      per unit). Supersede the existing <code>static-asset.md</code>; carry forward its
+      brand-contract + chart-embedding rules verbatim.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm test:worker</code> fixture still renders. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — <code>verifyProduce</code>: ground-truth inputs</h3>
+    <p><span class="lbl">Files</span> <code>verifiers/verify-produce.ts</code> (modify),
+      <code>verify-produce.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> Keep the pure function; re-document the inputs as real
+      Notion CreativeVariants rows + the events-table <code>render_workers_ran</code> count.
+      The §1.4 signature is unchanged — this task is the test + doc change that proves the
+      verifier judges ground truth, plus the <code>complianceCheck</code> field now sourced from
+      the row's compliance state.</p>
+    <p><span class="lbl">Test</span> A run whose Notion rows are complete → <code>ok</code>; a run
+      where the agent claimed 30 variants but Notion holds 27 → fail; static variants present with
+      0 events-table render workers → fail.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — <code>produce.ts</code> rewire</h3>
+    <p><span class="lbl">Files</span> <code>stages/produce.ts</code> (modify),
+      <code>produce.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> P1 — enrich the <code>creative-director</code> spawn prompt
+      to the §1.5 contract. P3-persist — run <code>deriveSpecs</code> over P1's
+      <code>CreativePlan</code> + P2's render results, emit <code>create_page</code> calls; add
+      the article pass (<code>deriveArticlePackaging</code> → fill-only-if-empty
+      <code>update_page</code> on approved AuthorityArticles). Add a Notion-read before P4 so
+      <code>verify</code> feeds <code>verifyProduce</code> real rows.</p>
+    <p><span class="lbl">Test</span> P1 prompt names the creative-director + runId; P3 builds one
+      <code>create_page</code> per variant from <code>deriveSpecs</code>; the article pass emits
+      fill-only-if-empty updates; verify delegates to <code>verifyProduce</code> on the Notion read.</p>
+    <p><span class="lbl">Verify</span> suite green; <code>pnpm -r build</code> clean. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T10 — Full build, suite, sync; roadmap renumber</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; <code>pnpm vitest run</code>
+      green; <code>pnpm sync:agents:check</code> clean; live <code>/loop</code> smoke unchanged
+      (fixture registry untouched). Update <code>index.html</code> — mark Phase 5 shipped, insert
+      the new Phase 6 (wire the live loop), renumber the old Phase 6 → Phase 7. Commit.</p>
+  </div>
+
+  <h2><span class="num">3.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>creative-director.md</code> exists (~80 lines, taste only) and the produce stage's P1
+    spawns it; <code>deriveSpecs</code> + <code>deriveArticlePackaging</code> are pure and
+    unit-tested (Meta/YT/organic branches keyed off <code>Channels</code>);
+    <code>verifyProduce</code> reads Notion + the events table for ground truth;
+    <code>render-worker.md</code> exists and the worker fixture renders; the produce stage runs
+    end-to-end against real code; <code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+    <code>pnpm sync:agents:check</code> all green. <code>media-production.md</code> is superseded
+    but still on disk, and the produce stage is still <em>not</em> in the live registry — both
+    are the Phase 6 cutover.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Review resolved — 2026-05-22</span>
+    <strong>(a) <code>deriveSpecs</code> location — <code>derive/</code> confirmed.</strong>
+    Lives in <code>packages/shared/src/derive/</code> alongside <code>assignSchedule</code> and the
+    Phase-1 atomics it composes.<br>
+    <strong>(b) The Articles pass — in-scope confirmed.</strong> Phase 5 re-homes it:
+    <code>deriveArticlePackaging</code> (T5) + the produce-stage article-enrich step (T9).<br>
+    <strong>(c) <code>render-worker.md</code> — T7 supersedes confirmed.</strong> T7 renames
+    <code>static-asset.md</code> → <code>render-worker.md</code>, carrying its brand-contract +
+    chart-embedding rules forward verbatim.
+  </div>
+
+  <div class="callout key">
+    <span class="lbl">Carried to Phase 6 / 7</span>
+    Phase 6 builds <code>synthesize</code> / <code>brief</code> / <code>content</code> as
+    agentic-cell stages (relocating <code>brain.md</code> §E spawn-prompts), assembles the ordered
+    live registry (design §8: <code>tracking → analytics → synthesize → brief → content →
+    produce → schedule → experiment → distribute</code>), points the orchestrator MCP at it,
+    upgrades HG4 to a passable Meta check, and — at the cutover — deletes the five replaced
+    agents (<code>tracking</code>, <code>analytics</code>, <code>distribution</code>,
+    <code>experiment-os</code>, <code>media-production</code>). Phase 7 trims <code>brain.md</code>,
+    writes ADR-020, archives <code>PLAN.md</code>.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>
+    · Predecessor: <code>phase-4.html</code> (shipped). On approval, Phase 5 executes; Phase 6 is expanded next.
+  </div>
+
+</div>
+</body>
+</html>

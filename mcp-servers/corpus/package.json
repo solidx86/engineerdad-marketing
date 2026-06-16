@@ -1,0 +1,21 @@
+{
+  "name": "@engineerdad/mcp-corpus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "mcp-corpus": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node --env-file=../../.env dist/index.js"
+  },
+  "dependencies": {
+    "@engineerdad/corpus": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "zod": "^3.23.8"
+  }
+}

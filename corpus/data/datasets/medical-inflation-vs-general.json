@@ -1,0 +1,45 @@
+{
+  "id": "medical-inflation-vs-general",
+  "generated_at": "2026-06-03T00:00:00Z",
+  "source": "Bank Negara Malaysia (2024 Malaysia medical cost inflation = 15%; 2023 ~12.6%; 2013-2018 avg ~9-10%/yr); Aon Global Medical Trend Rates Report (2025 Malaysia projected ~12.6%; global ~10%, APAC ~11%); Mercer Marsh Benefits Health Trends 2026 (APAC 2026 projected ~14%); DOSM Consumer Price Index (Malaysia general/headline CPI ~1.8% 2024, ~2% recent).",
+  "verification_status": "mixed",
+  "notes": "TWO kinds of figure in this file, with DIFFERENT provenance — do not conflate. (1) rate_series: published Malaysia medical-cost-inflation and general-CPI rates by year from the cited industry surveys/regulators — status 'verified' per row (these are published, each with a source). (2) compounding_model: a DERIVED, ILLUSTRATIVE projection, NOT a measured or published figure and NOT a sourced bill. It applies a CHOSEN illustrative rate of 12%/yr to an illustrative RM10,000 unit of medical treatment over 20 years, vs the same unit under 2%/yr general inflation (DOSM CPI comparator). The 12%/yr is a modelling choice, NOT a computed average: it simply sits within the ~9-15% range Malaysia has recorded (2023 ~12.6%; 2024 actual was higher, at 15% — BNM). Every figure the model emits (the RM96,500 endpoint, the 12% rate, the RM10,000 base) is status 'derived'/'illustrative' — none of them carry verified provenance. The RM10,000 is an illustrative unit to make the compounding gap legible — it is NOT a sourced specific bill or quote. Medical inflation has run ~6-8x general CPI; at 12% vs 2% over 20y the ratio is ~6.5x. Figures rounded sensibly for display. Illustrative model output only; not personalised advice; not guaranteed or assured. Actual costs, inflation, and timelines vary.",
+  "rate_series": {
+    "verification_status": "verified",
+    "medical_cost_inflation_pct": [
+      { "period": "2013-2018 avg", "value_pct": 9.5, "scope": "Malaysia", "source": "Bank Negara Malaysia", "status": "verified", "note": "range ~9-10%/yr" },
+      { "period": "2023", "value_pct": 12.6, "scope": "Malaysia", "source": "Bank Negara Malaysia", "status": "verified" },
+      { "period": "2024", "value_pct": 15.0, "scope": "Malaysia", "source": "Bank Negara Malaysia", "status": "verified", "note": "actual; higher than the 12% illustrative model rate" },
+      { "period": "2024", "value_pct": 10.0, "scope": "Global", "source": "Aon Global Medical Trend Rates Report", "status": "verified" },
+      { "period": "2024", "value_pct": 11.0, "scope": "APAC", "source": "Aon Global Medical Trend Rates Report", "status": "verified" },
+      { "period": "2025 (projected)", "value_pct": 12.6, "scope": "Malaysia", "source": "Aon Global Medical Trend Rates Report", "status": "verified", "note": "projection as published by Aon" },
+      { "period": "2026 (projected)", "value_pct": 14.0, "scope": "APAC", "source": "Mercer Marsh Benefits Health Trends 2026", "status": "verified", "note": "projection as published by Mercer Marsh Benefits" }
+    ],
+    "general_inflation_pct": [
+      { "period": "2024", "value_pct": 1.8, "scope": "Malaysia", "source": "DOSM Consumer Price Index (headline CPI)", "status": "verified" },
+      { "period": "recent", "value_pct": 2.0, "scope": "Malaysia", "source": "DOSM Consumer Price Index (headline CPI)", "status": "verified" }
+    ],
+    "medical_to_general_multiple": { "value": "~6-8x", "note": "Malaysia medical inflation runs roughly 6-8x general CPI", "status": "verified" }
+  },
+  "compounding_model": {
+    "verification_status": "derived",
+    "status": "derived",
+    "is_illustrative": true,
+    "description": "Illustrative compounding of one RM10,000 unit of medical treatment over 20 years. Medical line: RM10,000 x (1.12)^t. General-inflation comparator: RM10,000 x (1.02)^t. Every output here is a modelling choice, not a published or measured figure.",
+    "illustrative_unit_rm": 10000,
+    "illustrative_unit_status": "illustrative",
+    "medical_rate_pct": 12,
+    "medical_rate_status": "illustrative",
+    "general_rate_pct": 2,
+    "horizon_years": 20,
+    "rate_rationale": "12%/yr is a CHOSEN illustrative rate, NOT a computed average. It sits within Malaysia's recorded ~9-15% range (2023 ~12.6%; 2024 BNM actual was higher, at 15%). 2%/yr is the DOSM headline-CPI comparator. Do not present 12% as 'the average' — it is a modelling choice the chart makes legible.",
+    "rows": [
+      { "year": 0,  "medical_rm": 10000, "general_rm": 10000, "status": "derived" },
+      { "year": 5,  "medical_rm": 17600, "general_rm": 11000, "status": "derived" },
+      { "year": 10, "medical_rm": 31100, "general_rm": 12200, "status": "derived" },
+      { "year": 15, "medical_rm": 54700, "general_rm": 13500, "status": "derived" },
+      { "year": 20, "medical_rm": 96500, "general_rm": 14900, "status": "derived" }
+    ],
+    "exact_values_note": "Unrounded: t=20 medical = RM96,463; general = RM14,859. Displayed values rounded for legibility. Derived/illustrative — not a sourced figure."
+  }
+}

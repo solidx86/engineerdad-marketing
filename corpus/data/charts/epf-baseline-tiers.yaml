@@ -1,0 +1,28 @@
+# EPF Baseline Reality Matrix — the three KWSP Belanjawanku-derived target tiers
+# Source: corpus/courses/prs-basics.md ("Why PRS matters") + the EPF Sustainability
+# Calculator in corpus/courses/tools.md.
+# Used by media-production when a scene argues "how much retirement fund is actually
+# enough", "most Malaysians don't hit Adequate on EPF alone", "the gap PRS closes",
+# any Money Psychology Series A retirement-anchor hook, or "EPF/government will take
+# care of me" (objection myth d0-epf-will-cover-me).
+
+id: epf-baseline-tiers
+title_en: "How much you actually need at retirement — KWSP Belanjawanku tiers"
+title_ms: "Berapa anda sebenarnya perlu pada persaraan — tahap KWSP Belanjawanku"
+chart_type: bar
+x_label_en: "Retirement-savings tier"
+x_label_ms: "Tahap simpanan persaraan"
+y_label_en: "Total retirement savings needed (RM)"
+y_label_ms: "Jumlah simpanan persaraan diperlukan (RM)"
+labels:
+  - "Basic (survival)"
+  - "Adequate (realistic target)"
+  - "Enhanced (comfortable)"
+series:
+  - name_en: "Target retirement savings"
+    name_ms: "Sasaran simpanan persaraan"
+    semantic_role: hero
+    values: [390000, 650000, 1300000]
+caption_en: "RM390,000 buys you Basic survival in retirement. RM650,000 is the realistic Adequate tier — and the level most Malaysians don't hit on EPF alone. RM1,300,000 is Enhanced. The gap between where your EPF projection lands and the Adequate line is what PRS, unit-trust accumulation, and any voluntary top-up are designed to close. Note: these are KWSP targets in today's ringgit — a present-day floor. If you retire in, say, 20 years, inflation pushes the real number you'll need higher, which only widens the gap."
+caption_ms: "RM390,000 membeli Asas — sekadar bertahan dalam persaraan. RM650,000 ialah tahap Mencukupi yang realistik — dan tahap yang kebanyakan rakyat Malaysia tidak capai melalui EPF sahaja. RM1,300,000 ialah Ditingkatkan. Jurang antara unjuran EPF anda dan garisan Mencukupi ialah apa yang PRS, pengumpulan amanah saham, dan apa-apa tambahan sukarela direka untuk menutup. Nota: ini ialah sasaran KWSP dalam ringgit nilai hari ini — paras minimum semasa. Jika anda bersara dalam, katakan, 20 tahun, inflasi menolak jumlah sebenar yang anda perlukan lebih tinggi, yang hanya melebarkan jurang itu."
+source_citation: "Tier figures from KWSP Belanjawanku, as cited in corpus/courses/prs-basics.md and reflected in the EPF Sustainability Calculator (engineerdad.my/tools/epf-sustainability-calculator). Tiers are KWSP's published guideline targets, not a guarantee, and are stated in present-day ringgit — a future retirement horizon must be inflation-adjusted upward. Personal target depends on lifestyle, dependents, time horizon, and post-retirement healthcare assumptions — a licensed Consultant can model the personalised, inflation-adjusted number."

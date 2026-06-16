@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADR-023 — The conductor is a reasoning surface; the orchestrator owns execution</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p1 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .strike { color: var(--muted); text-decoration: line-through; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>ADR-023 — The conductor is a reasoning surface; the orchestrator owns execution</h1>
+  <p class="subtitle">Mechanical work and bulk data leave the conductor's tape entirely. The orchestrator self-executes write steps via in-process library imports; the conductor's job narrows to reasoning dispatch (spawn / fanout) and human gates.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-24</dd>
+    <dt>Status</dt><dd><span class="pill">Draft spec — awaiting approval before ADR + plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill p1">P1</span> — load-bearing doctrine; blocks <code>run_1779611092</code> at P3-persist (238 KB plan envelope blew the conductor's inline cap)</dd>
+    <dt>Branch</dt><dd><code>feat/adr-023-orchestrator-execution</code> (new, off <code>main</code> at <code>e00d606</code>)</dd>
+    <dt>Generalizes</dt><dd>ADR-005 (thin-adapter / no-MCP-mesh) · ADR-018 (mechanical routing) · ADR-022 (claim-check / Reference-Based Messaging)</dd>
+    <dt>Patterns</dt><dd>Direct Service Integration (AWS Step Functions) · Embedded Activities (Temporal) · Memory-handle (Anthropic multi-agent research system) · State-slicing (LangGraph) · Plan-and-Execute (LangChain)</dd>
+    <dt>Tracker</dt><dd>(this spec is the prework; ADR + plan land alongside the implementation PR)</dd>
+    <dt>Related</dt><dd>ADR-021 (cap-honouring MCP) · E-030 (Postgres unification — natural sibling) · E-033 (critic-evaluator step — composes on top) · B-016 (verifier audit)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context — a second cap, a deeper pattern</h2>
+
+<p>
+E-031 (ADR-022) shipped <span class="pill ok">Accepted 2026-05-24</span> and solved one specific class of bug: workers producing fan-out outputs too large for the conductor's inline tool-call channel. Workers now persist their final payload to <code>orchestrator.step_results</code> and emit a 50-byte <code>{stepResultId}</code> ref; the conductor carries refs verbatim; the orchestrator MCP dereferences server-side. The fix was verified end-to-end on <code>run_1779611092</code> through HG2 — including a 62&nbsp;KB P1-fanout unit that would have wedged the old inline contract.
+</p>
+
+<p>
+A few hours after that landed, the same run continued past HG2 into the produce stage. P3-persist plans the materialization of N CreativeVariants — each carrying dual-language shotlists, ad copy, targeting JSON, organic captions. For four approved scripts × four creative formats, that's sixteen <code>mcp__store__create</code> calls, each ~14&nbsp;KB of <code>props</code>. The orchestrator MCP's <code>plan()</code> response carried the full set inline — <strong>238,164 bytes</strong>:
+</p>
+
+<pre>Error: result (238,164 characters across 873 lines) exceeds maximum allowed tokens.
+Tool: mcp__orchestrator__plan</pre>
+
+<p>
+The cap that bit was not new. The boundary that bit was new. E-031's claim-check applies at <em>worker → conductor</em>. This bug fires at <em>orchestrator → conductor</em> — the moment the conductor asks "what should I do next?" and the orchestrator has to ship the full <code>step.calls[]</code> embedding back. ADR-022's text does not cover this hop, but ADR-022's <em>principle</em> does. The conductor is the cap-sensitive transmission stop in both cases; we just discovered a second tributary feeding bulk through it.
+</p>
+
+<p>
+We could file this as a sibling enhancement and mirror ADR-022's specific mechanism at a second boundary. We instead choose to name the underlying doctrine that ADR-022, ADR-018 (mechanical routing), and ADR-005 (thin-adapter doctrine) have all been instantiating — and apply it uniformly going forward.
+</p>
+
+<h2><span class="num">2.</span> The boundary inventory</h2>
+
+<p>
+Four boundaries where bulk could cross the conductor. Today's contracts; today's cap exposure:
+</p>
+
+<table>
+<tr><th>#</th><th>Boundary</th><th>What flows</th><th>Contract today</th><th>Cap-exposed today?</th></tr>
+<tr><td class="n">A</td><td>worker → conductor</td><td>spawn / fanout output</td><td>refs only (ADR-022)</td><td><span class="pill ok">no</span></td></tr>
+<tr><td class="n">B</td><td>orchestrator → conductor</td><td><code>plan()</code> envelope (<code>step.calls[]</code>, <code>step.units[]</code>)</td><td>always inline</td><td><span class="pill">YES — the bug found 2026-05-24</span></td></tr>
+<tr><td class="n">C</td><td>conductor → orchestrator</td><td><code>result</code> arg to verify / advance</td><td>refs for spawn/fanout; inline for write/gate (small)</td><td><span class="pill ok">no</span> (same machinery as A)</td></tr>
+<tr><td class="n">D</td><td>conductor → external MCPs</td><td>tool args for executed calls</td><td>inline (conductor issues real calls)</td><td>bounded per-tool; not the issue today</td></tr>
+</table>
+
+<p>
+Boundary B is the gap. The orchestrator builds <code>step.calls[]</code> with full <code>props</code> embedded; the conductor receives them as the answer to <code>plan()</code>; the harness caps the response. Once the response is over ~50&nbsp;KB the conductor literally cannot see the work it is supposed to do.
+</p>
+
+<h2><span class="num">3.</span> Industry precedent — this is solved, repeatedly, with two names</h2>
+
+<p>
+A research pass (2026-05-24, see PROMPT §"Industry Research") established that this problem is named, documented, and solved across mature workflow engines. The shapes converge on two families:
+</p>
+
+<h3>3.1 — Claim-check at a new boundary (the ADR-022 lineage)</h3>
+
+<p>
+Apply ADR-022's pattern at boundary B too. Bulk plans become refs the conductor dereferences when it needs to read them.
+</p>
+
+<table>
+<tr><th>System</th><th>Mechanism</th></tr>
+<tr><td><strong>Temporal — External Storage / Large Payload Codec</strong></td><td><code>BlobSizeLimitError</code> at 2 MB. DataDog's <a href="https://github.com/DataDog/temporal-large-payload-codec">Large Payload Codec</a> swaps payloads for S3 refs at SDK layer — transparent to caller.</td></tr>
+<tr><td><strong>AWS Step Functions — larger state payloads</strong></td><td><code>States.DataLimitExceeded</code> at 256 KB. <a href="https://aws.amazon.com/blogs/compute/introducing-larger-state-payloads-for-aws-step-functions/">Published workaround</a>: state passes S3 keys, not payloads.</td></tr>
+<tr><td><strong>Argo Workflows — artifacts vs parameters</strong></td><td>Issue <a href="https://github.com/argoproj/argo-workflows/issues/2969">#2969 "Support large parameters"</a>. Solution: switch <code>parameters</code> → <code>artifacts</code> (S3 refs).</td></tr>
+<tr><td><strong>Google ADK — artifact handles</strong></td><td>"Tools accept the artifact identifier name instead of providing the full bytes data in the tools parameter."</td></tr>
+</table>
+
+<h3>3.2 — Direct Service Integration (the new family for us)</h3>
+
+<p>
+A stronger pattern: <strong>don't pass the bulk through the executor at all</strong>. The state machine invokes the underlying service itself; the executor never sees the work-order, only the result.
+</p>
+
+<table>
+<tr><th>System</th><th>Mechanism</th></tr>
+<tr><td><strong>AWS Step Functions — Direct Service Integrations</strong></td><td>The state machine invokes DynamoDB, SNS, SQS, Lambda <em>itself</em>, without serializing the payload back through a client. AWS explicitly recommends these over Lambda-wrapped invocations. Native handlers.</td></tr>
+<tr><td><strong>Temporal — Activities</strong></td><td>The workflow code <em>is</em> the orchestrator; activities run in worker processes but are dispatched by the workflow directly. The orchestrator owns dispatch and result-capture; nothing flows back through an intermediate executor.</td></tr>
+<tr><td><strong>Anthropic — multi-agent research system</strong></td><td>Lead agent <strong>"saves its plan to memory"</strong> and spawns subagents with only "an objective, output format, guidance on tools/sources, and clear task boundaries." Plan body never re-enters the lead agent's context.</td></tr>
+<tr><td><strong>LangGraph — checkpointer with reference state</strong></td><td>Explicit doctrine: <em>"A common mistake is storing large binary artifacts directly in the LangGraph state… store large files in specialized storage and keep only the reference URL or metadata."</em></td></tr>
+<tr><td><strong>LangChain — Plan-and-Execute</strong></td><td>Planner LLM has the full plan; executor LLM sees one step at a time. The split is explicit and named.</td></tr>
+</table>
+
+<div class="quote">
+  Arize's published <a href="https://arize.com/blog/orchestrator-worker-agents-a-practical-comparison-of-common-agent-frameworks/">comparison of orchestrator-worker frameworks</a>: <em>"the orchestrator must hold the full task description, all worker results, and enough context to synthesize… at four or more workers, context frequently exceeds window limits."</em> The published response across all mature systems is identical: the LLM should be present at decision points, not at transport points. Mechanical fan-out of pre-decided writes is a transport point.
+</div>
+
+<h3>3.3 — What the research did NOT find</h3>
+
+<p>
+No published pattern recommends pushing bulk through an LLM's tool-call channel. No framework treats the conductor as a sound place to hold bulk. No mature system has "streaming the plan in chunks to the executor" as a documented technique — pagination over plan steps isn't a recognized pattern because step boundaries are semantic, not size-based.
+</p>
+
+<h2><span class="num">4.</span> The doctrine</h2>
+
+<div class="callout new">
+  <p><span class="tag">ADR-023.</span> <strong>The conductor is a reasoning surface — not a transmission surface, not an execution surface.</strong></p>
+  <p>The conductor's job is to dispatch reasoning workers (<code>spawn</code> / <code>fanout</code>) and to honour human gates. Mechanical work that requires no reasoning belongs inside the orchestrator. Bulk that requires no inspection belongs on the side of the boundary that already holds it.</p>
+  <p>Concretely the conductor only ever talks to two surfaces: <code>mcp__orchestrator__*</code> (for state + work delegation) and <code>Task</code> (Claude Code's built-in for spawning subagent workers, which the orchestrator cannot invoke itself). Everything else — <code>store</code>, <code>meta-ads</code>, <code>analytics</code>, <code>corpus</code>, <code>youtube</code>, etc. — is reached by the orchestrator via in-process library imports, or by spawned workers via their own MCP access. Never by the conductor directly.</p>
+</div>
+
+<h3>4.1 — What the doctrine generalizes</h3>
+
+<table>
+<tr><th>Prior ADR</th><th>What it constrained</th><th>How ADR-023 generalizes it</th></tr>
+<tr><td><strong>ADR-005</strong> — thin-adapter doctrine + no-MCP-mesh</td><td>MCP servers are stdio wrappers over <code>packages/</code>; they don't open client connections to each other.</td><td>The orchestrator inherits ADR-005's "don't cross MCP boundaries unnecessarily" by importing packages directly. ADR-005 made the package-import path possible; ADR-023 makes it the default for in-workspace callers.</td></tr>
+<tr><td><strong>ADR-018</strong> — spec-build vs routing split (distribution)</td><td>Distribution is a "pure mechanical router; it must never derive copy/targeting/metadata at call time."</td><td>Same principle, larger scope. Distribution's mechanical routing is one instance. P3-persist's mechanical bulk-writes is another. Future mechanical steps inherit the rule without per-step argument.</td></tr>
+<tr><td><strong>ADR-022</strong> — claim-check for worker output</td><td>Workers persist outputs; conductor carries refs; orchestrator dereferences before verify.</td><td>The "conductor carries refs, not bulk" rule extends to <em>any</em> bulk that would otherwise cross the conductor. The orchestrator-resident-execution path eliminates the need for refs entirely on the orchestrator → conductor hop — because the bulk never leaves the orchestrator in the first place.</td></tr>
+</table>
+
+<h3>4.2 — The three doctrines, rephrased as one</h3>
+
+<p>
+ADR-005 says: don't make MCP servers gossip with each other; route through libraries.<br>
+ADR-018 says: don't make the conductor decide mechanical things.<br>
+ADR-022 says: don't make the conductor carry bulk worker outputs.<br>
+<strong>ADR-023 says: don't make the conductor carry or do anything that isn't reasoning. Everything else lives on the durable side.</strong>
+</p>
+
+<h2><span class="num">5.</span> The three architectural shapes we considered</h2>
+
+<table>
+<tr><th>Option</th><th>Mechanism</th><th>Industry analog</th><th>Verdict</th></tr>
+<tr>
+  <td><strong>1 — Plan-ref</strong></td>
+  <td>Mirror ADR-022. When <code>plan()</code> envelope &gt; 50 KB, orchestrator persists it to <code>orchestrator.plans</code>, returns <code>{planRef}</code>. Conductor fetches via <code>read_plan</code>.</td>
+  <td>Temporal codec; Argo artifacts; ADK handles.</td>
+  <td>Works. Same conductor role (transmitter). Adds a reference protocol the conductor must speak. <span class="pill ok">defensible</span></td>
+</tr>
+<tr>
+  <td><strong>2 — Streaming</strong></td>
+  <td>Range queries: conductor fetches plan steps incrementally.</td>
+  <td>None recognized.</td>
+  <td>No published precedent. <span class="strike">drop</span></td>
+</tr>
+<tr>
+  <td><strong>3 — Planner-executes</strong></td>
+  <td>Orchestrator runs its own write-step calls (by importing <code>packages/</code>). Conductor sees only the result summary.</td>
+  <td>AWS Step Functions Direct Service Integrations; Temporal activities; Anthropic memory-handle.</td>
+  <td><strong>This.</strong> Removes the boundary; closes the class. <span class="pill p1">chosen</span></td>
+</tr>
+</table>
+
+<h3>5.1 — Why Option 3, and why total (Scope C) rather than partial (Scope B)</h3>
+
+<p>
+Option 1 patches transmission; Option 3 removes the need for it. The conductor adds <em>no value</em> as a transmitter of pre-decided mechanical calls — it cannot reason about <code>store.create(...)</code> in a useful way, cannot improve the args, cannot retry intelligently. It is shoe leather between two parties (orchestrator and store MCP) that already know each other.
+</p>
+
+<p>
+We considered shipping Option 3 incrementally as Scope B — orchestrator self-executes only those write steps whose calls all target a <code>packages/</code>-resident library (today: <code>packages/store</code> only). That gets P3-persist out of the cap path immediately without prework. We are choosing Scope C instead — the full extraction of <code>mcp-servers/&lt;name&gt;/src/</code> business logic into <code>packages/&lt;name&gt;/</code> across the remaining six servers — for two reasons:
+</p>
+
+<ul>
+  <li><strong>Doctrinal cleanliness.</strong> Under Scope B, the conductor's behaviour bifurcates: some write steps it doesn't see, some it executes. The mental model "the conductor sees decisions and only decisions" needs caveats. Scope C lets ADR-023 stand without exceptions.</li>
+  <li><strong>The extractions are owed work anyway.</strong> ADR-005's thin-adapter ideal already calls for every MCP server to be a stdio wrapper over a <code>packages/</code> library. Five of the six aren't (the meta-ads / analytics / corpus / youtube / heygen MCPs hold their business logic inside <code>mcp-servers/&lt;name&gt;/src/</code>). The store MCP is the lone exception that demonstrates the ideal. Scope C funds the alignment.</li>
+</ul>
+
+<h3>5.2 — Variant B2 (eager execution) over B1 (lazy)</h3>
+
+<p>
+Inside Scope C there is a choice about <em>when</em> the orchestrator runs the work:
+</p>
+
+<ul>
+  <li><strong>B1 (lazy).</strong> <code>plan()</code> returns <code>{kind:"write", stepId, executed:false, callCount:N}</code>. Conductor explicitly calls <code>execute_step(stepId)</code>. Two tool calls per write step.</li>
+  <li><strong>B2 (eager).</strong> <code>plan()</code> for a self-executable write step <em>executes inline</em> and returns <code>{kind:"write", stepId, executed:true, results:[...], stage, status}</code>. The conductor never sees the work to do — only what was done.</li>
+</ul>
+
+<p>
+<strong>We choose B2.</strong> The conductor has no information that would let it usefully decide to abort between plan and execute — verification is downstream, and the orchestrator's own verify-fold means the engine catches problems before the conductor sees them anyway. B1 keeps the conductor's role artificially active for no gain; B2 contracts the role to "ask what's next; observe what happened." Cleaner doctrine, simpler loop, fewer round-trips.
+</p>
+
+<h2><span class="num">6.</span> Architecture after ADR-023</h2>
+
+<h3>6.1 — Who talks to whom</h3>
+
+<div class="diagram">
+                  ┌─────────────────────────────┐
+                  │         Conductor           │
+                  │  (Claude Code + /loop LLM)  │
+                  └──────────────┬──────────────┘
+                                 │   only two surfaces:
+                                 │   • mcp__orchestrator__*
+                                 │   • Task  (built-in)
+                                 ▼
+            ┌─────────────────────────────────────────┐
+            │      mcp-servers/orchestrator/          │
+            │                                         │
+            │   stdio adapter ── packages/orchestrator│
+            │                                         │
+            │   imports (in-process):                 │
+            │     packages/store                      │
+            │     packages/meta-ads      (new)        │
+            │     packages/analytics     (new)        │
+            │     packages/corpus        (new)        │
+            │     packages/youtube       (new)        │
+            │     packages/heygen        (new)        │
+            │     packages/shared/compliance          │
+            └──────────────────┬──────────────────────┘
+                               │ direct library calls (in-process)
+                               ▼
+                  Postgres · SQLite · HTTPS to Meta/YouTube
+                               (the durable layer)
+</div>
+
+<h3>6.2 — Conductor's day, after ADR-023</h3>
+
+<pre class="flow">loop {
+  step = orchestrator.plan(runId)        // ONE tool call
+
+  switch step.kind {
+
+    case "write":                        // NEVER SEEN — orchestrator did it
+    case "gate":                         // NEVER SEEN — orchestrator checked it
+        // these never reach the conductor; plan() advances through them
+        continue
+
+    case "spawn":
+        ref = Task(step.agent, step.spawnPrompt)
+        orchestrator.advance(stepId, ref)
+        continue
+
+    case "fanout":
+        refs = parallel( Task(unit.agent, unit.spawnPrompt) for unit in step.units )
+        orchestrator.advance(stepId, refs)
+        continue
+
+    case "gate-stop":
+        print(step.message)              // human-readable
+        stop
+
+    case "done":
+        print(step.message)
+        stop
+  }
+}</pre>
+
+<p>
+Compare to today's loop (see <code>.claude/commands/loop.md</code>): the <code>write</code> branch's substitution rules, the <code>$&lt;label&gt;</code> capture syntax, the per-call dispatch, the verify-then-advance two-step — all gone. The conductor's responsibility shrinks to "dispatch reasoning workers; pass refs; honour stops."
+</p>
+
+<h3>6.3 — Orchestrator's day, after ADR-023</h3>
+
+<p>
+The orchestrator MCP's <code>plan()</code> handler gains a loop that runs internally until it reaches a step the conductor needs to see:
+</p>
+
+<pre>function plan(runId) {
+  loop {
+    step = engine.plan(runId, LIVE_REGISTRY)
+
+    switch step.kind {
+
+      case "write":
+        results = executeWriteStep(step, deps)    // calls packages/* directly
+        engine.advance(runId, step.id, results)   // verify folds in
+        continue                                  // try next step
+
+      case "gate":
+        if step.check {
+          checkResult = executeCheck(step.check, deps)  // packages/* read
+          if checkResult.passes {
+            engine.advance(runId, step.id, checkResult)
+            continue                              // gate cleared, advance
+          }
+        }
+        return makeGateStopStep(step)             // human must act
+
+      case "spawn":
+      case "fanout":
+      case "gate-stop":
+      case "done":
+      case "halt":
+        return step                               // conductor needs to see this
+
+    }
+  }
+}</pre>
+
+<p>
+The engine, verifiers, and stage definitions are <strong>unchanged</strong>. <code>executeWriteStep</code> is new code in <code>packages/orchestrator</code> that walks <code>step.calls[]</code>, dispatches each <code>{tool, args}</code> to the correct package's function (table-driven), and returns the array of results. The orchestrator MCP imports the new packages and injects them as <code>deps</code>.
+</p>
+
+<h2><span class="num">7.</span> The new engine and MCP surface</h2>
+
+<h3>7.1 — engine API additions (<code>packages/orchestrator</code>)</h3>
+
+<pre>// packages/orchestrator/src/exec.ts (new)
+
+export interface ExecDeps {
+  store:      typeof import("@engineerdad/store");
+  metaAds:    typeof import("@engineerdad/meta-ads");
+  analytics:  typeof import("@engineerdad/analytics");
+  corpus:     typeof import("@engineerdad/corpus");
+  youtube:    typeof import("@engineerdad/youtube");
+  heygen:     typeof import("@engineerdad/heygen");
+  compliance: typeof import("@engineerdad/shared/compliance");
+}
+
+export async function executeWriteStep(
+  step: Step & { kind: "write" },
+  deps: ExecDeps,
+): Promise&lt;unknown[]&gt; { /* ... */ }
+
+export async function executeCheck(
+  check: { tool: string; args: Record&lt;string, unknown&gt; },
+  deps: ExecDeps,
+): Promise&lt;unknown&gt; { /* ... */ }</pre>
+
+<h3>7.2 — MCP envelope shapes</h3>
+
+<p>
+The orchestrator MCP's existing <code>plan</code> tool gets a new response shape for steps it executed eagerly. Existing <code>verify</code> + <code>advance</code> tools become <em>vestigial for write / gate-check</em> (the orchestrator already ran them); they continue to exist for spawn / fanout where the conductor's dispatch result needs verification.
+</p>
+
+<table>
+<tr><th>Step kind seen by conductor</th><th><code>plan()</code> response</th></tr>
+<tr><td><code>spawn</code></td><td><code>{ kind:"spawn", stepId, agent, spawnPrompt }</code> (as today)</td></tr>
+<tr><td><code>fanout</code></td><td><code>{ kind:"fanout", stepId, worker, units:[…] }</code> (as today)</td></tr>
+<tr><td><code>gate-stop</code></td><td><code>{ kind:"gate-stop", stepId, message }</code> (gate that requires a human; <code>check</code> already evaluated and failed inside <code>plan</code>)</td></tr>
+<tr><td><code>done</code></td><td><code>{ kind:"done", message }</code></td></tr>
+<tr><td><code>halt</code></td><td><code>{ kind:"halt", reason }</code></td></tr>
+</table>
+
+<p>
+The conductor never sees <code>kind:"write"</code> or <code>kind:"gate"</code> (with check). Those are handled inside <code>plan()</code> and the loop spins forward until the next conductor-relevant step.
+</p>
+
+<h2><span class="num">8.</span> The package-extraction prework</h2>
+
+<p>
+Six MCP servers currently hold their business logic inside <code>mcp-servers/&lt;name&gt;/src/</code> instead of in a sibling <code>packages/&lt;name&gt;/</code>. ADR-023 requires the orchestrator to import these as libraries. Each one needs an extraction pass: move the implementation files to <code>packages/&lt;name&gt;/src/</code>, leave the MCP server as a 30-line stdio adapter that re-exports the package's tool surface.
+</p>
+
+<table>
+<tr><th>MCP server</th><th>Current implementation surface</th><th>Extraction effort</th><th>External I/O concerns</th></tr>
+<tr><td><code>store</code></td><td>(already extracted to <code>packages/store</code>)</td><td><span class="pill ok">none — done</span></td><td>—</td></tr>
+<tr><td><code>meta-ads</code></td><td><code>capi.ts</code>, <code>insights.ts</code>, <code>create.ts</code>, <code>upload.ts</code>, plus ~8 supporting files (~1.5k LOC)</td><td>medium — HTTP client; SHA-256 PII normalization; multipart upload; ad-creation chains</td><td>HTTPS to Meta Graph API; ADR-015 PAUSED-on-create invariants</td></tr>
+<tr><td><code>analytics</code></td><td><code>ingest.ts</code>, <code>rank.ts</code>, <code>decay.ts</code>, <code>bandit.ts</code>, <code>upsert.ts</code>; SQLite migrations (~1k LOC)</td><td>medium — owns its own SQLite handles + schema (will dovetail with E-030 Postgres unification)</td><td>SQLite (<code>data/engineerdad.sqlite</code> events / creative_signals / bandit_arms)</td></tr>
+<tr><td><code>corpus</code></td><td><code>search.ts</code>, <code>get.ts</code>, <code>compliance.ts</code>, <code>proof.ts</code>; BM25 index loading (~500 LOC)</td><td>small — read-mostly; in-memory BM25; filesystem reads</td><td>filesystem (<code>corpus/.index/</code>)</td></tr>
+<tr><td><code>youtube</code></td><td>OAuth + upload + metadata clients (~600 LOC)</td><td>medium — OAuth token refresh; resumable upload</td><td>HTTPS to YouTube Data API; OAuth handshake</td></tr>
+<tr><td><code>heygen</code></td><td>video-job submission + polling clients (~300 LOC)</td><td>small — straightforward HTTP wrapper</td><td>HTTPS to HeyGen</td></tr>
+<tr><td><code>experiment</code></td><td>factorial design + readout (~400 LOC)</td><td>small — pure logic; no external I/O</td><td>SQLite reads (shared with analytics)</td></tr>
+</table>
+
+<h3>8.1 — Suggested extraction order</h3>
+
+<ol>
+  <li><strong>analytics</strong> — most write-step traffic (A1, A2, A3, T2 partial). High payoff. Couples with E-030's eventual SQLite-→-Postgres migration: extract structure now so the migration is local to one package.</li>
+  <li><strong>corpus</strong> — small surface; mostly reads. Easy win; unblocks any future write step that needs compliance-block reads at orchestrator-resident time.</li>
+  <li><strong>meta-ads</strong> — second-largest surface. Required for any orchestrator-resident write that touches Meta (T1, T2 partial). HTTPS + PII normalization need careful porting.</li>
+  <li><strong>experiment</strong> — small, pure logic. Trivial.</li>
+  <li><strong>youtube</strong> — OAuth handling is the only tricky bit; defer until a write-step actually needs it from the orchestrator side.</li>
+  <li><strong>heygen</strong> — defer; no current orchestrator-resident write step uses it.</li>
+</ol>
+
+<p>
+Order 1–4 covers every write step in <code>LIVE_REGISTRY</code> today. Orders 5–6 are pre-emptive and can wait.
+</p>
+
+<h3>8.2 — What stays in <code>mcp-servers/&lt;name&gt;/</code></h3>
+
+<p>
+The MCP servers don't disappear. Outside callers — Claude Code's main session running <code>/distribute</code>, future scheduled cron jobs, Cowork — still reach these services via stdio MCP. The MCP server becomes the canonical ADR-005 thin adapter: ~30 lines that imports its package, registers tools, dispatches. The <em>business logic</em> moves; the <em>protocol surface</em> stays.
+</p>
+
+<h2><span class="num">9.</span> Worked example — P3-persist under the new contract</h2>
+
+<h3>9.1 — Today (the wedge)</h3>
+
+<pre>conductor → orchestrator.plan(run_1779611092)
+                              ┌───────────────────────────────┐
+orchestrator returns:         │ 238 KB envelope — 16 calls    │
+                              │  each ~14 KB props embedded   │
+                              └───────────────────────────────┘
+harness intercepts:  ❌ "result exceeds maximum allowed tokens"
+                     persists to disk; conductor sees preview only
+                     conductor cannot execute the work it can't read</pre>
+
+<h3>9.2 — After ADR-023</h3>
+
+<pre>conductor → orchestrator.plan(run_1779611092)
+                              ┌──────────────────────────────────────┐
+inside the orchestrator MCP:  │ engine.plan() → kind:"write"          │
+                              │ deps.store.create({entity:"…", props}) × 16
+                              │ deps.compliance.scan() on each props  │
+                              │ deps.store.query(AuthorityArticles)   │
+                              │ engine.advance(stepId, results)       │
+                              │   ↓                                   │
+                              │ next step → P4-articles (also write?) │
+                              │   ↓ keep looping internally           │
+                              │ eventually → kind:"gate-stop" HG3     │
+                              └──────────────────────────────────────┘
+orchestrator returns to conductor:
+                              { kind: "gate-stop", stepId: "P-gate-3",
+                                message: "HG3 — review Variants in UI..." }
+size on the wire: ~250 bytes.</pre>
+
+<p>
+P3-persist's 16 store.create calls run in-process inside the orchestrator. Each call goes through the same <code>packages/store</code> CRUD that the store MCP would have used; each props blob is scanned by the same <code>packages/shared/compliance</code> code. The compliance scanner doctrine is preserved (ADR-022 §"Compliance scanner remains the entity-write choke point"); only the call site moves.
+</p>
+
+<h3>9.3 — Run sequence comparison</h3>
+
+<table>
+<tr><th>Step</th><th>Today: conductor tool calls</th><th>After ADR-023: conductor tool calls</th></tr>
+<tr><td>T1-canary</td><td>4 (plan, capi_test_event, verify, advance)</td><td>1 (plan; eager)</td></tr>
+<tr><td>T2-send</td><td>5</td><td>1</td></tr>
+<tr><td>A1-ingest</td><td>5</td><td>1</td></tr>
+<tr><td>A2-rank</td><td>5</td><td>1</td></tr>
+<tr><td>A3-decay</td><td>4</td><td>1</td></tr>
+<tr><td>S1-reason (spawn)</td><td>4 (plan, Task, verify, advance)</td><td>3 (plan, Task, advance)</td></tr>
+<tr><td>B1-write (spawn)</td><td>4</td><td>3</td></tr>
+<tr><td>B2-gate (HG1)</td><td>1 (plan returns gate-stop)</td><td>1</td></tr>
+<tr><td>C0-briefs</td><td>4</td><td>0 (folded into the post-gate plan call)</td></tr>
+<tr><td>C1-fanout (×4)</td><td>7</td><td>3 (plan, parallel Task, advance)</td></tr>
+<tr><td>C2-articles (spawn)</td><td>4</td><td>3</td></tr>
+<tr><td>C3-gate (HG2)</td><td>1</td><td>1</td></tr>
+<tr><td>P0-scripts</td><td>4</td><td>0</td></tr>
+<tr><td>P1-fanout (×4)</td><td>7</td><td>3</td></tr>
+<tr><td>P2-render (×8)</td><td>11</td><td>3</td></tr>
+<tr><td><strong>P3-persist</strong></td><td><strong>(would have been 19; blew the cap)</strong></td><td><strong>0</strong></td></tr>
+<tr><td>HG3 gate</td><td>1</td><td>1</td></tr>
+<tr><td><strong>Total to HG3</strong></td><td><strong>~74 + cap-failure</strong></td><td><strong>~26</strong></td></tr>
+</table>
+
+<p>
+The conductor's tape contracts by ~3× and the cap class disappears. Round-trip latency over a full HG1→HG3 walk drops correspondingly.
+</p>
+
+<h2><span class="num">10.</span> Resuming <code>run_1779611092</code> under the new contract</h2>
+
+<p>
+The wedged run's state is preserved in SQLite (<code>data/engineerdad.sqlite</code>) and Postgres (<code>orchestrator.step_results</code>). Specifically:
+</p>
+
+<ul>
+  <li>11 step_results rows for the run, all clean JSONB objects, covering S1-reason through P2-render (the largest 62&nbsp;KB).</li>
+  <li>Run is at stage <code>produce</code>, status <code>active</code>, with P2-render completed and P3-persist as the next-due step.</li>
+  <li>16 CreativeUnit specs are reconstructable from <code>foldCreativePlan</code> over the P1-fanout step_results refs (current code path).</li>
+</ul>
+
+<p>
+Under ADR-023 + Variant B2: the user resumes by calling <code>/loop run_1779611092</code>. The conductor calls <code>plan()</code>. The orchestrator's <code>plan()</code> handler:
+</p>
+
+<ol>
+  <li>Sees the next step is P3-persist (write).</li>
+  <li>Builds the 16 calls + trailing query (same code as today).</li>
+  <li>Invokes <code>executeWriteStep</code>, which dispatches each call through <code>packages/store</code> in-process. Compliance scanner runs per props.</li>
+  <li>Captures 16 + 1 = 17 results; calls <code>engine.advance</code>; the engine rolls the stage forward.</li>
+  <li>Sees the next step is HG3 (gate-stop, no automatic check; ADR-014 carve-out variants need human approval).</li>
+  <li>Returns <code>{kind:"gate-stop", message:"HG3 — review Variants..."}</code> to the conductor.</li>
+</ol>
+
+<p>
+The conductor's tape for this resume is one tool call. The 238 KB envelope never exists; the work happens where the data already lives.
+</p>
+
+<h2><span class="num">11.</span> Compatibility — what changes in existing ADRs</h2>
+
+<h3>11.1 — ADR-005 — no rule change; explicit endorsement of library-import preference</h3>
+
+<p>
+ADR-005's no-MCP-mesh rule remains in force. ADR-023 makes explicit what was previously implicit: <em>inside the workspace, callers should prefer library imports over MCP stdio calls.</em> A status note appended to ADR-005 references ADR-023 as the load-bearing extension.
+</p>
+
+<h3>11.2 — ADR-018 — generalized</h3>
+
+<p>
+ADR-018's "distribution is a pure mechanical router" specializes naturally to "mechanical work is orchestrator-resident." A status note appended to ADR-018 references ADR-023 as the generalization; the original carve-out doesn't change.
+</p>
+
+<h3>11.3 — ADR-022 — narrowed scope, retained substance</h3>
+
+<p>
+ADR-022's claim-check pattern remains in force for worker output (boundary A). The plan-envelope problem (boundary B) is resolved by ADR-023's planner-executes mechanism, <em>not</em> by extending ADR-022 to a second boundary. A status note appended to ADR-022 cross-references ADR-023 as the umbrella doctrine and clarifies that claim-check still applies to worker → conductor specifically.
+</p>
+
+<h3>11.4 — loop.md — substantially trimmed</h3>
+
+<p>
+The current <code>.claude/commands/loop.md</code> body explaining the <code>write</code> branch (substitution rules, <code>$&lt;label&gt;</code> capture, per-call dispatch) becomes obsolete and is removed. The new doctrine reduces the doc by roughly 40%. A new section names ADR-023 as the authority.
+</p>
+
+<h3>11.5 — ARCHITECTURE.md — refreshed (currently stale)</h3>
+
+<p>
+<code>ARCHITECTURE.md</code> predates both ADR-022 and ADR-023 and is stale in several places:
+</p>
+
+<ul>
+  <li><strong>The orchestrator section's <code>Step</code> union.</strong> Today's list reads <code>spawn | fanout | write | gate | done | halt</code> — the conductor's view. Under ADR-023 the conductor only sees <code>spawn | fanout | gate-stop | done | halt</code>; <code>write</code> and <code>gate-with-check</code> are handled inside the orchestrator. The doc needs the two-views distinction (engine-internal vs conductor-visible).</li>
+  <li><strong>Verify/advance description.</strong> Currently described as two distinct ops. Under ADR-023 verify folds into advance for write/gate-check; the spawn/fanout path still calls verify + advance separately per ADR-022. The doc needs the kind-keyed shape.</li>
+  <li><strong>Storage section.</strong> Missing the <code>orchestrator.step_results</code> table (added by ADR-022). Should be added alongside the existing SQLite + Postgres-entities description.</li>
+  <li><strong>MCP servers section.</strong> The "no MCP server opens a client to another MCP server" line is correct but incomplete — ADR-023 clarifies that the orchestrator MCP imports <code>packages/&lt;name&gt;/</code> directly (a library call, not a mesh edge). Add the in-workspace library-import preference.</li>
+  <li><strong>Three layers section.</strong> Should explicitly call out the conductor-thin posture: conductor → orchestrator + Task only; never directly to other MCPs.</li>
+  <li><strong>Where doctrine lives section.</strong> Missing ADR-022 and ADR-023 from the load-bearing list.</li>
+  <li><strong>Command surface section.</strong> <code>/loop</code>'s description is "plan → execute the Step → verify → advance" — narrow this to reflect the new contract for write/gate-check steps.</li>
+  <li><strong>Packages list.</strong> After extractions land (Phases D–G), the new <code>packages/analytics</code>, <code>packages/corpus</code>, <code>packages/meta-ads</code>, <code>packages/experiment</code> appear in the substrate. The doc should reflect the thin-adapter ratio at completion (5 of 7 servers thin, 2 deferred).</li>
+</ul>
+
+<p>
+The refresh splits naturally into two passes:
+</p>
+
+<ul>
+  <li><strong>Phase C pass</strong> — update the doctrine sections (Step union, verify/advance shape, conductor's role in the three-layers + command-surface sections, doctrine-lives section to include ADR-022/023). These changes describe the new behaviour, which goes live with Phase B.</li>
+  <li><strong>Phase H pass</strong> — update the substrate sections (Storage's step_results row; the packages/mcp-servers breakdown; thin-adapter ratio). These changes describe the final post-extraction state.</li>
+</ul>
+
+<h2><span class="num">12.</span> Out of scope (deliberate)</h2>
+
+<ul>
+  <li><strong>E-033 — critic / evaluator step pattern.</strong> Independent axis. ADR-023 is about who <em>holds and runs</em> work; E-033 is about who <em>judges</em> output quality. Both compose; both can ship at different times.</li>
+  <li><strong>E-030 — SQLite → Postgres unification.</strong> Independent axis. The analytics package extraction (§8.1 step 1) is structured to make E-030 local, but the migration itself is its own ADR.</li>
+  <li><strong>Cross-MCP-mesh option.</strong> Not considered; rejected upfront on ADR-005 grounds.</li>
+  <li><strong>Plan-ref pattern (Option 1) as a fallback.</strong> Not built. If a future case emerges where the orchestrator needs to ship a plan envelope to a non-conductor outside caller (e.g., a remote scheduler), this can be added then; for the conductor-only case ADR-023 supersedes the need.</li>
+  <li><strong>Per-call retry inside <code>executeWriteStep</code>.</strong> First implementation runs calls sequentially with fail-fast semantics (same as the conductor today). Per-call retry / partial-completion semantics deferred to a follow-up if the operational need surfaces.</li>
+</ul>
+
+<h2><span class="num">13.</span> Verification</h2>
+
+<h3>13.1 — Unit + integration tests</h3>
+
+<ul>
+  <li><code>packages/orchestrator/src/exec.test.ts</code> — <code>executeWriteStep</code> over a fixture stage with injected <code>deps</code>; covers happy path, call failure, compliance-scan reject.</li>
+  <li><code>packages/orchestrator/src/exec.integration.test.ts</code> — end-to-end with real <code>packages/store</code> + Postgres; persists 16 fixture variants; verifies engine.advance fires correctly.</li>
+  <li><code>mcp-servers/orchestrator/src/index.test.ts</code> — <code>plan()</code> returns the right kind for write vs spawn vs gate; eager execution path; lazy fallback for steps with unpackaged deps.</li>
+</ul>
+
+<h3>13.2 — Live walk on the wedged run</h3>
+
+<p>
+Resume <code>run_1779611092</code> after ADR-023 ships. Acceptance:
+</p>
+
+<ul>
+  <li>P3-persist completes in a single <code>plan()</code> call from the conductor.</li>
+  <li>16 CreativeVariants land in Postgres with <code>approvalStatus:"Awaiting Approval"</code>.</li>
+  <li>Compliance scanner ran on each props blob (assert via scanner-event log).</li>
+  <li>Run reaches HG3 gate-stop. No harness "output too large" events.</li>
+</ul>
+
+<h3>13.3 — Fresh cold-start walk on the new contract</h3>
+
+<p>
+Wipe state; <code>/loop-once</code>; drive to HG3 auto-approving 4 briefs at HG1 + 4 scripts at HG2. Acceptance: conductor tool-call count to HG3 ≤ 30 (versus today's ~74); no cap-class errors; all 16 CreativeVariants in Postgres with compliance evidence.
+</p>
+
+<h2><span class="num">14.</span> Risks &amp; mitigations</h2>
+
+<table>
+<tr><th>Risk</th><th>Mitigation</th></tr>
+<tr><td>Package extraction breaks an existing MCP-server consumer (Claude Code main session, /distribute users).</td><td>Each extraction PR: MCP server stays at the same protocol surface; tests of the MCP layer (<code>mcp-servers/&lt;name&gt;/src/*.test.ts</code>) must pass unchanged. Thin-adapter doctrine ensures the wire surface is preserved.</td></tr>
+<tr><td>Compliance scanner is duplicated or skipped in the orchestrator-resident path.</td><td>The scanner is imported as a library (<code>packages/shared/compliance</code>) and called inside <code>executeWriteStep</code> on every entity write. Tests assert scanner invocation count == entity-write count. PerformanceReports exemption (ADR-022) preserved as a single feature flag.</td></tr>
+<tr><td>External HTTP calls inside the orchestrator MCP introduce new failure modes (timeouts, network errors at orchestrator-process level).</td><td>HTTP clients retain their existing timeout / retry behaviour (moved verbatim from <code>mcp-servers/&lt;name&gt;/</code> to <code>packages/&lt;name&gt;/</code>). Orchestrator's <code>plan()</code> handler catches and surfaces errors as <code>{kind:"halt", reason}</code> — same shape the engine already uses.</td></tr>
+<tr><td>Larger orchestrator MCP process (more deps, more imports, more memory) becomes a contention point.</td><td>Acceptable for v1.5 single-machine deployment. ADR-006 (future Agent SDK / Cowork migration) will revisit when the orchestrator deploys remotely.</td></tr>
+<tr><td>Eager execution (B2) hides intermediate state from the conductor; debugging across a multi-step plan becomes harder.</td><td><code>run_steps</code> table still captures every step transition. The <code>mcp__orchestrator__status</code> + <code>mcp__orchestrator__read_step_result</code> tools remain the debugging surface — they don't get hidden, they just aren't called during the happy path.</td></tr>
+<tr><td>Some write step uses a tool the orchestrator can't import yet (e.g., a future write step against an external service we haven't packaged).</td><td>Fallback path: if <code>executeWriteStep</code> encounters a tool not in its <code>deps</code> dispatch table, it returns <code>{kind:"write", executed:false, calls:[...]}</code> as the legacy lazy shape. The conductor's old branch is retained for this fallback, but treated as a smell — every fallback firing files a follow-up to package the dep.</td></tr>
+</table>
+
+<h2><span class="num">15.</span> Implementation order (sketch — the plan will detail)</h2>
+
+<ol>
+  <li>Land ADR-023 (the markdown) + status notes on ADR-005, ADR-018, ADR-022.</li>
+  <li>Build <code>packages/orchestrator/src/exec.ts</code> with <code>executeWriteStep</code> over an injected <code>ExecDeps</code>. Unit-test against a fixture stage that uses <code>packages/store</code> only.</li>
+  <li>Wire eager-execute into the orchestrator MCP's <code>plan</code> handler with a single dispatch entry (<code>store</code>). Integration-test the end-to-end happy path.</li>
+  <li>Update <code>.claude/commands/loop.md</code> for the new contract. Run the existing test suite green.</li>
+  <li>Extract <code>packages/analytics</code>. Add it to <code>ExecDeps</code>. T1–A3 graduate to eager execution.</li>
+  <li>Extract <code>packages/meta-ads</code>. T1/T2 fully graduate.</li>
+  <li>Extract <code>packages/corpus</code>, <code>packages/experiment</code>. Coverage complete for current <code>LIVE_REGISTRY</code>.</li>
+  <li>Verification: live walk on <code>run_1779611092</code> resume + fresh cold-start walk.</li>
+  <li>Defer <code>packages/youtube</code>, <code>packages/heygen</code> until a use case demands.</li>
+</ol>
+
+<h2><span class="num">16.</span> References</h2>
+
+<ul>
+  <li><a href="https://aws.amazon.com/blogs/compute/introducing-larger-state-payloads-for-aws-step-functions/">AWS — Introducing larger state payloads for Step Functions</a></li>
+  <li><a href="https://docs.aws.amazon.com/step-functions/latest/dg/integrate-services.html">AWS — Step Functions service integrations</a></li>
+  <li><a href="https://docs.temporal.io/troubleshooting/blob-size-limit-error">Temporal — Blob size limit troubleshooting</a></li>
+  <li><a href="https://docs.temporal.io/external-storage">Temporal — External Storage</a></li>
+  <li><a href="https://github.com/DataDog/temporal-large-payload-codec">DataDog — Temporal Large Payload Codec</a></li>
+  <li><a href="https://github.com/argoproj/argo-workflows/issues/2969">Argo Workflows — Support large parameters #2969</a></li>
+  <li><a href="https://argo-workflows.readthedocs.io/en/latest/walk-through/artifacts/">Argo Workflows — Artifacts walkthrough</a></li>
+  <li><a href="https://google.github.io/adk-docs/artifacts/">Google ADK — Artifacts</a></li>
+  <li><a href="https://www.anthropic.com/research/building-effective-agents">Anthropic — Building Effective AI Agents</a></li>
+  <li><a href="https://blog.bytebytego.com/p/how-anthropic-built-a-multi-agent">ByteByteGo — How Anthropic built a multi-agent research system</a></li>
+  <li><a href="https://blog.langchain.com/plan-and-execute-agents/">LangChain — Plan-and-Execute Agents</a></li>
+  <li><a href="https://fast.io/resources/langgraph-persistence/">Fastio — LangGraph Persistence Guide</a></li>
+  <li><a href="https://arize.com/blog/orchestrator-worker-agents-a-practical-comparison-of-common-agent-frameworks/">Arize — Orchestrator-Worker Agents practical comparison</a></li>
+  <li><a href="https://www.enterpriseintegrationpatterns.com/patterns/messaging/StoreInLibrary.html">EIP — Claim Check (Store in Library)</a></li>
+  <li><a href="https://orkes.io/blog/workflow-orchestration-vs-choreography/">Orkes — Orchestration vs Choreography</a></li>
+</ul>
+
+<footer class="doc">
+  ADR-023 spec · 2026-05-24 · branch <code>feat/adr-023-orchestrator-execution</code> · supersedes nothing, generalizes ADR-005 / ADR-018 / ADR-022 · companion spec <code>docs/superpowers/specs/2026-05-24-e-031-claim-check-design.html</code> · prefigured by <code>docs/superpowers/specs/2026-05-24-brain-moe-critic-topology-design.html</code> (E-033 lineage)
+</footer>
+
+</div>
+</body>
+</html>

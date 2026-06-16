@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--navy:#1B2B6B;--navy-dark:#111c45;--orange:#F07621;--teal:#00B4A6;--offwhite:#F7F8FC;--warm-white:#FEFEFE;--text:#1a1a2e;--muted:#6b7280;--border:#e5e7f0;--font-head:'Playfair Display',Georgia,serif;--font-body:'Inter',system-ui,sans-serif;}
+  *{font-variant-numeric:lining-nums tabular-nums;box-sizing:border-box;}
+  body{width:1080px;height:1350px;margin:0;overflow:hidden;position:relative;font-family:var(--font-body);color:var(--text);background:var(--offwhite);}
+  .frame{position:absolute;top:120px;left:80px;right:80px;display:flex;flex-direction:column;}
+  .kicker{font-weight:600;font-size:32px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);margin:0 0 14px;}
+  .headline{font-family:var(--font-head);font-weight:900;font-size:78px;line-height:1.05;color:var(--navy-dark);margin:0;}
+  .stage{margin:36px 0 30px;}
+  .stage svg{display:block;width:100%;height:auto;}
+  .stage .roll{font-family:var(--font-body);font-weight:600;fill:var(--warm-white);}
+  .caption{font-weight:400;font-size:30px;line-height:1.4;color:var(--text);margin:0 0 18px;}
+  .source{font-weight:400;font-size:23px;line-height:1.35;color:var(--muted);margin:0;}
+  .logo-mark{position:absolute;bottom:36px;right:44px;z-index:100;}
+  .logo-text{font-family:var(--font-head);font-size:30px;font-weight:700;line-height:1;letter-spacing:-0.5px;}
+  .logo-text .engineer{color:var(--navy);}.logo-text .dad{color:var(--orange);}
+</style></head>
+<body>
+  <div class="frame">
+    <p class="kicker">The Snowball</p>
+    <h1 class="headline">It's the hill,<br>not the push</h1>
+    <div class="stage">
+      <svg viewBox="0 0 920 540" xmlns="http://www.w3.org/2000/svg">
+        <!-- slope -->
+        <path d="M30 90 L880 470" stroke="#e5e7f0" stroke-width="20" stroke-linecap="round" fill="none"/>
+        <path d="M30 90 L880 470" stroke="#1B2B6B" stroke-width="4" stroke-linecap="round" fill="none" stroke-dasharray="2 16" opacity="0.35"/>
+        <!-- growing snowball, navy until the orange payoff -->
+        <circle cx="110" cy="118" r="26" fill="#1B2B6B" opacity="0.55"/>
+        <circle cx="250" cy="180" r="44" fill="#1B2B6B" opacity="0.70"/>
+        <circle cx="420" cy="262" r="70" fill="#1B2B6B" opacity="0.85"/>
+        <circle cx="610" cy="350" r="104" fill="#1B2B6B"/>
+        <circle cx="760" cy="430" r="132" fill="#F07621"/>
+        <text class="roll" x="760" y="424" font-size="34" text-anchor="middle">keeps</text>
+        <text class="roll" x="760" y="464" font-size="34" text-anchor="middle">rolling</text>
+        <!-- the small first push -->
+        <text x="110" y="60" font-size="26" font-weight="600" fill="#6b7280" text-anchor="middle">one small start</text>
+      </svg>
+    </div>
+    <p class="caption">You don't need a bigger push &mdash; you need a longer hill. A modest amount, left to roll for years, gathers far more from time than from the size of the first scoop.</p>
+    <p class="source">Illustrative of the compounding / dollar-cost-averaging principle in corpus/courses/compounding-dca.md (the brand's "Snowball" metaphor). A conceptual illustration of how time compounds a habit, not a projection of returns &mdash; actual outcomes depend on markets, fund choice, and consistency. Not a recommendation.</p>
+  </div>
+  <div class="logo-mark"><div class="logo-text"><span class="engineer">Engineer</span><span class="dad">Dad</span></div></div>
+</body></html>

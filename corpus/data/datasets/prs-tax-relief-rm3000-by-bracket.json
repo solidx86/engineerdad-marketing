@@ -1,0 +1,17 @@
+{
+  "id": "prs-tax-relief-rm3000-by-bracket",
+  "generated_at": "2026-06-05T00:00:00Z",
+  "source": "Relief mechanics & figures from corpus/courses/prs-basics.md ('Tax-relief mechanics': up to RM3,000/year PRS contribution qualifies for personal income tax relief, scheduled through YA2030; RM250/month = RM3,000/year; '~RM700+ in real tax savings for a top-rate taxpayer'). Marginal-rate schedule: LHDN resident-individual income tax rates YA2024 (hasil.gov.my), cross-checked against RinggitPlus 'Malaysia Personal Income Tax Guide 2025 (YA 2024)'.",
+  "verification_status": "derived",
+  "notes": "PRS relief is a DEDUCTION from chargeable income (up to RM3,000/year), not an automatic cash refund. The real tax saved = RM3,000 x the taxpayer's MARGINAL rate (the rate on the top slice of their chargeable income). This dataset derives that saving at the four upper-middle marginal brackets of the LHDN YA2024 resident-individual schedule. Bracket boundaries (chargeable income, RM): 19% = 70,001-100,000; 24% = 100,001-250,000; 24.5% = 250,001-400,000; 25% = 400,001-600,000. RM3,000 x 24% = RM720, which backs the course's 'RM700+' top-rate claim. Saving assumes the full RM3,000 falls within a single marginal bracket and the taxpayer has at least RM3,000 of chargeable income taxed at that marginal rate (true for incomes comfortably inside each bracket). FLAG: relief amount and rate schedule must be re-verified against the active LHDN Year of Assessment before campaign use (relief scheduled through YA2030; rates may change at Budget). Lower brackets (1%-11%) save proportionally less and are out of scope for the 'RM700+' framing.",
+  "contribution_rm_per_year": 3000,
+  "contribution_rm_per_month": 250,
+  "relief_cap_rm": 3000,
+  "year_of_assessment": "YA2024 (rate schedule); relief scheduled through YA2030",
+  "rows": [
+    { "bracket_label": "19%", "chargeable_income_band_rm": "70,001-100,000", "marginal_rate": 0.19, "annual_tax_saving_rm": 570 },
+    { "bracket_label": "24%", "chargeable_income_band_rm": "100,001-250,000", "marginal_rate": 0.24, "annual_tax_saving_rm": 720, "note": "Backs the course's 'RM700+' top-rate claim: RM3,000 x 24% = RM720." },
+    { "bracket_label": "24.5%", "chargeable_income_band_rm": "250,001-400,000", "marginal_rate": 0.245, "annual_tax_saving_rm": 735 },
+    { "bracket_label": "25%", "chargeable_income_band_rm": "400,001-600,000", "marginal_rate": 0.25, "annual_tax_saving_rm": 750 }
+  ]
+}

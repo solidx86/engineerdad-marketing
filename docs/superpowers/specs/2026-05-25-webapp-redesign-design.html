@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webapp redesign — run-centric IA, entity-detail overhaul, CreativeVariants list, asset preview</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15.5px; margin: 26px 0 8px; }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin: 10px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.8px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 34px; }
+  .callout {
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0;
+    font-size: 13.8px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.bad { background: var(--bad-bg); border: 1px solid var(--bad-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  ol { margin: 10px 0; padding-left: 24px; }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p2 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .strike { color: var(--muted); text-decoration: line-through; }
+  .diagram {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+    margin: 16px 0;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.2px;
+    line-height: 1.55;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .quote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13.6px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Webapp redesign — run-centric IA, entity-detail overhaul, CreativeVariants list, asset preview</h1>
+  <p class="subtitle">Rename <code>apps/review-ui</code> to <code>apps/webapp</code>. Reshape the IA around runs (the unit of marketing thinking) rather than entities (the unit of storage). Replace the generic field-dump entity detail with per-entity declarative layouts. Add CreativeVariants-specific list columns + filters, plus Hypotheses + Experiments lists. Surface Brain's Decision Memos as readable documents. Render attached creative assets as an IG-style scene viewer.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-25</dd>
+    <dt>Status</dt><dd><span class="pill">Draft spec — awaiting user review before plan</span></dd>
+    <dt>Severity</dt><dd><span class="pill p2">P2</span> — quality-of-life. The current review UI works; it's a flat field dump with no run lens. This pass turns it into a reviewable webapp.</dd>
+    <dt>Branch</dt><dd><code>feat/webapp-redesign</code> (new, off <code>main</code>)</dd>
+    <dt>Touches</dt><dd><code>apps/review-ui</code> (rename + heavy reshape) · <code>packages/orchestrator/src/review-ui.ts</code> (rename) · stage files (3) + agent/command files (2) + docs (5)</dd>
+    <dt>Related tracker</dt><dd>E-007 (asset-store R2 swap — updated 2026-05-25, bumped P3→P2; this work surfaces the second consumer pulling on it)</dd>
+    <dt>Composes with</dt><dd>ADR-010 (bilingual EN/BM only) · ADR-014 (HTML static-asset pipeline) · ADR-015 (write-API safety) · ADR-021 (local store supersedes Notion) · ADR-023 (orchestrator-resident execution)</dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Context — why redesign now</h2>
+
+<p>
+The current review UI (<code>apps/review-ui</code>) shipped with the agentic rebuild (E-029). It's a Next 15 server-rendered tool at <code>localhost:3030</code> with a left nav auto-generated from <code>ENTITY_NAMES</code>, a dashboard with per-entity counts, and a generic <code>[entity]/[id]</code> form that renders every non-skipped field as an editable <code>&lt;Field&gt;</code> input. It works. Three things are wrong with it.
+</p>
+
+<ol>
+<li><strong>"Review UI" is too narrow a name.</strong> The app is the human surface for everything the OS does — gate approvals, run inspection, memo reading, asset preview, ops. Calling it the review UI was right when it had one job. The job has grown.</li>
+<li><strong>The IA is entity-first; the work is run-first.</strong> Reviewers think "what happened in run X?" not "show me all CreativeVariants ever." The current nav forces an entity-first lens; the run only exists as a column on a table.</li>
+<li><strong>The entity detail page is a flat field dump.</strong> A Brief's body (the artifact), its runId (provenance), and its linkedHypotheses (lineage) all render identically as labeled textareas. CreativeVariants has 45+ fields rendered in raw camelCase order. There is no information hierarchy, no read mode, no bilingual toggle, and no asset preview — even though every variant has an <code>asset_files[]</code> array of rendered creative.</li>
+</ol>
+
+<div class="callout new">
+<span class="tag">The recentering.</span> A <em>run</em> is the unit of marketing thinking: one Decision Memo → 12 Briefs → ~24 Scripts → ~40 Variants. A <em>review</em> happens within that envelope. Make the run the anchor. Entity lists still exist for cross-run browsing; they stop pretending to be the primary lens.
+</div>
+
+<h2><span class="num">2.</span> Goals and non-goals</h2>
+
+<h3>Goals</h3>
+<ul>
+<li><strong>Rename</strong> <code>apps/review-ui</code> → <code>apps/webapp</code> and the package <code>@engineerdad/review-ui</code> → <code>@engineerdad/webapp</code>, repo-wide.</li>
+<li><strong>Run-centric IA</strong> — new <code>/runs</code> + <code>/runs/[runId]</code> as the anchor surface; entity lists stay under <code>/review/...</code> for cross-run browsing.</li>
+<li><strong>Surface Brain's Decision Memos</strong> as readable documents — both in the Run detail page and on the PerformanceReports entity detail.</li>
+<li><strong>Per-entity detail layout system</strong> — read-by-default, bilingual EN/BM toggle, two-column hierarchy (primary content vs operational metadata), declarative config per entity.</li>
+<li><strong>Per-entity list config</strong> — CreativeVariants gets columns for channels + organic status with filterable chips; Hypotheses and Experiments get custom list configs too.</li>
+<li><strong>Creative asset preview</strong> — IG-style hero + dot navigation rendering of <code>asset_files[]</code>, grouped by Script with aspect tabs under each format card.</li>
+<li><strong>Orchestrator run state</strong> — stage timeline by default; debug toggle for full step table + payload viewer.</li>
+</ul>
+
+<h3>Non-goals (explicit)</h3>
+<ul>
+<li><strong>Authentication / authorization.</strong> Localhost tool. No login, no roles.</li>
+<li><strong>Run actions</strong> (cancel / restart / force-advance gate). Conductor-level surface; webapp stays read + approve only.</li>
+<li><strong>Live updates</strong> (polling, websockets, SSE). Page navigation re-fetches.</li>
+<li><strong>Bulk operations</strong> (approve N variants at once). Each row is a separate action.</li>
+<li><strong>Cross-entity search.</strong> Per-entity list filtering is in scope; full-text search across entities is not.</li>
+<li><strong>Inline field editing.</strong> Whole-form edit toggle per entity layout; per-field inline is heavier and not needed.</li>
+<li><strong>Cross-run comparison.</strong> Single Run detail page is the unit; comparing two runs is a future feature.</li>
+<li><strong>PDF / image export of memos.</strong> Markdown + copy-as-markdown button is enough.</li>
+<li><strong>Audit log of edits.</strong> Would need a new table; not needed now.</li>
+<li><strong>Mobile responsive design.</strong> Desktop-first. The webapp is a desk tool.</li>
+<li><strong>i18n beyond EN/BM toggles on bilingual fields.</strong> UI chrome stays English per ADR-010.</li>
+<li><strong>Theme switcher / dark mode.</strong> Light theme only.</li>
+</ul>
+
+<h2><span class="num">3.</span> Information architecture and routes</h2>
+
+<h3>Left-nav structure</h3>
+
+<div class="diagram">┌─────────────────────┬──────────────────────────────────────────┐
+│  EngineerDad        │                                          │
+│  ───────────        │                                          │
+│  Dashboard          │                                          │
+│                     │                                          │
+│  ▾ Runs             │   (main content)                         │
+│    All runs         │                                          │
+│                     │                                          │
+│  ▾ Marketing Review │                                          │
+│    Briefs           │                                          │
+│    Scripts          │                                          │
+│    Authority Arts.  │                                          │
+│    Creative Vars.   │                                          │
+│    Experiments      │                                          │
+│    Memos &amp; Perf.    │                                          │
+│    Hypotheses       │                                          │
+│    Learnings        │                                          │
+└─────────────────────┴──────────────────────────────────────────┘</div>
+
+<p>
+Two collapsible sections (<em>Runs</em>, <em>Marketing Review</em>) and a top-level <em>Dashboard</em> entry. Collapse state persisted in <code>localStorage</code>. The <em>Memos &amp; Performance</em> label maps to the PerformanceReports entity (schema name unchanged) — reviewers don't know the schema name; "Memos &amp; Performance" describes what the entity actually contains.
+</p>
+
+<h3>Routes</h3>
+
+<table>
+<thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>/</code></td><td>Dashboard. Left blank in this pass — empty state with a "Pick a Run" CTA pointing to <code>/runs</code>.</td></tr>
+<tr><td><code>/runs</code></td><td>List of orchestrator runs (most-recent first), filterable by stage and status.</td></tr>
+<tr><td><code>/runs/[runId]</code></td><td>Run detail — the anchor of the UX (§7).</td></tr>
+<tr><td><code>/review/[entity]</code></td><td>Entity list with per-entity column + filter config (§5).</td></tr>
+<tr><td><code>/review/[entity]/[id]</code></td><td>Entity detail with per-entity layout (§4).</td></tr>
+<tr><td><code>/api/asset/[runId]/[variantId]/[scene]</code></td><td>Dev-only local asset serving (§8). No-op in prod (R2 URLs bypass).</td></tr>
+</tbody>
+</table>
+
+<p>
+The existing root-level <code>/[entity]</code> and <code>/[entity]/[id]</code> routes are <strong>deleted</strong>, not aliased. Reason: HUMAN GATE messages are generated at runtime from <code>webappUrl()</code> + the stage's entity slug, so updating the orchestrator stage files (§9) regenerates correct links for all future runs. Past runs' chat-history links may break — acceptable cost.
+</p>
+
+<h2><span class="num">4.</span> Entity detail layout system</h2>
+
+<p>
+The biggest reshape. Today every entity detail page renders the same: a flat dump of every non-skipped field as an editable <code>&lt;Field&gt;</code>, labeled with the raw camelCase name. Briefs (12 fields), Scripts (15), CreativeVariants (45+), Learnings all render identically. Primary content (the brief body, the script, the memo) mixes with operational metadata (runId, createdBy, linkedHypotheses). Everything is in edit mode whether you're reading or writing.
+</p>
+
+<h3>The mental model</h3>
+
+<ul>
+<li><strong>Read-by-default</strong> with an <code>[Edit]</code> button that flips the form to editable. Save commits via the existing <code>saveRow</code> action.</li>
+<li><strong>Two-column layout</strong>: primary content (the artifact) in the main column; operational metadata in a right rail.</li>
+<li><strong>EN/BM toggle</strong> in the page header. Defaults to EN. URL-persisted (<code>?lang=bm</code>). Only affects fields with role <code>bilingual</code>. Edit mode shows both languages so you can author the missing half.</li>
+<li><strong>Per-entity declarative layout</strong> in <code>apps/webapp/src/app/lib/layouts/&lt;entity&gt;.ts</code>. One file per entity, ~30 lines.</li>
+<li><strong>Status actions</strong> (Approve, Reject) live in the read-view header — one-click setStatus calls. No need to enter edit mode just to approve.</li>
+</ul>
+
+<h3>Brief detail — mockup</h3>
+
+<div class="diagram">┌────────────────────────────────────────────────────────────────────────────────┐
+│  ← Briefs                                                                       │
+│                                                                                 │
+│  Sandwich Generation: PRS as Self-Care            [Awaiting Approval]  [EN|BM] │
+│  parent · caretaker                                          [Approve] [Edit]   │
+│                                                                                 │
+├─────────────────────────────────────────────┬──────────────────────────────────┤
+│  Brief                                      │  Provenance                      │
+│                                             │    Run       run_1779696355      │
+│  (markdown body, paragraph layout,          │    By        brief-writer        │
+│   bilingual — shows EN by default)          │    At        May 23, 14:02       │
+│                                             │    Approver  —                   │
+│  Angle ─── financial-empathy                │                                  │
+│  Promise ─ 6-minute portfolio review        │  Linked Hypotheses               │
+│  Funnel ── Awareness                        │    ◌ hypo_8f2e  ◌ hypo_a1c4      │
+│                                             │                                  │
+│  ─────────────                              │  Budget                          │
+│  Source                                     │    Bucket    70 (Workhorse)      │
+│                                             │                                  │
+│  (insights paragraph)                       │  ─────────────                   │
+│  ⊙ testimonial  ⊙ screenshot  ⊙ social-proof│  Raw fields (3)            ▼     │
+└─────────────────────────────────────────────┴──────────────────────────────────┘</div>
+
+<h3>Field-role taxonomy</h3>
+
+<table>
+<thead><tr><th>Role</th><th>Render</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td><code>primary</code></td><td>Markdown block via <code>react-markdown</code> + <code>remark-gfm</code>, full width</td><td><code>bodyEn</code>, <code>scriptEn</code>, <code>decisionMemoEn</code></td></tr>
+<tr><td><code>bilingual</code></td><td>Pair of <code>*En</code>/<code>*Bm</code> fields; toggle controls visibility</td><td><code>{en: 'bodyEn', bm: 'bodyBm'}</code></td></tr>
+<tr><td><code>meta</code></td><td>Inline <code>label ─ value</code> row</td><td><code>funnelStage</code>, <code>format</code>, <code>runId</code></td></tr>
+<tr><td><code>fk</code></td><td>Clickable chip linking to related entity detail</td><td><code>script</code> → <code>/review/scripts/{id}</code></td></tr>
+<tr><td><code>list</code></td><td>Chip cloud</td><td><code>proofType</code>, <code>channels</code>, <code>linkedHypotheses</code></td></tr>
+<tr><td><code>link</code></td><td>External URL, opens in new tab</td><td><code>prUrlEn</code>, <code>reelMp4Url</code></td></tr>
+<tr><td><code>status</code></td><td>Status pill (color by enum)</td><td><code>approvalStatus</code>, <code>organicStatus</code></td></tr>
+<tr><td><code>badge</code></td><td>Small text label, less prominent than status</td><td><code>confidence</code>, <code>primaryMetric</code>, <code>testType</code></td></tr>
+<tr><td><code>timestamp</code></td><td>Humanized date</td><td><code>createdAt</code>, <code>organicPublishedAt</code></td></tr>
+</tbody>
+</table>
+
+<h3>Layout config shape</h3>
+
+<pre>type EntityLayout = {
+  header: {
+    title: string;            // field name to use as page title (typically 'title')
+    subtitle?: string;        // e.g., 'persona' for briefs
+    status: string;           // status pill field (typically 'approvalStatus')
+    secondaryStatus?: string; // e.g., 'organicStatus' for CreativeVariants
+  };
+  primary: Section[];   // main column
+  secondary: Section[]; // right rail
+};
+
+type Section = {
+  title: string;
+  fields: FieldSpec[];
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+};
+
+type FieldSpec =
+  | { role: 'primary' | 'meta' | 'list' | 'link' | 'status' | 'badge' | 'timestamp'; field: string; label?: string }
+  | { role: 'bilingual'; en: string; bm: string; label?: string }
+  | { role: 'fk'; field: string; fk: EntityName; label?: string };
+</pre>
+
+<h3>Example — Briefs layout</h3>
+
+<pre>// apps/webapp/src/app/lib/layouts/briefs.ts
+export const briefsLayout: EntityLayout = {
+  header: { title: 'title', subtitle: 'persona', status: 'approvalStatus' },
+  primary: [
+    { title: 'Brief', fields: [
+      { role: 'bilingual', en: 'bodyEn', bm: 'bodyBm', label: 'Body' },
+      { role: 'meta', field: 'angle' },
+      { role: 'meta', field: 'promise' },
+      { role: 'meta', field: 'funnelStage' },
+    ]},
+    { title: 'Source', fields: [
+      { role: 'primary', field: 'sourceInsights' },
+      { role: 'list', field: 'proofType' },
+    ]},
+  ],
+  secondary: [
+    { title: 'Provenance', fields: [
+      { role: 'meta', field: 'runId' },
+      { role: 'meta', field: 'createdBy' },
+      { role: 'timestamp', field: 'createdAt' },
+      { role: 'meta', field: 'approver' },
+    ]},
+    { title: 'Linked Hypotheses', fields: [{ role: 'list', field: 'linkedHypotheses' }]},
+    { title: 'Budget', fields: [{ role: 'meta', field: 'budgetBucket' }]},
+  ],
+};
+</pre>
+
+<h3>CreativeVariants layout (the heaviest)</h3>
+
+<p>
+45 fields → 6 sections in the primary column, grouped by purpose:
+</p>
+
+<ol>
+<li><strong>Creative</strong> — format, aspect, shotlist (bilingual), thumbnailBrief, assetFiles (renders as §8 IG-style scene viewer).</li>
+<li><strong>Meta paid copy</strong> — metaPrimaryText (bilingual), metaHeadline (bilingual), metaDescription (bilingual), metaCtaType.</li>
+<li><strong>Organic copy</strong> — organicCaption (bilingual), organicHashtagsIg, organicHashtagsFb, organicLanguage.</li>
+<li><strong>YouTube</strong> — ytTitle, ytDescription, ytTags, ytCategory, ytVideoId. Collapsed by default unless <code>format === 'Reel'</code>.</li>
+<li><strong>Pipeline</strong> — pipelineNotes, imageGenerationNotes, reelHeygenJobId, reelMp4Url, adId.</li>
+<li><strong>Publishing</strong> — organicStatus, organicScheduledFor, organicPublishedAt, igPostId, fbPostId.</li>
+</ol>
+
+<p>
+Secondary rail: Provenance (runId, createdBy, createdAt, approver), Linked Script (FK chip → script), Cost (estimatedCostMyr), Compliance (complianceCheck).
+</p>
+
+<h3>Raw fields fallback</h3>
+
+<p>
+At the bottom of the secondary rail, an auto-rendered <code>Raw fields (N)</code> collapsible section lists any field present on the row but absent from the layout. If the schema gains a field before the layout is updated, it surfaces visibly in the UI — drift is observable, not silent.
+</p>
+
+<h2><span class="num">5.</span> Entity list system</h2>
+
+<p>
+Same shape as §4: a per-entity declarative config in <code>apps/webapp/src/app/lib/listConfigs/&lt;entity&gt;.ts</code>. Default config covers Briefs, Scripts, AuthorityArticles, Memos &amp; Performance, Learnings. CreativeVariants, Hypotheses, Experiments override.
+</p>
+
+<h3>Config shape</h3>
+
+<pre>type ListConfig = {
+  columns: ColumnSpec[];
+  filters: FilterSpec[];
+  defaultSort?: { field: string; dir: 'asc' | 'desc' };
+};
+
+type ColumnSpec = {
+  field: string;
+  label: string;
+  type: 'text' | 'chips' | 'status' | 'badge' | 'runId' | 'timestamp';
+  width?: 'narrow' | 'wide';
+};
+
+type FilterSpec = {
+  field: string;
+  label: string;
+  type: 'select' | 'multiSelect';
+  options: readonly string[];
+};
+</pre>
+
+<h3>Default list (Briefs / Scripts / AuthorityArticles / PerformanceReports / Learnings)</h3>
+
+<pre>export const defaultList: ListConfig = {
+  columns: [
+    { field: 'title',          label: 'Title',  type: 'text' },
+    { field: 'runId',          label: 'Run',    type: 'runId' },        // clickable chip → /runs/{id}
+    { field: 'approvalStatus', label: 'Status', type: 'status' },
+  ],
+  filters: [
+    { field: 'approvalStatus', label: 'Status', type: 'select', options: APPROVAL_STATUS },
+  ],
+};
+</pre>
+
+<h3>CreativeVariants list (the headline ask)</h3>
+
+<pre>export const creativeVariantsList: ListConfig = {
+  columns: [
+    { field: 'title',          label: 'Title',    type: 'text' },
+    { field: 'channels',       label: 'Channels', type: 'chips' },    // jsonb string[] → chips
+    { field: 'runId',          label: 'Run',      type: 'runId' },
+    { field: 'approvalStatus', label: 'Status',   type: 'status' },
+    { field: 'organicStatus',  label: 'Organic',  type: 'status' },
+  ],
+  filters: [
+    { field: 'channels',       label: 'Channels', type: 'multiSelect', options: CHANNELS },
+    { field: 'approvalStatus', label: 'Approval', type: 'select',      options: APPROVAL_STATUS },
+    { field: 'organicStatus',  label: 'Organic',  type: 'select',      options: ORGANIC_STATUS },
+  ],
+};
+</pre>
+
+<h3>Hypotheses list</h3>
+
+<pre>export const hypothesesList: ListConfig = {
+  columns: [
+    { field: 'title',      label: 'Title',      type: 'text' },
+    { field: 'status',     label: 'Status',     type: 'status' },     // HYPOTHESIS_STATUS pill
+    { field: 'confidence', label: 'Confidence', type: 'badge' },      // Low / Medium / High
+    { field: 'domain',     label: 'Domain',     type: 'chips' },      // copy / creative / audience / …
+    { field: 'runId',      label: 'Run',        type: 'runId' },
+  ],
+  filters: [
+    { field: 'status',     label: 'Status',     type: 'select',      options: HYPOTHESIS_STATUS },
+    { field: 'confidence', label: 'Confidence', type: 'select',      options: LEARNING_CONFIDENCE },
+    { field: 'domain',     label: 'Domain',     type: 'multiSelect', options: DOMAIN },
+  ],
+};
+</pre>
+
+<h3>Experiments list</h3>
+
+<pre>export const experimentsList: ListConfig = {
+  columns: [
+    { field: 'title',          label: 'Title',    type: 'text' },
+    { field: 'status',         label: 'Phase',    type: 'status' },     // EXPERIMENT_STATUS pill
+    { field: 'primaryMetric',  label: 'Metric',   type: 'badge' },      // cpa / hook_rate / thumbstop / ctr
+    { field: 'testType',       label: 'Type',     type: 'badge' },      // factorial / single-ad
+    { field: 'runId',          label: 'Run',      type: 'runId' },
+    { field: 'approvalStatus', label: 'Approval', type: 'status' },
+  ],
+  filters: [
+    { field: 'status',         label: 'Phase',    type: 'select', options: EXPERIMENT_STATUS },
+    { field: 'primaryMetric',  label: 'Metric',   type: 'select', options: PRIMARY_METRIC },
+    { field: 'testType',       label: 'Type',     type: 'select', options: TEST_TYPE },
+    { field: 'approvalStatus', label: 'Approval', type: 'select', options: APPROVAL_STATUS },
+  ],
+};
+</pre>
+
+<h3>Filter mechanics</h3>
+
+<ul>
+<li><strong>URL-driven.</strong> Filters live in URL params (<code>?channels=Meta-paid,IG-organic&amp;approvalStatus=Awaiting+Approval</code>) so links are shareable.</li>
+<li><strong>Filter chips at the top of the table.</strong> Click ✕ to remove one. "Clear all" resets.</li>
+<li><strong>AND across filters, ANY (OR) within multiSelect.</strong> So <code>channels=Meta-paid,IG-organic</code> means rows whose <code>channels</code> array contains either.</li>
+<li><strong>No runId filter on lists.</strong> Cross-run browsing is the lists' job; scoping by run is what <code>/runs/[runId]</code> does. Avoids two ways to do the same thing.</li>
+</ul>
+
+<h3>Channels array filter — implementation note</h3>
+
+<p>
+The current store filter DSL (<code>packages/store/src/filters.ts</code>) supports scalar equality and <code>{in: [...]}</code> for scalar columns, but not jsonb array containment. The <code>channels</code> column is <code>jsonb string[]</code>, so "channels has any of [Meta-paid, IG-organic]" can't go through the DSL today. <strong>Decision: filter in JS after fetching.</strong> The list route applies the scalar filters at SQL, then runs <code>Array.filter(row => row.channels.some(c =&gt; selected.includes(c)))</code> in memory.
+</p>
+
+<div class="callout ok">
+<span class="tag">Why A, not B.</span> Three tests: <em>(1) Single consumer</em> — only the webapp wants this filter today. <em>(2) Volume</em> — ~40 variants per run × ~20 runs ≈ 800 rows, ~3 KB each; <code>Array.filter</code> at this scale is microseconds. <em>(3) API stability</em> — adding <code>containsAny</code> to the DSL widens the public surface and invites the next operator (<code>containsAll</code>, <code>jsonbEquals</code>, …). Defer the DSL change until a second concrete consumer arrives. A 2-line code comment on the JS filter references this decision.
+</div>
+
+<h2><span class="num">6.</span> Decision Memo viewer</h2>
+
+<p>
+A reusable <code>&lt;DecisionMemo&gt;</code> component at <code>apps/webapp/src/app/components/DecisionMemo.tsx</code>. Inputs: a <code>PerformanceReports</code> row + the active language. Used in two places — the Run detail page (§7) and the PerformanceReports entity detail page (renders as the layout's only primary-column section).
+</p>
+
+<h3>Renders</h3>
+
+<ol>
+<li><code>bandit_allocation</code> (if present) as a chip cloud at top: <code>70% angle-A · 20% angle-B · 10% angle-C</code></li>
+<li><code>decision_memo_en</code> or <code>decision_memo_bm</code> (per language toggle) as markdown via <code>react-markdown</code> + <code>remark-gfm</code> (new dep — tables and strikethrough are common in memos).</li>
+<li><code>self_critique</code> as a collapsed section underneath ("Self-critique ▸").</li>
+<li><strong>"Copy as markdown"</strong> icon button in the header — useful for pasting into Slack or docs.</li>
+</ol>
+
+<p>
+Empty state: <em>"Decision Memo not yet produced for this run."</em> Runs are valid before synthesize completes.
+</p>
+
+<h2><span class="num">7.</span> Run detail page (the anchor)</h2>
+
+<p>
+The page a reviewer lands on after clicking any <code>runId</code> chip in the webapp. It does four jobs at once: show where the run <em>is</em> (stage state), show the <em>thinking</em> behind it (Decision Memo), show what came <em>out</em> (artifacts), and surface the next human action (current gate).
+</p>
+
+<h3>Layout</h3>
+
+<div class="diagram">┌─────────────────────────────────────────────────────────────────────────────────┐
+│  ← Runs                                                                          │
+│                                                                                  │
+│  run_1779696355                                            [Timeline | Debug ▾]  │
+│  Started May 23, 13:42 · active 1h 24m · stage: produce         [EN | BM]        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Stage timeline ────────────────────────────────────────────────────────────────┐
+│  ● tracking   ● analytics   ● synthesize   ● brief HG1✓   ● content HG2✓         │
+│  ◐ produce HG3 ← current   ○ schedule   ○ experiment   ○ distribute HG4          │
+│                                                                                  │
+│  ⚠  HG3 awaiting · 8 Creative Variants need approval     → [Jump to artifacts]   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Decision Memo                                                               ───┐
+│  (renders PerformanceReports.decision_memo_en filtered by runId, as markdown.    │
+│   Honors page-level EN/BM toggle. self_critique collapsed underneath;            │
+│   bandit_allocation as a chip cloud above.)                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─ Artifacts                                                                   ───┐
+│  ▾ Script · "Sandwich Generation: 6-Min Review"                  [Approved ✓]   │
+│       Brief · "PRS as Self-Care"                  →  /review/briefs/…            │
+│       ┌── Carousel ────────────────────────────────────┐                        │
+│       │  [ 4:5 ] [ 1:1 ]                                │                        │
+│       │  ┌──────────┐                                   │                        │
+│       │  │  scene 2 │  ←  ●  ○  ○  ○  ○   →             │                        │
+│       │  └──────────┘                                   │                        │
+│       │  Approval: Awaiting · Organic: Draft            │                        │
+│       └────────────────────────────────────────────────┘                         │
+│       ┌── Feed (4:5) ─────────────────────────────────┐                          │
+│       │  (IG-style scene viewer, single aspect)        │                          │
+│       └────────────────────────────────────────────────┘                         │
+│                                                                                  │
+│  ▾ Script · "…"                                                                 │
+│                                                                                  │
+│  ─────                                                                           │
+│  Other artifacts in this run                                                     │
+│  • Authority Articles (2)        →  inline mini-list                              │
+│  • Hypotheses produced (3)       →  inline mini-list                              │
+│  • Experiments designed (1)      →  inline mini-list                              │
+└─────────────────────────────────────────────────────────────────────────────────┘</div>
+
+<h3>The four panels</h3>
+
+<ol>
+<li><strong>Header.</strong> runId, start time, active duration, current stage label. EN/BM toggle here, applies to all bilingual content on the page (memo + variant copy). Timeline/Debug toggle persisted in URL (<code>?view=debug</code>).</li>
+
+<li><strong>Stage timeline (default) / step table (debug).</strong>
+<ul>
+<li><em>Timeline view:</em> 9 stages as pills in order. State colors: <code>●</code> done (gate-passed gets <code>HG1✓</code> suffix), <code>◐</code> current, <code>○</code> pending, <code>✕</code> failed (red). Beneath the timeline: a single-line banner for the current gate if any (e.g., "HG3 awaiting · 8 Creative Variants need approval"), with "Jump to artifacts" anchor to the relevant in-page section.</li>
+<li><em>Debug view:</em> replaces pills with a step table from <code>orchestrator.run_steps</code> for this runId. Columns: stepId, stage, status, attempts, problems[], updated_at, <code>[view payload]</code> link (queries <code>orchestrator.step_results</code>, opens payload JSON in a modal). Failed steps get a red banner at the top.</li>
+</ul></li>
+
+<li><strong>Decision Memo card.</strong> <code>&lt;DecisionMemo&gt;</code> component (§6), wired to the page-level EN/BM toggle.</li>
+
+<li><strong>Artifacts grouped by Script.</strong>
+<ul>
+<li>Each Script in this run gets a collapsible card: title + status pill + link to the Script's detail page.</li>
+<li>Inline Brief reference (title + link only — saves a click).</li>
+<li>Per-format card (Carousel, Feed, Reel, …): aspect tabs (only when siblings exist — Carousel has 4:5 and 1:1, Feed is one aspect), §8 IG-style scene viewer for <code>assetFiles[]</code>, inline status pills (Approval + Organic), inline "Edit" link to the variant detail.</li>
+<li>Below the Script section: "Other artifacts in this run" — Authority Articles, Hypotheses produced, Experiments designed — as inline mini-lists (title + link only; no inline content). Not filter-links into Marketing Review — the Run page is self-contained.</li>
+</ul></li>
+</ol>
+
+<h3>/runs index page</h3>
+
+<div class="diagram">Runs                                                                          (24)
+─────────────────────────────────────────────────────────────────────────────────
+Filters:  [Stage: any ▾]  [Status: running, waiting ✕]                  Clear all
+─────────────────────────────────────────────────────────────────────────────────
+runId                Started         Active       Stage         Gate         State
+───────────────────  ──────────────  ───────────  ────────────  ───────────  ─────────
+run_1779696355       May 23, 13:42   1h 24m       produce       HG3 ⚠        running
+run_1779126891       May 22, 09:11   6h 02m       distribute    —            completed
+run_1778347712       May 20, 14:55   2h 18m       brief         HG1 ⚠        waiting
+…</div>
+
+<p>
+Same list-config shape as §5 but reads from <code>orchestrator.runs</code> joined with the latest <code>run_steps</code> per run for gate inference. Separate <code>runListConfig</code>.
+</p>
+
+<h3>Data composition</h3>
+
+<p>
+The Run detail page is a server component that fans out these reads in parallel via <code>Promise.all</code>:
+</p>
+
+<ol>
+<li><code>orchestrator.runs WHERE run_id = ${id}</code></li>
+<li><code>orchestrator.run_steps WHERE run_id = ${id} ORDER BY updated_at</code></li>
+<li><code>store.query('Scripts', { runId: id })</code></li>
+<li><code>store.query('Briefs', { runId: id })</code></li>
+<li><code>store.query('CreativeVariants', { runId: id })</code></li>
+<li><code>store.query('PerformanceReports', { runId: id })</code></li>
+<li><code>store.query('AuthorityArticles', { runId: id })</code> (count + titles only)</li>
+<li><code>store.query('Hypotheses', { runId: id })</code> (count + titles only)</li>
+<li><code>store.query('Experiments', { runId: id })</code> (count + titles only)</li>
+</ol>
+
+<p>
+Server-component render. No client JS for the data path. Tabs, lightbox, language toggle, and the timeline/debug switch are the only client-interactivity boundaries.
+</p>
+
+<h2><span class="num">8.</span> Asset preview — SceneViewer + dev asset route</h2>
+
+<h3>SceneViewer component</h3>
+
+<p>
+<code>apps/webapp/src/app/components/SceneViewer.tsx</code>. Inputs: <code>assetFiles: { url, sha256 }[]</code>, <code>aspect: '4:5' | '1:1' | '9:16' | '16:9'</code>.
+</p>
+
+<ul>
+<li>Single hero rendered at the natural aspect ratio, centered. Width-capped (~480px) so a Carousel and a Reel render at comparable on-page footprint.</li>
+<li>Dots underneath (<code>● ○ ○ ○ ○</code>), clickable.</li>
+<li>Arrow keys (<code>←</code> / <code>→</code>) advance when the viewer has focus.</li>
+<li>Optional left/right arrow buttons on hover for mouse users.</li>
+<li>Mime sniff from URL extension: <code>.png</code> / <code>.jpg</code> / <code>.webp</code> → <code>&lt;img&gt;</code>. <code>.mp4</code> / <code>.mov</code> / <code>.webm</code> → <code>&lt;video controls muted&gt;</code>. Other → labeled tile with filename + first-7-chars sha + link.</li>
+</ul>
+
+<p>
+Client component (this and the language toggle + format/aspect tabs are the only client-interactivity boundaries on the Run page).
+</p>
+
+<h3>No lightbox</h3>
+
+<p>
+The hero is already at the layout's maximum width. A lightbox to make it "bigger" would be ambiguous (fullscreen overlay? new tab?). The variant detail page (§4) renders the same SceneViewer in its Creative section — that's where original-pixel inspection lives.
+</p>
+
+<h3>Dev asset route</h3>
+
+<p>
+Background: <code>creative_variants.asset_files[].url</code> is <code>file://…</code> in local dev (asset-store writes to <code>data/assets/&lt;runId&gt;/&lt;variantId&gt;/&lt;scene&gt;.&lt;ext&gt;</code>) and <code>https://…</code> in prod (R2 with <code>ASSET_STORE_PUBLIC_BASE</code> set). The browser can't fetch <code>file://</code> URLs from an <code>&lt;img src&gt;</code>, so dev needs a serving route.
+</p>
+
+<p>
+<strong>Implementation:</strong> a Next route handler at <code>apps/webapp/src/app/api/asset/[runId]/[variantId]/[scene]/route.ts</code> reads from <code>data/assets/&lt;runId&gt;/&lt;variantId&gt;/&lt;scene&gt;</code> and streams the bytes with the correct <code>Content-Type</code>. Validates <code>runId</code> / <code>variantId</code> / <code>scene</code> against <code>/^[a-zA-Z0-9_-]+$/</code> (same guard the asset-store MCP uses).
+</p>
+
+<p>
+<strong>Rewrite helper:</strong> a small <code>resolveAssetUrl(url)</code> in <code>apps/webapp/src/app/lib/assets.ts</code>. If <code>url.startsWith('file://')</code>, parse the path, match the <code>data/assets/&lt;runId&gt;/&lt;variantId&gt;/&lt;scene&gt;.&lt;ext&gt;</code> shape, and return <code>/api/asset/&lt;runId&gt;/&lt;variantId&gt;/&lt;scene&gt;.&lt;ext&gt;</code>. Otherwise return as-is. Applied wherever a variant's <code>assetFiles[]</code> is rendered.
+</p>
+
+<div class="callout warn">
+<span class="tag">Tracker:</span> Both the dev route and <code>resolveAssetUrl()</code> are workarounds for the asset-store local-disk path. E-007 (asset-store R2 backend swap) was bumped P3 → P2 on 2026-05-25 because this webapp work surfaces the second consumer pulling on it. Once E-007 ships, both pieces become dead code and get deleted.
+</div>
+
+<h2><span class="num">9.</span> Orchestrator state binding</h2>
+
+<p>
+Approach A from the brainstorming: direct typed reads from the server, no new MCP, no API routes, no package. Best practice for Next 15 + server components with a single consumer. Server components <em>are</em> the API layer for internal tools.
+</p>
+
+<h3>File layout</h3>
+
+<pre>apps/webapp/src/app/lib/
+├── orchestrator.ts      ← NEW: typed reads from orchestrator.runs / run_steps / step_results
+├── entities.ts          ← existing
+├── actions.ts           ← existing (saveRow, setStatus)
+├── assets.ts            ← NEW: resolveAssetUrl() helper (§8)
+├── layouts/             ← NEW: per-entity detail layouts (§4)
+│   ├── briefs.ts
+│   ├── scripts.ts
+│   ├── creative-variants.ts
+│   ├── authority-articles.ts
+│   ├── experiments.ts
+│   ├── performance-reports.ts
+│   ├── hypotheses.ts
+│   └── learnings.ts
+└── listConfigs/         ← NEW: per-entity list configs (§5)
+    ├── default.ts
+    ├── creative-variants.ts
+    ├── hypotheses.ts
+    ├── experiments.ts
+    └── runs.ts
+</pre>
+
+<h3>lib/orchestrator.ts surface</h3>
+
+<pre>// Server-side only. Imports the existing `sql` client from @engineerdad/orchestrator/postgres.
+// Pure functions; no caching layer (Next handles request-scoped server-component dedup).
+
+export type RunRow = {
+  runId: string;
+  stage: string;
+  status: 'running' | 'waiting' | 'completed' | 'failed';
+  params: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StepRow = {
+  runId: string;
+  stepId: string;
+  stage: string;
+  status: 'pending' | 'done' | 'failed';
+  result: unknown;
+  problems: string[];
+  attempts: number;
+  updatedAt: Date;
+};
+
+export async function listRuns(opts?: { limit?: number; stage?: string; status?: string }): Promise&lt;RunRow[]&gt;;
+export async function getRun(runId: string): Promise&lt;RunRow | null&gt;;
+export async function listSteps(runId: string): Promise&lt;StepRow[]&gt;;
+export async function loadStepPayload(stepResultId: string): Promise&lt;unknown&gt;;
+
+// Pure derivation; stage + status → current gate.
+export function currentGate(run: RunRow): 'HG1' | 'HG2' | 'HG3' | 'HG4' | null;
+</pre>
+
+<h3>Tests</h3>
+
+<p>
+One Vitest file at <code>apps/webapp/src/app/lib/orchestrator.test.ts</code>. Tests <code>currentGate()</code> against fixtures (pure, easy) and <code>listRuns</code> / <code>getRun</code> / <code>listSteps</code> against seeded rows. Skipped via env in CI if no Postgres is reachable — matches the existing pattern in <code>packages/orchestrator/src/postgres.test.ts</code>.
+</p>
+
+<h2><span class="num">10.</span> Rename plan</h2>
+
+<p>
+75 references across 16 files. Six layers, in dependency order, sequenced so the build stays green at every commit.
+</p>
+
+<h3>1. Filesystem move</h3>
+<ul>
+<li><code>apps/review-ui/</code> → <code>apps/webapp/</code></li>
+<li><code>pnpm-workspace.yaml</code> — no change (already <code>apps/*</code>)</li>
+</ul>
+
+<h3>2. Package name</h3>
+<ul>
+<li><code>apps/webapp/package.json</code> — <code>"name": "@engineerdad/review-ui"</code> → <code>"@engineerdad/webapp"</code></li>
+<li>Root <code>package.json</code> — update any <code>--filter @engineerdad/review-ui</code> references</li>
+<li>Re-run <code>pnpm install</code> to regenerate <code>pnpm-lock.yaml</code></li>
+</ul>
+
+<h3>3. Orchestrator helper rename + env-var fallback</h3>
+<ul>
+<li><code>packages/orchestrator/src/review-ui.ts</code> → <code>webapp-url.ts</code></li>
+<li>Function <code>reviewUiUrl()</code> → <code>webappUrl()</code></li>
+<li>Env var <code>REVIEW_UI_URL</code> → <code>WEBAPP_URL</code>, with a 30-day deprecation fallback:</li>
+</ul>
+
+<pre>export function webappUrl(): string {
+  const fromOld = process.env.REVIEW_UI_URL;
+  if (fromOld && !process.env.WEBAPP_URL) {
+    console.warn("REVIEW_UI_URL is deprecated; set WEBAPP_URL instead.");
+  }
+  return (process.env.WEBAPP_URL ?? fromOld ?? "http://localhost:3030").replace(/\/+$/, "");
+}
+</pre>
+
+<ul>
+<li>Update call sites: <code>stages/brief.ts</code>, <code>stages/content.ts</code>, <code>stages/produce.ts</code>.</li>
+</ul>
+
+<h3>4. Route reorganization (no redirects)</h3>
+<ul>
+<li>Old root-level <code>/[entity]</code> and <code>/[entity]/[id]</code> routes <strong>deleted</strong>, not aliased.</li>
+<li>New routes per §3. Future HUMAN GATE links are regenerated from the updated <code>webappUrl()</code> + the stage's entity slug.</li>
+</ul>
+
+<h3>5. HUMAN GATE link generators</h3>
+<ul>
+<li><code>stages/brief.ts</code>, <code>stages/content.ts</code>, <code>stages/produce.ts</code> — update the message templates to point at <code>/review/&lt;entity-slug&gt;</code> instead of <code>/&lt;entity-slug&gt;</code>.</li>
+</ul>
+
+<h3>6. Documentation</h3>
+<ul>
+<li><code>CLAUDE.md</code>, <code>ARCHITECTURE.md</code>, <code>README.md</code>, <code>RESUME.md</code>, <code>TASKS.md</code> Status header — replace "review UI" with "webapp" in current prose.</li>
+<li><code>.claude/agents/brief-writer.md</code>, <code>.claude/commands/brief.md</code> — same prose update.</li>
+<li>ADRs are <strong>not mass-edited.</strong> ADR-021 mentions the review UI in historical context — that stays. We only touch an ADR if it references a file path or package name that no longer exists.</li>
+</ul>
+
+<h3>Commit sequence</h3>
+
+<p>One PR, several commits in this order so the build stays green at every step:</p>
+
+<table>
+<thead><tr><th>#</th><th>Commit</th><th>Effect</th></tr></thead>
+<tbody>
+<tr><td class="n">1</td><td><code>chore(orchestrator): add webappUrl() with REVIEW_UI_URL fallback</code></td><td>Additive; no callers change.</td></tr>
+<tr><td class="n">2</td><td><code>refactor(stages): switch HUMAN GATE links to webappUrl() + /review prefix</code></td><td>Uses new helper; old paths still work (no rename yet).</td></tr>
+<tr><td class="n">3</td><td><code>chore(webapp): rename apps/review-ui → apps/webapp + package</code></td><td>The big rename; build + tests must pass.</td></tr>
+<tr><td class="n">4</td><td><code>chore(orchestrator): rename review-ui.ts → webapp-url.ts + drop old export</code></td><td>Cleanup.</td></tr>
+<tr><td class="n">5</td><td><code>docs: rename review UI → webapp in CLAUDE/ARCHITECTURE/README/RESUME/TASKS + agent prompts</code></td><td>Final prose sweep.</td></tr>
+</tbody>
+</table>
+
+<p>After the PR merges, deployments using <code>REVIEW_UI_URL</code> continue to work via the fallback. Drop the fallback ~30 days later in a follow-up, tracked as a small enhancement.</p>
+
+<h2><span class="num">11.</span> Risk register</h2>
+
+<table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr>
+<td>75 references across 16 files mean grep-and-replace will miss something subtle.</td>
+<td>The commit sequence above adds the new helper first (additive), then renames, then cleans up. Each step's failures are local and reversible. CI / <code>pnpm -r build</code> must pass at every commit.</td>
+</tr>
+<tr>
+<td><code>WEBAPP_URL</code> fallback to <code>REVIEW_UI_URL</code> adds env-var drift across environments.</td>
+<td>One-shot warning log on <code>REVIEW_UI_URL</code> use; 30-day removal as a follow-up tracker entry.</td>
+</tr>
+<tr>
+<td>Per-entity layout configs (8 files) drift from schema over time.</td>
+<td>The auto-rendered <code>Raw fields (N)</code> fallback section in §4 surfaces unconfigured fields visibly — drift is observable in the UI, not silent.</td>
+</tr>
+<tr>
+<td>Channels-filter-in-JS is invisible to readers who expect SQL push-down.</td>
+<td>2-line code comment on the JS filter linking to this spec's §5 decision rationale (three-tests rule). A future second consumer triggers the DSL extension.</td>
+</tr>
+<tr>
+<td>Old HUMAN GATE links in chat history break after the route reorganization.</td>
+<td>Accepted cost (chosen explicitly during brainstorming). Future runs generate correct links via the updated <code>webappUrl()</code>. No server-side redirects to maintain.</td>
+</tr>
+</tbody>
+</table>
+
+<h2><span class="num">12.</span> Dependencies and prereqs</h2>
+
+<h3>New runtime deps</h3>
+<ul>
+<li><code>remark-gfm</code> (used by <code>&lt;DecisionMemo&gt;</code> for markdown tables + strikethrough)</li>
+</ul>
+
+<h3>No new MCP servers, packages, schemas, or migrations</h3>
+
+<p>
+Everything reuses existing surfaces: <code>@engineerdad/store</code> for entity reads, <code>@engineerdad/orchestrator/postgres</code>'s <code>sql</code> client for orchestrator state, the existing <code>asset-store</code> path convention for the dev asset route, the existing <code>APPROVAL_STATUS</code> / <code>CHANNELS</code> / etc. enum constants for filter options.
+</p>
+
+<h2><span class="num">13.</span> Open questions for plan</h2>
+
+<p>These are not blockers for spec approval — surface them in the writing-plans pass.</p>
+
+<ul>
+<li>Should the deprecation warning for <code>REVIEW_UI_URL</code> be one-shot (log once per process) or per-call?</li>
+<li>What's the exact pixel cap on SceneViewer's hero width — 480px is the placeholder; the right number is "the layout's main column at 1280px viewport minus padding".</li>
+<li>How does the <code>Raw fields</code> fallback section render values for unknown jsonb shapes — pretty-printed JSON in a <code>&lt;pre&gt;</code>, or a generic key/value table?</li>
+<li>Step-table payload modal — show full JSON or a tree-view? JSON is simpler; tree-view is richer if payloads get deep.</li>
+</ul>
+
+<footer class="doc">
+Spec produced 2026-05-25 via the brainstorming skill (<code>superpowers:brainstorming</code>). All eight brainstorming chunks approved by user (information arch → rename scope → variant grouping → scene render → run state depth → entity detail layout → entity list system → run page → memo viewer → asset preview → orchestrator binding → rename plan). E-007 updated inline during the brainstorm (drop Notion item; add webapp consumer; bumped P3 → P2). Next step: writing-plans skill.
+</footer>
+
+</div>
+</body>
+</html>

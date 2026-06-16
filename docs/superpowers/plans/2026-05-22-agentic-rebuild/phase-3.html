@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 3 — Collapse distribution + experiment-os</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .badge.review { background: var(--warn); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  pre.run { border-left-color: var(--warn); background: #fbf7ef; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 16px;
+    margin: 16px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15px; }
+  .task .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 3 — Collapse <code>distribution</code> + <code>experiment-os</code></h1>
+  <p class="meta">
+    Implementation plan · phase 3 of 6 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">REVIEWED — READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code> &nbsp;·&nbsp;
+    Depends on: Phase 2 (shipped)
+  </p>
+
+  <div class="callout decision">
+    <span class="lbl">Three decisions baked in</span>
+    <strong>1 — distribute = worker + deterministic plan + verifier.</strong> Routing
+    <em>decisions</em> are a pure, unit-tested <code>planDistribution()</code>; a generic
+    <code>general-purpose</code> worker executes the plan (threads Meta's
+    campaign→adset→ad id chain, polls async uploads); <code>verifyDistribute</code> re-reads
+    Notion for back-fill truth — the guarantee (design §10.1). No domain agent, no copy
+    derivation (ADR-018 intact).<br>
+    <strong>2 — gate-passing.</strong> A <code>gate</code> Step gains an <em>optional</em>
+    <code>check</code> (an MCP read); the conductor runs it, <code>verify</code> inspects it —
+    cleared ⇒ advance, else STOP. A gate with no <code>check</code> is <em>terminal</em>
+    (always STOP) — HG4's shape this phase. This is what lets a run flow <em>past</em> HG3
+    into Phase 3's stages.<br>
+    <strong>3 — registry timing (C1-consistent).</strong> <code>experiment</code> and
+    <code>distribute</code> ship as tested <code>StageDefinition</code>s + verifiers; the live
+    <code>FIXTURE_REGISTRY</code> is unchanged. Phase 5 wires the ordered live registry.
+    Deleting <code>distribution.md</code> / <code>experiment-os.md</code> and re-pointing
+    their commands moves to Phase 5 — doing it now, with the stages not yet live and
+    <code>brain.md</code> still referencing them, would leave a broken intermediate state.
+  </div>
+
+  <p><strong>Goal:</strong> Two new orchestrator stages — <code>experiment</code> (pure
+    step-chain) and <code>distribute</code> (worker + verifier) — plus the gate-passing
+    mechanism, all unit- and integration-tested, built against Phase 2's frozen engine.</p>
+  <p><strong>Architecture:</strong> <code>experiment</code> is a deterministic 3-step chain
+    (<code>query → experiment.design MCP → write</code>) with a pure 70/20/10 allocation
+    overlay. <code>distribute</code> is a 4-step stage whose middle step is one agentic cell —
+    a worker executing a pure <code>planDistribution()</code> plan, guarded by
+    <code>verifyDistribute</code>. Gates become verifiable steps.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM), <code>node:sqlite</code>, vitest. New deps:
+    none. Reuses Phase 1's <code>youtubeCategoryId</code> from
+    <code>@engineerdad/shared/derive</code>. Execution: <strong>TBD</strong> (this doc is for
+    review first).</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/orchestrator/src/types.ts</code> <em>(modify)</em></td><td>Extend <code>RunStage</code>; add <code>check</code> to the gate <code>Step</code></td></tr>
+      <tr><td><code>packages/orchestrator/src/engine.ts</code> <em>(modify)</em></td><td><code>plan</code> sets status <code>awaiting_gate</code> when the next step is a gate</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/produce.ts</code> <em>(modify)</em></td><td>P4-gate gains its <code>check</code> + a verifier (HG3 Notion read)</td></tr>
+      <tr><td><code>packages/orchestrator/src/experiment/allocation.ts</code></td><td><code>applyAllocation</code> (70/20/10) + <code>mapCellsToVariants</code> — pure</td></tr>
+      <tr><td><code>packages/orchestrator/src/verifiers/verify-experiment.ts</code></td><td><code>verifyExperiment</code> — pure acceptance test</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/experiment.ts</code></td><td><code>experimentStage</code> — X1-query · X2-design · X3-write</td></tr>
+      <tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></td><td><code>planDistribution</code> — pure routing planner + its types</td></tr>
+      <tr><td><code>packages/orchestrator/src/verifiers/verify-distribute.ts</code></td><td><code>verifyDistribute</code> — pure; re-reads-Notion truth check</td></tr>
+      <tr><td><code>packages/orchestrator/src/stages/distribute.ts</code></td><td><code>distributeStage</code> — D1-query · D2-route · D3-confirm · D4-gate</td></tr>
+      <tr><td><code>packages/orchestrator/src/registry.ts</code> · <code>index.ts</code> <em>(modify)</em></td><td>Export the new stages, planner, verifiers; live registry unchanged</td></tr>
+      <tr><td><code>packages/orchestrator/src/*.test.ts</code></td><td>Colocated vitest suites</td></tr>
+      <tr><td><code>.claude/commands/loop.md</code> <em>(modify)</em></td><td>Rewrite the gate branch — execute <code>check</code> → verify → advance / STOP</td></tr>
+      <tr><td><code>docs/superpowers/plans/.../index.html</code> <em>(modify)</em></td><td>Phase 3 status + correct the pre-C1 phasing text</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Not in Phase 3:</strong> organic-FB routing (<code>§4d</code> of the old
+    distribution agent) — it depends on <code>Organic Scheduled For</code>, which the
+    <code>schedule</code> stage sets; it ships in Phase 4 alongside <code>schedule</code>.
+    Agent-file deletion + command re-pointing — Phase 5. <code>brain.md</code> trim — Phase 6.</p>
+
+  <h2><span class="num">1.</span> Locked interfaces</h2>
+  <p>Phase 2's structural types (<code>RunState</code>, <code>StepSpec</code>,
+    <code>StageDefinition</code>, <code>VerifyResult</code>, the engine surface) are unchanged.
+    Phase 3 makes exactly two <em>additive</em> edits to <code>types.ts</code> and adds the
+    contracts below.</p>
+
+  <h3>1.1 — <code>types.ts</code> additive edits</h3>
+<pre>// RunStage — two new stage ids (a stage enum inherently grows per stage)
+export type RunStage =
+  "fixture" | "produce" | "experiment" | "distribute" | "done";
+
+// Step — the gate variant gains an OPTIONAL `check`: an MCP *read* the
+// conductor runs to detect whether the human gate has cleared. A gate WITH a
+// check is passable (cleared => the run flows on); a gate WITHOUT one is
+// terminal (the conductor always STOPs) — HG4's shape until Phase 4.
+  | { kind: "gate"; stepId: string; gate: string; message: string;
+      check?: { tool: string; args: unknown } }</pre>
+  <p>Extending <code>RunStage</code> is not a breaking change — the engine treats
+    <code>run.stage</code> opaquely (compares it to registry stage ids; <code>"done"</code> is
+    the one special value). Adding an optional <code>check</code> is additive; the one
+    existing gate (produce's P4) gains a Notion <code>check</code> in the same task so the
+    build never goes red.</p>
+
+  <h3>1.2 — The conductor's gate branch (<code>loop.md</code>)</h3>
+<pre>gate, NO check   -> print step.message ; STOP            (terminal — e.g. HG4)
+gate, WITH check -> execute step.check.tool / step.check.args   (an MCP read)
+        v = mcp__orchestrator__verify({ runId, stepId, result: checkResult })
+        v.ok === true  -> mcp__orchestrator__advance({ runId, stepId,
+                            result: checkResult }) ; goto 1      (gate cleared)
+        v.ok === false -> print step.message ; STOP              (awaiting human)</pre>
+  <p>A gate becomes just another verifiable step — the "worker" is the human, the "result"
+    is the Notion/Meta approval state. When STOPped, the next <code>/loop</code> re-plans,
+    gets the same gate, re-runs the check — idempotent by construction.</p>
+
+  <h3>1.3 — <code>plan</code> sets <code>awaiting_gate</code></h3>
+  <p>When the step <code>plan</code> returns is a <code>gate</code>, it persists run status
+    <code>awaiting_gate</code> (a pure function of the registry — the step's
+    <code>kind</code>); any other step ⇒ <code>active</code>. <code>/status</code> then shows
+    a gated run as <code>awaiting_gate</code> rather than a misleading <code>active</code>.</p>
+
+  <h3>1.4 — 70/20/10 allocation (<code>experiment/allocation.ts</code>)</h3>
+<pre>export interface MappedCell {
+  cellId: string;
+  factorLevels: Record&lt;string, string&gt;;
+  variantPageIds: string[];
+  bucket: "70" | "20" | "10";
+}
+export interface AllocatedCell extends MappedCell { allocationPct: number; }
+
+/** Attach variantPageIds whose factor tags match factorLevels; derive bucket
+ *  from the majority Budget Bucket of matched variants (default "20"). */
+export function mapCellsToVariants(
+  cells: { cellId: string; factorLevels: Record&lt;string, string&gt; }[],
+  variants: { pageId: string; factorTags: Record&lt;string, string&gt;;
+              budgetBucket: "70" | "20" | "10" | null }[],
+): MappedCell[]
+
+/** Per-cell allocationPct = bucketShare(b) / n_b, where bucketShare = 70|20|10
+ *  and n_b = cells in bucket b. A bucket with 0 cells redistributes its share
+ *  proportionally across non-empty buckets. Result allocationPcts sum to 100. */
+export function applyAllocation(cells: MappedCell[]): AllocatedCell[]</pre>
+
+  <h3>1.5 — <code>verifyExperiment</code> (pure)</h3>
+<pre>export function verifyExperiment(
+  cells: AllocatedCell[],
+  experimentRowCreated: boolean,
+): VerifyResult</pre>
+  <p>Problems: experiment row not created; a cell with zero <code>variantPageIds</code>;
+    <code>allocationPct</code> sum off 100 by &gt; 0.5 (rounding tolerance). Test Type
+    (<code>factorial</code> if cells ≥ 2 else <code>single-ad</code>) is informational, not a
+    problem.</p>
+
+  <h3>1.6 — <code>planDistribution</code> + <code>DistributionPlan</code> (pure)</h3>
+<pre>export interface ToolStep {
+  tool: string;                       // MCP tool name
+  args: Record&lt;string, unknown&gt;;       // literal args (spec read verbatim)
+  captures?: string;                  // label for this call's result
+  needs?: string[];                   // captures the worker must substitute in
+  poll?: { tool: string; untilField: string; untilValue: string };
+}
+export interface RowPlan {
+  rowId: string; channel: string;
+  action: "route" | "skip"; reason?: string;
+  steps: ToolStep[];
+}
+export interface DistributionPlan {
+  runId: string;
+  rowPlans: RowPlan[];
+  backfills: ToolStep[];              // notion update_page calls (needs[] → ids)
+  skipped: { rowId: string; reason: string }[];
+  notes: string[];
+  dryRun: boolean;
+}
+
+export function planDistribution(
+  variants: DistVariant[],
+  articles: DistArticle[],
+  cells: AllocatedCell[],
+  opts: { channelFilter?: string[]; dryRun?: boolean },
+): DistributionPlan</pre>
+  <p><code>planDistribution</code> is the whole determinism story for distribute: channel
+    routing, the <code>EDOS_&lt;runId&gt;</code> / <code>&lt;runId&gt;__&lt;cell&gt;__…</code>
+    naming conventions, per-cell budget math, idempotency gates (a variant with
+    <code>Ad ID</code> populated ⇒ <code>skip</code>), gap detection (a channel present but
+    its spec fields empty ⇒ <code>skip</code> + note), and <code>dryRun</code>. It never
+    derives copy — spec fields are read verbatim onto <code>ToolStep.args</code>. Runtime
+    values (<code>campaign_id</code>, <code>adset_id</code>, <code>creative_id</code>,
+    <code>image_hash</code>) are <em>not</em> literals — the producing step
+    <code>captures</code> them, the consuming step <code>needs</code> them, and the worker
+    substitutes. This makes the plan a fully testable data structure.</p>
+
+  <h3>1.7 — <code>verifyDistribute</code> (pure)</h3>
+<pre>export function verifyDistribute(
+  expectedVariants: DistVariant[], expectedArticles: DistArticle[],
+  actualVariants: DistVariant[],   actualArticles: DistArticle[],
+): VerifyResult</pre>
+  <p>The guarantee. Re-reads-Notion truth: every <code>expected</code> Meta-paid variant must
+    have a non-null <code>Ad ID</code> in <code>actual</code> (both langs, or one + a note);
+    every YouTube variant a <code>YT Video ID</code>; every approved article a
+    <code>Delivered At</code>. Idempotent — a row already satisfied in <code>expected</code>
+    passes. Every unrouted row is a problem.</p>
+
+  <h2><span class="num">2.</span> Tasks</h2>
+  <p>TDD: per task — write the test(s), run red, implement, run green, commit. Commit prefix
+    <code>feat(orchestrator):</code>. Run a suite with
+    <code>pnpm vitest run packages/orchestrator/&lt;file&gt;</code>.</p>
+
+  <div class="task">
+    <h3>T1 — <code>types.ts</code> + the gate <code>check</code></h3>
+    <p><span class="lbl">Files</span> <code>types.ts</code>, <code>stages/produce.ts</code>,
+      <code>stages/produce.test.ts</code> (modify).</p>
+    <p><span class="lbl">Build</span> Extend <code>RunStage</code> (§1.1); add the optional
+      <code>check</code> to the gate <code>Step</code> variant. Update produce's
+      <code>p4Gate</code>: <code>build</code> now emits <code>check</code> = an
+      <code>mcp__notion__query</code> for <code>CreativeVariants</code> where
+      <code>Run ID = runId</code> AND <code>Approval Status = Approved</code>; add a
+      <code>verify</code> that returns <code>ok</code> when the query result is non-empty
+      (HG3 cleared = at least one approved variant exists).</p>
+    <p><span class="lbl">Test</span> produce.test.ts: P4 build yields a gate Step carrying a
+      <code>check</code>; P4 <code>verify</code> passes a non-empty query result, fails an
+      empty one.</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean (the type change does
+      not break any call-site); produce suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T2 — <code>engine.plan</code> → <code>awaiting_gate</code></h3>
+    <p><span class="lbl">Files</span> <code>engine.ts</code>, <code>engine.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> In <code>plan</code>, when the chosen <code>StepSpec</code>
+      has <code>kind: "gate"</code>, <code>setRunStage</code> with status
+      <code>awaiting_gate</code> (instead of <code>active</code>) before returning the step.
+      Non-gate steps keep <code>active</code>.</p>
+    <p><span class="lbl">Test</span> A registry whose first step is a gate → after
+      <code>plan</code>, <code>loadRunState().status === "awaiting_gate"</code>; a non-gate
+      step → <code>active</code>; re-planning a gated run stays <code>awaiting_gate</code>
+      (idempotent).</p>
+    <p><span class="lbl">Verify</span> engine suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T3 — Gate-passing: integration test + <code>loop.md</code></h3>
+    <p><span class="lbl">Files</span> <code>engine.gate.integration.test.ts</code> (new),
+      <code>.claude/commands/loop.md</code> (modify).</p>
+    <p><span class="lbl">Build</span> No new source. Rewrite <code>loop.md</code>'s gate branch
+      per §1.2 — execute <code>step.check</code>, <code>verify</code>, then
+      <code>advance</code>+continue or print+STOP.</p>
+    <p><span class="lbl">Test</span> A gated test registry — one <code>spawn</code> step then a
+      <code>gate</code> step whose <code>verify</code> passes a "cleared" check result and
+      fails an "uncleared" one. Drive: <code>plan</code> → run the spawn → <code>plan</code>
+      returns the gate (<code>status awaiting_gate</code>) → simulate an <em>uncleared</em>
+      check → <code>verify.ok === false</code> (conductor would STOP) → re-<code>plan</code>
+      still returns the gate → simulate a <em>cleared</em> check → <code>verify.ok</code> →
+      <code>advance</code> → <code>plan</code> returns <code>done</code>. Proves a run loops
+      at an uncleared gate and flows past a cleared one. A second case — a <em>terminal</em>
+      gate (no <code>check</code>) — <code>plan</code> keeps returning it; the conductor
+      STOPs every time.</p>
+    <p><span class="lbl">Verify</span> suite green; <code>loop.md</code> parses. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T4 — <code>experiment/allocation.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>experiment/allocation.ts</code>,
+      <code>experiment/allocation.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>mapCellsToVariants</code> + <code>applyAllocation</code>
+      per §1.4.</p>
+    <p><span class="lbl">Test</span> mapCells — a variant lands in the cell whose
+      <code>factorLevels</code> its <code>factorTags</code> match; bucket = majority of
+      matched variants, <code>"20"</code> on a tie/empty. allocate — 3 buckets present:
+      <code>70/n70</code>, <code>20/n20</code>, <code>10/n10</code>; an empty bucket
+      redistributes proportionally; every result sums to 100 (±0.5); single cell → 100.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T5 — <code>verifiers/verify-experiment.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>verifiers/verify-experiment.ts</code>,
+      <code>verify-experiment.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>verifyExperiment</code> per §1.5.</p>
+    <p><span class="lbl">Test</span> A complete allocated design → <code>ok:true</code>; each
+      failure in isolation — row not created, a cell with zero variants, allocation summing
+      off 100.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T6 — <code>stages/experiment.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/experiment.ts</code>, <code>experiment.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>experimentStage</code> — id <code>"experiment"</code>,
+      3 StepSpecs:
+      <code>X1-query</code> (<code>write</code> — query <code>CreativeVariants</code> approved,
+      <code>Hypotheses</code>, and any existing <code>Experiments</code> for the run);
+      <code>X2-design</code> (<code>write</code> — <code>build</code> reads X1; if an
+      Experiment already exists, emits zero calls — idempotent no-op; else builds the
+      <code>mcp__experiment__design</code> call from <code>run.params</code> + X1's variants);
+      <code>X3-write</code> (<code>write</code> — <code>build</code> reads X1 + X2, runs
+      <code>mapCellsToVariants</code> + <code>applyAllocation</code>, emits the
+      <code>mcp__notion__create_page</code> for the Experiments row + a
+      <code>update_page</code> per linked Hypothesis; <code>verify</code> delegates to
+      <code>verifyExperiment</code>). No gate — the run flows straight into
+      <code>distribute</code>.</p>
+    <p><span class="lbl">Test</span> Well-formedness: 3 steps, ids/kinds/order; X2 emits no
+      calls when X1 carries an existing Experiment; X3's <code>verify</code> delegates to
+      <code>verifyExperiment</code> (ok on a complete carried run, fails a zero-variant cell).</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T7 — <code>planDistribution</code>: Meta-paid path</h3>
+    <p><span class="lbl">Files</span> <code>distribute/plan-distribution.ts</code>,
+      <code>plan-distribution.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>planDistribution</code> + its types (§1.6), Meta-paid
+      branch only. Per Meta-paid variant: a campaign <code>ToolStep</code>
+      (<code>create_campaign</code>, name <code>EDOS_&lt;runId&gt;</code>,
+      <code>captures:"campaign"</code>); per cell an adset step
+      (<code>needs:["campaign"]</code>, budget = <code>dailyBudget × allocationPct</code>);
+      per variant an upload step + per language a <code>create_ad_creative</code> +
+      <code>create_ad</code> step. Idempotency: <code>Ad ID</code> populated for all of the
+      variant's Meta langs ⇒ <code>action:"skip"</code>. Gap: a Meta-paid channel but
+      <code>metaSpec</code> null/incomplete ⇒ <code>skip</code> + a <code>notes</code> entry.
+      <code>dryRun</code> ⇒ the plan is identical but flagged; the worker will not execute.</p>
+    <p><span class="lbl">Test</span> A complete Meta-paid variant → a campaign+adset+upload+
+      creative×2+ad×2 chain with correct <code>captures</code>/<code>needs</code> wiring;
+      already-distributed variant → <code>skip</code>; missing <code>metaSpec</code> →
+      <code>skip</code> + note; <code>dryRun:true</code> → <code>plan.dryRun === true</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T8 — <code>planDistribution</code>: YouTube + articles</h3>
+    <p><span class="lbl">Files</span> <code>distribute/plan-distribution.ts</code> (extend),
+      <code>plan-distribution.test.ts</code> (extend).</p>
+    <p><span class="lbl">Build</span> YouTube branch — per variant with a YouTube channel: an
+      <code>mcp__youtube__upload_video</code> step; <code>YT Category</code> name → id via
+      <code>youtubeCategoryId</code> from <code>@engineerdad/shared/derive</code> (shipped in
+      Phase 1); idempotency on <code>YT Video ID</code>; gap detection on
+      <code>ytSpec</code>. Articles branch — per approved article with
+      <code>Delivered At</code> empty: assemble the <code>ArticleSpec</code> per language that
+      has both body and FAQ, emit <code>mcp__engineerdad_site__draft_article</code>; skip a
+      language cleanly when body/FAQ missing. Back-fill steps for both.</p>
+    <p><span class="lbl">Test</span> YouTube — happy path produces an upload step with the
+      mapped <code>category_id</code>; populated <code>YT Video ID</code> → skip. Articles —
+      both-language article → two <code>draft_article</code> steps; FAQ-missing language →
+      skipped with a note; already-delivered article → not in <code>rowPlans</code>.</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T9 — <code>verifiers/verify-distribute.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>verifiers/verify-distribute.ts</code>,
+      <code>verify-distribute.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>verifyDistribute</code> per §1.7.</p>
+    <p><span class="lbl">Test</span> A run where every expected row is satisfied in
+      <code>actual</code> → <code>ok:true</code>; each failure in isolation — a Meta-paid
+      variant with null <code>Ad ID</code>, a YouTube variant with no <code>YT Video ID</code>,
+      an article with no <code>Delivered At</code>; an already-satisfied row in
+      <code>expected</code> passes (idempotent).</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T10 — <code>stages/distribute.ts</code></h3>
+    <p><span class="lbl">Files</span> <code>stages/distribute.ts</code>, <code>distribute.test.ts</code>.</p>
+    <p><span class="lbl">Build</span> <code>distributeStage</code> — id <code>"distribute"</code>,
+      4 StepSpecs:
+      <code>D1-query</code> (<code>write</code> — query approved <code>CreativeVariants</code>,
+      <code>AuthorityArticles</code> with <code>Delivered At</code> empty, and the run's
+      <code>Experiments</code> row);
+      <code>D2-route</code> (<code>spawn</code> <code>general-purpose</code> —
+      <code>build</code> reads D1, runs <code>planDistribution</code>, embeds the
+      <code>DistributionPlan</code> in the <code>spawnPrompt</code> with verbatim
+      execute-this-plan instructions; default verifier — D3 is the real check);
+      <code>D3-confirm</code> (<code>write</code> — re-query <code>CreativeVariants</code> +
+      <code>AuthorityArticles</code>; <code>verify</code> delegates to
+      <code>verifyDistribute</code> over D1's expected rows and D3's actual rows);
+      <code>D4-gate</code> (<code>gate</code> <code>HG4</code> — <em>terminal</em>, no
+      <code>check</code>; <code>message</code> names the PAUSED ad count + "un-pause in Meta
+      Ads Manager"). <code>distribute</code>'s job ends at PAUSED; HG4 becomes a passable
+      Meta check in Phase 4, when the <code>analyze</code> stage runs after it.</p>
+    <p><span class="lbl">Test</span> Well-formedness: 4 steps, ids/kinds/order; D2 builds a
+      spawn whose prompt embeds a plan; D3's <code>verify</code> delegates to
+      <code>verifyDistribute</code>; D4 is a terminal gate (no <code>check</code>).</p>
+    <p><span class="lbl">Verify</span> suite green. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T11 — <code>registry.ts</code> + <code>index.ts</code> barrel</h3>
+    <p><span class="lbl">Files</span> <code>registry.ts</code>, <code>index.ts</code> (modify).</p>
+    <p><span class="lbl">Build</span> Re-export <code>experimentStage</code>,
+      <code>distributeStage</code>, <code>planDistribution</code> (+ its types),
+      <code>verifyExperiment</code>, <code>verifyDistribute</code>, the allocation functions.
+      <code>FIXTURE_REGISTRY</code> stays <code>[fixtureStage]</code> — the new stages are
+      definitions only this phase (C1).</p>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; the public surface
+      imports cleanly. Commit.</p>
+  </div>
+
+  <div class="task">
+    <h3>T12 — Full build, suite, sync check, smoke</h3>
+    <p><span class="lbl">Verify</span> <code>pnpm -r build</code> clean; <code>pnpm vitest run</code>
+      (whole repo) green; <code>pnpm sync:agents:check</code> clean. Live <code>/loop</code>
+      smoke still drives the fixture stage end-to-end (live registry unchanged). Update the
+      roadmap <code>index.html</code> — mark Phase 3 shipped and correct its pre-C1 text
+      (agent deletion + command re-pointing now noted under Phase 5). Commit.</p>
+  </div>
+
+  <h2><span class="num">3.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    <code>experiment</code> and <code>distribute</code> exist as unit-tested
+    <code>StageDefinition</code>s; <code>planDistribution</code>, <code>applyAllocation</code>,
+    <code>mapCellsToVariants</code>, <code>verifyExperiment</code>, <code>verifyDistribute</code>
+    are pure and unit-tested; the gate-passing mechanism (<code>check</code> field + conductor
+    branch + <code>awaiting_gate</code>) works, proven by an integration test, and produce's
+    HG3 gate carries a real <code>check</code> so a run <em>can</em> flow past it;
+    <code>pnpm -r build</code> + <code>pnpm vitest run</code> + <code>pnpm sync:agents:check</code>
+    all green; the live <code>/loop</code> smoke is unchanged. The new stages are <em>not</em>
+    in the live registry — Phase 5 wires them, and only then are
+    <code>distribution.md</code> / <code>experiment-os.md</code> deleted.
+  </div>
+
+  <div class="callout decision">
+    <span class="lbl">Reviewed — resolved</span>
+    <strong>HG4</strong> — <code>distribute</code> ends at a <em>terminal</em> STOP once every
+    ad is PAUSED; HG4 is upgraded to a passable Meta check in Phase 4 (decided on review —
+    avoids guessing the clear-condition before <code>analyze</code> exists).
+    <strong>X2-design's inputs</strong> (factors, hypothesis, budget) are read from
+    <code>run.params</code> — they originate in Brain's Decision Memo; Phase 6 wires Brain to
+    write them, Phase 3 reads them defensively (accepted).
+  </div>
+
+  <div class="callout key">
+    <span class="lbl">Carried to Phase 4+</span>
+    Organic-FB routing joins <code>planDistribution</code> in Phase 4 (coupled to the
+    <code>schedule</code> stage); HG4 is upgraded there from a terminal STOP to a passable
+    Meta check, once the <code>analyze</code> stage runs after <code>distribute</code>.
+    Phase 5 builds the ordered live registry
+    (<code>tracking → … → produce → experiment → distribute</code>), activates the new stages,
+    and deletes the two replaced agents. Phase 6 trims <code>brain.md</code>.
+  </div>
+
+  <div class="foot">
+    Roadmap: <code>index.html</code> · Design: <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>
+    · Predecessor: <code>phase-2.html</code> (shipped). On approval, Phase 3 executes; Phase 4 is expanded next.
+  </div>
+
+</div>
+</body>
+</html>

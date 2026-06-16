@@ -1,0 +1,19 @@
+{
+  "scriptId": "test_script_003",
+  "format": "Feed",
+  "aspect": "4:5",
+  "width": 1080,
+  "height": 1350,
+  "language": "en",
+  "scenes": [
+    {
+      "scene": 1,
+      "headline": "Your child's RM50K degree becomes RM120K in 18 years",
+      "headline_source": "hook",
+      "body": "Local degrees inflate at 5% per year. Bank savings grow at 2%. The gap is RM49K — and it's silent.",
+      "shotNotes": "static, taller portrait composition with vertical reading flow",
+      "chartRef": "children-fund-cost"
+    }
+  ],
+  "thumbnailBrief": "Alert / loss-prevention tone. Navy-dark background, high contrast. Headline at top in white (logo's 'Engineer' becomes white per dark-bg variant). Bar chart in middle showing RM50K → RM120K growth vs the savings-account RM50K → RM71K shortfall. Orange callout on the gap. Body copy at bottom, muted but readable."
+}

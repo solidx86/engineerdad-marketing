@@ -1,0 +1,31 @@
+# EDUCATION-COST inflation vs Savings — what RM100,000 in a 2% savings account is *really* worth
+# over 18 years when measured against ~5% tuition-fee escalation (NOT general/DOSM CPI — see
+# three-gaps-framework.md Gap 3 sourcing note; for a general-inflation version use a separate chart).
+# Source: corpus/courses/three-gaps-framework.md (Gap 3 — "2% savings account against
+# 5–6% education inflation ≈ ~3–4pp of purchasing power lost per year; 18-year compounding
+# leaves a shortfall that may cover only half the future degree cost").
+# Used by media-production when scene argues "FD/savings isn't safe — it's a guaranteed
+# shortfall", "inflation is the silent tax", "the gap-3 math proof", or any Money
+# Psychology Series A retirement/savings hook that opens with "saving feels safe but…".
+
+id: inflation-vs-savings-real-value
+title_en: "RM100,000 in a 2% savings account vs 5% education-cost inflation — real value over 18 years"
+title_ms: "RM100,000 dalam akaun simpanan 2% vs inflasi kos pendidikan 5% — nilai sebenar selama 18 tahun"
+chart_type: line
+x_label_en: "Years"
+x_label_ms: "Tahun"
+y_label_en: "Value (RM, today's purchasing power for the real line)"
+y_label_ms: "Nilai (RM, kuasa beli hari ini untuk garisan sebenar)"
+labels: [0, 5, 10, 15, 18]
+series:
+  - name_en: "Real value (purchasing power at 5% inflation)"
+    name_ms: "Nilai sebenar (kuasa beli pada inflasi 5%)"
+    semantic_role: hero          # the declining truth-line — the headline argument
+    values: [100000, 86000, 75000, 65000, 59000]
+  - name_en: "Nominal value (account balance at 2% interest)"
+    name_ms: "Nilai nominal (baki akaun pada faedah 2%)"
+    semantic_role: comparison    # the misleading rising number people actually see
+    values: [100000, 110000, 122000, 135000, 143000]
+caption_en: "Saving for a degree? Your statement shows RM143,000 at year 18. But measured against education-cost inflation, what that pile actually buys is RM59,000 in today's money — a ~41% loss of purchasing power. A 2% savings account doesn't keep pace with tuition costs rising ~5% a year; inflation taxes it every year while the statement tells a comforting story."
+caption_ms: "Menyimpan untuk ijazah? Penyata anda menunjukkan RM143,000 pada tahun ke-18. Tetapi diukur berbanding inflasi kos pendidikan, apa yang timbunan itu sebenarnya boleh beli ialah RM59,000 dalam wang hari ini — kehilangan kuasa beli ~41%. Akaun simpanan 2% tidak seiring dengan kos pengajian yang naik ~5% setahun; inflasi mencukainya setiap tahun sementara penyata menceritakan kisah yang menenangkan."
+source_citation: "Education-cost scenario. Nominal series: RM100,000 × (1.02)^t (a 2% savings account). Real series: deflated by 5% annual EDUCATION-COST inflation — RM100,000 × (1.02/1.05)^t. Both rounded to nearest RM1,000. The 5% is the private/tertiary tuition-fee-escalation planning assumption (range 5–6%) from corpus/courses/three-gaps-framework.md — NOT the DOSM CPI (headline ~1.8%, education sub-index ~1.5–2.6%); it applies only to education-cost claims. 2% is a conservative deposit-rate assumption. Illustrative only — actual fees, inflation, and rates vary year to year."

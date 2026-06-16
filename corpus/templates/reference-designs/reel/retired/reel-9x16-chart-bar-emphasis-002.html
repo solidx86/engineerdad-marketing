@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:        #1B2B6B;
+    --navy-dark:   #111c45;
+    --orange:      #F07621;
+    --teal:        #00B4A6;
+    --teal-light:  #e6f8f7;
+    --offwhite:    #F7F8FC;
+    --warm-white:  #FEFEFE;
+    --text:        #1a1a2e;
+    --muted:       #6b7280;
+    --border:      #e5e7f0;
+    --font-head: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1920px;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    font-family: var(--font-body);
+    color: var(--warm-white);
+    background: var(--navy-dark);
+  }
+  .stage {
+    position: absolute;
+    top: 280px;
+    left: 80px;
+    right: 140px;
+    bottom: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kicker {
+    font-family: var(--font-body);
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin: 0 0 18px 0;
+  }
+  .headline {
+    font-family: var(--font-head);
+    font-size: 78px;
+    font-weight: 900;
+    line-height: 1.08;
+    color: var(--warm-white);
+    margin: 0 0 48px 0;
+  }
+  .chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 560px;
+    margin-bottom: 48px;
+  }
+  #chart { display: block; }
+  .callout {
+    position: absolute;
+    top: 70px;
+    right: 14px;
+    background: var(--orange);
+    color: var(--warm-white);
+    border-radius: 16px;
+    padding: 18px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    text-align: center;
+    max-width: 300px;
+  }
+  .callout .big {
+    font-family: var(--font-head);
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .callout .lbl {
+    font-family: var(--font-body);
+    font-size: 28px;
+    font-weight: 500;
+    margin-top: 6px;
+    line-height: 1.15;
+  }
+  .caption {
+    font-family: var(--font-body);
+    font-size: 36px;
+    font-weight: 500;
+    line-height: 1.32;
+    color: var(--offwhite);
+    margin: 0 0 28px 0;
+  }
+  .source {
+    font-family: var(--font-body);
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.3;
+    color: #c9cede;
+    margin: 0;
+  }
+  .logo-mark {
+    margin-top: 36px;
+    align-self: flex-end;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .logo-text {
+    font-family: var(--font-head);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .logo-text .engineer { color: white; }
+  .logo-text .dad      { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <p class="kicker">Timing Risk</p>
+    <h1 class="headline">DCA bought<br>1,043 more units.</h1>
+    <div class="chart-wrapper">
+      <canvas id="chart" width="860" height="560"></canvas>
+      <div class="callout">
+        <div class="big">13,043</div>
+        <div class="lbl">units via DCA<br>vs 12,000 lump sum</div>
+      </div>
+    </div>
+    <p class="caption">Same RM12,000. DCA bought 13,043 units (avg cost RM0.92/unit) by buying more units when prices dipped. Lump sum bought 12,000 units at the day-1 price. Difference comes from price volatility, not market direction.</p>
+    <p class="source">Illustrative simulation — assumes a 12-month price path that dips in months 4–8. Real market outcomes vary. DCA's mathematical advantage holds when prices fluctuate; if prices rise monotonically, lump sum wins (rare scenario).</p>
+    <div class="logo-mark">
+      <div class="logo-text"><span class="engineer">Engineer</span><span class="dad">Dad</span></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    window.__chartsReady = false;
+
+    const chartYaml = {
+      chart_type: 'bar',
+      x_label_en: 'Outcome at end of year 1',
+      y_label_en: 'Units acquired',
+      labels: ['Lump sum (day 1, RM1.00)', 'DCA (RM1,000/mo, avg RM0.92)'],
+      series: [
+        { name_en: 'Units owned', semantic_role: 'hero', values: [12000, 13043] },
+      ],
+    };
+
+    // dark bg: white ticks/grid; one bar hero --orange, the other dimmed navy/grey
+    const tokens = { tick: '#FEFEFE', grid: 'rgba(255,255,255,0.12)' };
+
+    function buildBarConfig(y, t, { lang = 'en' } = {}) {
+      const L = (b) => y[`${b}_${lang}`] ?? y[`${b}_en`];
+      const s = y.series[0];
+      // index 1 (DCA) is the emphasized bar
+      const barColors = ['rgba(255,255,255,0.30)', '#F07621'];
+      return {
+        type: 'bar',
+        data: {
+          labels: y.labels,
+          datasets: [{
+            label: s.name_en,
+            data: s.values,
+            backgroundColor: barColors,
+            borderColor: barColors,
+            borderRadius: 8,
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: false, animation: false, maintainAspectRatio: false,
+          layout: { padding: { top: 8, bottom: 16, left: 8, right: 16 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          scales: {
+            x: { title: { display: true, text: L('x_label'), font: { family: "'Inter', sans-serif", size: 26, weight: '500' }, color: t.tick, padding: { top: 14 } }, ticks: { font: { family: "'Inter', sans-serif", size: 24 }, color: t.tick, maxRotation: 0, autoSkip: false, callback: function(val) { const lbl = this.getLabelForValue(val); return lbl.split(' ('); } }, grid: { color: t.grid } },
+            y: { title: { display: true, text: L('y_label'), font: { family: "'Inter', sans-serif", size: 28, weight: '500' }, color: t.tick }, ticks: { font: { family: "'Inter', sans-serif", size: 28 }, color: t.tick }, grid: { color: t.grid }, beginAtZero: true },
+          },
+        },
+      };
+    }
+
+    new Chart(document.getElementById('chart'), buildBarConfig(chartYaml, tokens));
+    setTimeout(() => { window.__chartsReady = true; }, 400);
+  </script>
+</body>
+</html>

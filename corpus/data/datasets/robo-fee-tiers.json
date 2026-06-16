@@ -1,0 +1,53 @@
+{
+  "verified_at": "2026-06-15",
+  "verification_status": "verified",
+  "volatility": "variable",
+  "source": "Per-row citations below. Robo fee tiers fetched 2026-06-15: StashAway Malaysia pricing page (https://www.stashaway.my/pricing); Versa Invest fee schedule from the Versa support centre (https://support.versa.com.my/hc/en-us/articles/12621457689495-What-are-the-fees-associated-with-Invest — versa.com.my/pricing returns HTTP 404 and the support article returns HTTP 403 to non-browser fetches; loaded via headless browser). Public Mutual unit-trust annual management fee from owned corpus/knowledge/a-fee-schedule.md (Master Prospectus dated 28 Aug 2023 with 1st Supplemental dated 3 Dec 2025, p. 153; PEF PHS 30 Jan 2026) — owned, not refetched. PRS tax-relief figures from owned corpus/knowledge/b-relief-stacking.md (LHDN YA 2025 relief table + ppa.my, fetched 2026-05-31).",
+  "notes": "Annual management fee for three ways a Malaysian parent can buy a diversified equity portfolio: two robo-advisors (StashAway, Versa) and a Public Mutual equity unit trust. The honest finding is that 'robo' is not one number: StashAway's headline platform fee (0.8% p.a. on the first RM150,000, tiering DOWN to 0.2% above RM3m) is genuinely cheaper than an equity UT's 1.50% annual management fee, AND robos charge no upfront sales charge (a UT carries up to 5.0% of NAV one-off — see corpus/data/datasets/sales-charge-by-channel.json) — both are real robo advantages, conceded. But Versa Invest's core portfolios charge 1.50% p.a. (AHAM fund-level management fee; Versa itself charges no separate platform fee) plus a 0.04% trustee fee — about the SAME annual fee as a Public Mutual equity fund. So 'robos do it cheaper' is true for StashAway, roughly false for Versa Invest. Units: all figures are % per annum of NAV/portfolio value. StashAway's 0.8% is its platform/management fee and sits ON TOP of the ~0.2% p.a. expense ratio embedded in the underlying ETFs; the UT and Versa figures are the fund-level annual management fee (already inside the published NAV). This is an annual-fee comparison only — the one-off sales charge (UT) and the underlying ETF TER (StashAway) are recorded as separate non-charted rows because they are not annual management fees. The structural pivot, not visible in the fee bars: a robo Invest portfolio is a taxable wrapper — it does NOT earn the RM3,000 standalone PRS tax relief that a PRS-registered fund does (worth RM390-RM720/yr depending on marginal rate; owned b-relief-stacking.md), and robo Invest money cannot be funded from EPF Akaun Persaraan savings the way a UT can via EPF i-Invest. All three offer a Shariah option (StashAway Islamic portfolios; Versa Growth-i/Moderate-i; Public Mutual's Shariah fund range), so Shariah availability is NOT a differentiator. Robo fees flagged volatility 'variable' — they change without notice; re-verify before reuse after 2027-06-15.",
+  "data": [
+    {
+      "id": "stashaway-invest",
+      "provider": "StashAway Invest (General Investing)",
+      "annual_management_fee_pct": 0.8,
+      "fee_basis": "platform/management fee, first RM150,000 tier; tiers down to 0.5% by RM350k-500k, 0.4% to RM1m, 0.3% to RM3m, 0.2% above RM3m",
+      "engine": "Discretionary, globally-diversified ETF portfolios (StashAway's ERAA asset-allocation strategy); Single ETF Flexible Portfolio 0.3% p.a.",
+      "underlying_expense_ratio_pct": 0.2,
+      "sales_charge_pct": 0,
+      "prs_relief_wrapper": false,
+      "shariah_option": true,
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-15",
+      "source": "StashAway Malaysia pricing page (https://www.stashaway.my/pricing, fetched 2026-06-15): tiered annual fee 0.8% p.a. first RM150,000, stepping to 0.2% above RM3,000,000; Single ETF Flexible Portfolio 0.3% p.a.; underlying ETF expense ratios ~0.2% p.a. charged by ETF managers; RM5/month minimum fee waived for regular net depositors; no sales/entry charge"
+    },
+    {
+      "id": "versa-invest",
+      "provider": "Versa Invest (Growth / Moderate core portfolios)",
+      "annual_management_fee_pct": 1.5,
+      "fee_basis": "fund-level annual management fee charged by AHAM Asset Management; Versa charges no separate platform fee. Thematic portfolios (REITs, Global-i) charge 1.80% p.a.",
+      "trustee_fee_pct": 0.04,
+      "engine": "AHAM-managed funds accessed through the Versa app (feeder/balanced funds, not self-run ETF portfolios)",
+      "sales_charge_pct": 0,
+      "prs_relief_wrapper": false,
+      "shariah_option": true,
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-15",
+      "source": "Versa support centre, Invest fee schedule (https://support.versa.com.my/hc/en-us/articles/12621457689495-What-are-the-fees-associated-with-Invest, loaded via headless browser 2026-06-15): 'you will not incur any fees from Versa. However, the fund managers will charge the following fees' — Versa Growth / Versa Moderate 1.50% p.a. management + 0.04% p.a. trustee; Versa Growth-i / Moderate-i 1.50% + 0.07-0.08%; Versa REITs 1.80% + 0.07%; Versa Global-i 1.80% + 0.05%; Versa Gold 0.30% + 0.03%. No sales/entry charge"
+    },
+    {
+      "id": "public-mutual-equity-ut",
+      "provider": "Public Mutual equity unit trust (e.g. PEF — agent/PMO channel)",
+      "annual_management_fee_pct": 1.5,
+      "fee_basis": "annual management fee of NAV for domestic equity funds; regional 1.60%, Shariah international 1.65%, global 1.70-1.80% (see owned a-fee-schedule.md for the full class table)",
+      "trustee_fee_pct": 0.06,
+      "engine": "Actively-managed local/regional equity funds with a licensed consultant channel",
+      "sales_charge_pct": 5.0,
+      "sales_charge_note": "Up to 5.0% of NAV one-off entry charge (= 4.7619% of gross outlay via the 5/105 formula) — NOT an annual fee; see corpus/data/datasets/sales-charge-by-channel.json. EPF-MIS/i-Invest channels cap it at 3%/0.5%.",
+      "prs_relief_wrapper": true,
+      "prs_relief_note": "When held through a PRS-registered fund, contributions earn the RM3,000 standalone PRS tax relief (separate from the EPF+life RM4,000 sub-cap), worth RM390 at the 13% bracket to RM720 at 24%; relief sunset YA 2030 (owned b-relief-stacking.md). The plain UT Invest account, like a robo Invest account, does not.",
+      "shariah_option": true,
+      "volatility": "variable",
+      "as_at": "owned entry verified 2026-05-31",
+      "source": "Owned corpus/knowledge/a-fee-schedule.md: domestic equity AMF '1.50% per annum of the NAV' (Master Prospectus p. 153; PEF PHS 30 Jan 2026); equity trustee fee 0.06% p.a. of NAV (p. 153); one-off sales charge up to 5.0% of NAV (p. 150). PRS relief from owned corpus/knowledge/b-relief-stacking.md (LHDN YA 2025 relief schedule; ppa.my PRS RM3,000 standalone, sunset YA 2030, fetched 2026-05-31)"
+    }
+  ]
+}

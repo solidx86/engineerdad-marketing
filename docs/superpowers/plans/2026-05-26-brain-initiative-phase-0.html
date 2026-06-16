@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain Initiative — Phase 0 Implementation Plan</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 15px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2.task {
+    font-size: 19px;
+    margin: 48px 0 12px;
+    padding: 10px 14px;
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+  }
+  h2.task .tnum { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 8px; }
+  h2.section {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 { font-size: 14.5px; margin: 22px 0 6px; color: var(--ink); }
+  h4 { font-size: 13px; margin: 16px 0 4px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 9px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.4px;
+    line-height: 1.5;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 13.4px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  .step {
+    margin: 16px 0;
+    padding: 10px 14px 10px 38px;
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    position: relative;
+  }
+  .step::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 13px;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--muted);
+    border-radius: 4px;
+    background: #fff;
+  }
+  .step .label { font-weight: 600; font-size: 13.6px; margin-bottom: 4px; display: block; }
+  .step pre { margin: 8px 0 4px; }
+  .step .expected { font-size: 12.8px; color: var(--muted); margin-top: 4px; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    color: #7c5613;
+  }
+  .pill.p0 { background: var(--accent-soft); border-color: var(--new-line); color: #4f46e5; }
+  .pill.ok { background: var(--ok-bg); border-color: var(--ok-line); color: #2d6b3f; }
+  .callout {
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin: 16px 0;
+    font-size: 13.6px;
+  }
+  .callout.warn { background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout .tag { font-weight: 700; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .toc {
+    background: #fcfcfd;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 20px;
+    margin: 20px 0 32px;
+    font-size: 13.4px;
+    column-count: 2;
+    column-gap: 28px;
+  }
+  .toc h3 { margin: 0 0 8px; column-span: all; font-size: 12.5px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+  .toc ol { margin: 0; padding-left: 22px; }
+  .toc li { margin: 3px 0; break-inside: avoid; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .commit-marker {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ok-bg);
+    border: 1px solid var(--ok-line);
+    color: #2d6b3f;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Brain Initiative &mdash; Phase 0 Implementation Plan</h1>
+  <p class="subtitle">Wire <code>experimentParams</code> from Brain's Decision Memo into the experiment stage so the <code>/loop</code> cycle reaches HG4 instead of halting at <code>factors must be non-empty</code>. Ten tasks, three logical commits (C1/C2/C3), one PR off <code>feat/brain-experiment-params</code>.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-26</dd>
+    <dt>Status</dt><dd><span class="pill p0">Ready for execution</span></dd>
+    <dt>Spec source</dt><dd><code>docs/superpowers/specs/2026-05-26-brain-initiative-design.html</code> &sect;4</dd>
+    <dt>Branch</dt><dd><code>feat/brain-experiment-params</code> (may rename to <code>feat/brain-initiative</code>; not required)</dd>
+    <dt>Closes</dt><dd>E-035</dd>
+    <dt>Opens</dt><dd>E-036 / E-037 / E-038 / E-039 / E-040 / E-041 (all <code>BlockedBy: Brain Initiative Phase 3</code>)</dd>
+  </dl>
+</header>
+
+<div class="callout new">
+  <span class="tag">For agentic workers:</span>
+  REQUIRED SUB-SKILL: Use <code>superpowers:subagent-driven-development</code> (recommended) or <code>superpowers:executing-plans</code> to implement this plan task-by-task. Steps use checkbox markers (the boxed step blocks) for tracking.
+</div>
+
+<h2 class="section">Goal &amp; Architecture</h2>
+
+<p><strong>Goal.</strong> Ship Phase 0 of the Brain Initiative &mdash; <code>experimentParams</code> wired from Decision Memo into <code>X2-design</code> via a shared <code>DecisionMemoV2</code> type, <code>brain.md</code> prompt update, and verifier hardening &mdash; so the <code>/loop</code> cycle completes end-to-end instead of halting at the experiment stage.</p>
+
+<p><strong>Architecture.</strong> Three-commit slice. <strong>(C1)</strong> Extract the implicit Decision Memo shape into a real shared type in <code>packages/shared/src/types/brain.ts</code>, giving v2 a defined contract that v3 will extend later. <strong>(C2)</strong> Replace <code>experiment.ts</code>'s <code>run.params as unknown as ExperimentParams</code> cast with a memo-reading helper that pulls the params from the synthesize step result; add a legitimate-skip path for cold-start (Brain has no test to run). <strong>(C3)</strong> Harden the synthesize verifier to assert <code>experimentParams</code> shape when present, allow absent (cold-start escape), and update <code>brain.md</code> &sect;B-step-9 EMIT to emit the block.</p>
+
+<p><strong>Tech stack.</strong> TypeScript, pnpm workspace, vitest, drizzle-kit (no schema changes in Phase 0), Postgres 16-alpine via docker compose.</p>
+
+<nav class="toc">
+  <h3>Tasks</h3>
+  <ol>
+    <li><a href="#t1">Create shared <code>brain.ts</code> type file</a></li>
+    <li><a href="#t2">Wire import sites (scaffolding)</a></li>
+    <li><a href="#t3">Add <code>memoParams</code> + <code>experimentDeclined</code></a></li>
+    <li><a href="#t4">X3-write legitimate-skip in build + verify</a></li>
+    <li><a href="#t5">Delete legacy interface; close C2</a></li>
+    <li><a href="#t6">Verifier hardening (<code>verifyExperimentParams</code>)</a></li>
+    <li><a href="#t7">Brain prompt update (<code>brain.md</code>)</a></li>
+    <li><a href="#t8">TASKS.md &mdash; close E-035, open E-036–E-041</a></li>
+    <li><a href="#t9">Delete superseded specs</a></li>
+    <li><a href="#t10">Integration verification (merge gate)</a></li>
+  </ol>
+</nav>
+
+<h2 class="section" id="file-structure">File structure</h2>
+
+<table>
+  <thead><tr><th>Path</th><th>Change</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>packages/shared/src/types/brain.ts</code></td><td><strong>NEW</strong></td><td>Single source for <code>ExperimentParams</code> + <code>DecisionMemoV2</code>. v3 extends V2 in Phase 2, so it has to exist as a real type now.</td></tr>
+    <tr><td><code>packages/shared/src/types/brain.test.ts</code></td><td><strong>NEW</strong></td><td>Type-level + value-shape tests.</td></tr>
+    <tr><td><code>packages/shared/src/index.ts</code></td><td>Modify</td><td>Add <code>export * from "./types/brain.js"</code></td></tr>
+    <tr><td><code>packages/orchestrator/src/stages/experiment.ts</code></td><td>Modify</td><td>Delete local <code>interface ExperimentParams</code> + <code>run.params</code> cast. Add <code>memoParams()</code> + <code>experimentDeclined()</code> helpers; X2-design and X3-write read from memo; both no-op on declined.</td></tr>
+    <tr><td><code>packages/orchestrator/src/stages/experiment.test.ts</code></td><td>Modify</td><td>Existing X2 spec switches from <code>run.params</code> to fake <code>S1-reason</code> step result. 4 new specs.</td></tr>
+    <tr><td><code>packages/orchestrator/src/verifiers/verify-synthesize.ts</code></td><td>Modify</td><td>Add <code>verifyExperimentParams()</code>. Call from <code>verifySynthesize</code> only when <code>memo.experimentParams !== undefined</code>.</td></tr>
+    <tr><td><code>packages/orchestrator/src/verifiers/verify-synthesize.test.ts</code></td><td>Modify</td><td>Add 6 new specs.</td></tr>
+    <tr><td><code>.claude/agents/brain.md</code></td><td>Modify</td><td>&sect;B-step-9 EMIT step 3 payload extension + cold-start escape rule. &sect;C row 10. Hard rule about &ge;2 levels.</td></tr>
+    <tr><td><code>TASKS.md</code></td><td>Modify</td><td>Close E-035; open dormant E-036 &hellip; E-041.</td></tr>
+    <tr><td><code>docs/superpowers/specs/2026-05-24-brain-moe-critic-topology-design.html</code></td><td><strong>DELETE</strong></td><td>Superseded by umbrella spec.</td></tr>
+    <tr><td><code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.html</code></td><td><strong>DELETE</strong></td><td>Superseded.</td></tr>
+    <tr><td><code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.md</code></td><td><strong>DELETE</strong></td><td>Superseded.</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Commit grouping:</strong> Tasks 1&ndash;2 &rarr; commit C1; Tasks 3&ndash;5 &rarr; commit C2; Tasks 6&ndash;8 &rarr; commit C3; Tasks 9&ndash;10 &rarr; chore commits + integration verification (no code).</p>
+
+<!-- =================== TASK 1 =================== -->
+<h2 class="task" id="t1"><span class="tnum">Task 1.</span> Create the shared <code>brain.ts</code> type file (TDD) <span class="commit-marker">commit C1</span></h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>packages/shared/src/types/brain.ts</code></li>
+  <li>Create: <code>packages/shared/src/types/brain.test.ts</code></li>
+  <li>Modify: <code>packages/shared/src/index.ts:1-3</code></li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 1.1 &mdash; Write the failing test for type exports</span>
+  <p>Create <code>packages/shared/src/types/brain.test.ts</code>:</p>
+<pre>import { describe, it, expectTypeOf } from "vitest";
+import type { ExperimentParams, DecisionMemoV2 } from "./brain.js";
+
+describe("brain types", () =&gt; {
+  it("ExperimentParams requires hypothesis, factors[], holdConstant, primaryMetric, dailyBudgetMyr, durationDays", () =&gt; {
+    const valid: ExperimentParams = {
+      hypothesis: "fear beats hope",
+      factors: [{ name: "angle", levels: ["fear", "aspiration", "curiosity"] }],
+      holdConstant: [],
+      primaryMetric: "cpa",
+      dailyBudgetMyr: 200,
+      durationDays: 7,
+    };
+    expectTypeOf(valid).toMatchTypeOf&lt;ExperimentParams&gt;();
+  });
+
+  it("DecisionMemoV2 carries optional experimentParams (Brain may decline)", () =&gt; {
+    const withParams: DecisionMemoV2 = {
+      schemaVersion: 2,
+      runId: "run_1",
+      memoId: "memo_1",
+      recommendedAngles: ["fear", "aspiration", "curiosity"],
+      personas: ["young_parents_25_35"],
+      topCreatives: {},
+      hypothesisIds: ["h1"],
+      banditAllocation: {},
+      experimentParams: {
+        hypothesis: "fear beats hope",
+        factors: [{ name: "angle", levels: ["fear", "aspiration", "curiosity"] }],
+        holdConstant: [],
+        primaryMetric: "cpa",
+        dailyBudgetMyr: 200,
+        durationDays: 7,
+      },
+    };
+    const withoutParams: DecisionMemoV2 = {
+      schemaVersion: 2,
+      runId: "run_1",
+      memoId: "memo_1",
+      recommendedAngles: ["solo"],
+      personas: [],
+      topCreatives: {},
+      hypothesisIds: [],
+      banditAllocation: {},
+    };
+    expectTypeOf(withParams).toMatchTypeOf&lt;DecisionMemoV2&gt;();
+    expectTypeOf(withoutParams).toMatchTypeOf&lt;DecisionMemoV2&gt;();
+  });
+
+  it("primaryMetric is restricted to the 4-value enum", () =&gt; {
+    expectTypeOf&lt;ExperimentParams["primaryMetric"]&gt;()
+      .toEqualTypeOf&lt;"cpa" | "hook_rate" | "thumbstop" | "ctr"&gt;();
+  });
+});</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.2 &mdash; Run the test to verify it fails</span>
+  <pre>pnpm vitest run packages/shared/src/types/brain.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> FAIL &mdash; <code>Cannot find module './brain.js'</code> (the file doesn't exist yet).</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.3 &mdash; Create the type file</span>
+  <p>Create <code>packages/shared/src/types/brain.ts</code>:</p>
+<pre>/**
+ * Shared Brain types. V2 is the current Decision Memo shape; V3 will extend it
+ * in Brain Initiative Phase 2 (MoE-Critic). experimentParams is optional —
+ * Brain emits no block on cold-start (single recommended angle) and the
+ * experiment stage takes the legitimate-skip path.
+ */
+
+export interface ExperimentParams {
+  hypothesis: string;
+  factors: Array&lt;{ name: string; levels: string[] }&gt;;
+  holdConstant: string[];
+  primaryMetric: "cpa" | "hook_rate" | "thumbstop" | "ctr";
+  dailyBudgetMyr: number;
+  durationDays: number;
+}
+
+export interface DecisionMemoV2 {
+  schemaVersion: 2;
+  runId: string;
+  memoId: string;
+  recommendedAngles: string[];
+  personas: string[];
+  topCreatives: unknown;        // pass-through from analytics
+  hypothesisIds: string[];
+  banditAllocation: unknown;    // pass-through from analytics
+  experimentParams?: ExperimentParams;
+  notes?: string;
+}</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.4 &mdash; Wire the export</span>
+  <p>Edit <code>packages/shared/src/index.ts</code> &mdash; add line 2 after the existing <code>export * from "./types.js"</code>:</p>
+<pre>export * from "./types.js";
+export * from "./types/brain.js";   // ← new
+export * from "./derive/index.js";
+export * as zod from "./zod.js";
+// ... (rest unchanged)</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.5 &mdash; Run the test to verify it passes</span>
+  <pre>pnpm vitest run packages/shared/src/types/brain.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; all 3 specs.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.6 &mdash; Sequential build to confirm typecheck across the workspace</span>
+  <pre>pnpm -r build</pre>
+  <p class="expected"><strong>Expected:</strong> PASS, all packages typecheck. <em>(Reminder from CLAUDE.md: never <code>pnpm -r --parallel build</code> &mdash; it races on <code>@engineerdad/shared</code>.)</em></p>
+</div>
+
+<div class="step">
+  <span class="label">Step 1.7 &mdash; Commit C1 (part 1)</span>
+<pre>git add packages/shared/src/types/brain.ts \
+        packages/shared/src/types/brain.test.ts \
+        packages/shared/src/index.ts
+git commit -m "feat(shared): extract DecisionMemoV2 + ExperimentParams types
+
+Single shared type file so the experiment stage and the synthesize
+verifier reference one definition. V3 will extend V2 in Phase 2."</pre>
+</div>
+
+<!-- =================== TASK 2 =================== -->
+<h2 class="task" id="t2"><span class="tnum">Task 2.</span> Wire the import sites (no behavior change yet)</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.ts:1-26</code> (add import; rename the local interface temporarily)</li>
+</ul>
+
+<p>This task is the import-side scaffolding only. The actual behavior swap happens in Task 3.</p>
+
+<div class="step">
+  <span class="label">Step 2.1 &mdash; Add the import to <code>experiment.ts</code></span>
+  <p>Edit <code>packages/orchestrator/src/stages/experiment.ts</code> line 1 &mdash; add the import:</p>
+<pre>import type { RunState, StageDefinition, Step, StepSpec, VerifyResult } from "../types.js";
+import type { ExperimentParams, DecisionMemoV2 } from "@engineerdad/shared";  // ← new
+import {
+  mapCellsToVariants,
+  applyAllocation,
+  type AllocatedCell,
+} from "../experiment/allocation.js";
+import { verifyExperiment } from "../verifiers/verify-experiment.js";</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 2.2 &mdash; Run the build to confirm the import resolves</span>
+  <pre>pnpm -r build</pre>
+  <p class="expected"><strong>Expected:</strong> PASS. The local <code>interface ExperimentParams</code> at lines 19&ndash;26 will become a duplicate definition &mdash; TypeScript will emit a <code>TS2300: Duplicate identifier 'ExperimentParams'</code>.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 2.3 &mdash; Rename the local interface to defuse the collision temporarily</span>
+  <p>Edit <code>packages/orchestrator/src/stages/experiment.ts:19-26</code> &mdash; rename to <code>LegacyExperimentParams</code>:</p>
+<pre>/** @deprecated removed in Task 5 once memoParams() is the only reader. */
+interface LegacyExperimentParams {
+  hypothesis?: string;
+  factors?: { name: string; levels: string[] }[];
+  holdConstant?: string[];
+  primaryMetric?: string;
+  dailyBudgetMyr?: number;
+  durationDays?: number;
+}</pre>
+  <p>And update line 104 in the same file:</p>
+<pre>const p = run.params as unknown as LegacyExperimentParams;</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 2.4 &mdash; Run the build + tests to confirm no regression</span>
+<pre>pnpm -r build &amp;&amp; pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; same behavior as before the rename. The shared <code>ExperimentParams</code> is imported but not yet used; the legacy interface holds the old shape. No commit yet.</p>
+</div>
+
+<!-- =================== TASK 3 =================== -->
+<h2 class="task" id="t3"><span class="tnum">Task 3.</span> Add <code>memoParams</code> + <code>experimentDeclined</code> helpers (TDD)</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.ts:40</code> (after <code>stepResult</code>, before <code>rowsOf</code>)</li>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.test.ts</code></li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 3.1 &mdash; Write the failing tests for X2 legitimate-skip and camelCase&rarr;snake_case unpack</span>
+  <p>Add these specs to <code>packages/orchestrator/src/stages/experiment.test.ts</code> (after the existing X2 specs, before the X3 specs):</p>
+<pre>  it("X2 no-ops when synthesize memo carries no experimentParams (legitimate-skip)", () =&gt; {
+    const run = runWith([
+      doneStep("S1-reason", { schemaVersion: 2, runId: "run_e", memoId: "m1",
+                              recommendedAngles: ["fear"], personas: [], topCreatives: {},
+                              hypothesisIds: [], banditAllocation: {} }),
+      doneStep("X1-query", [[], [], []]),
+    ]);
+    const step = experimentStage.steps[1]!.build(run);
+    if (step.kind !== "write") throw new Error("expected write");
+    expect(step.calls).toHaveLength(0);
+  });
+
+  it("X2 unpacks camelCase memo block into snake_case mcp__experiment__design args", () =&gt; {
+    const run = runWith([
+      doneStep("S1-reason", {
+        schemaVersion: 2, runId: "run_e", memoId: "m1",
+        recommendedAngles: ["fear", "aspiration", "curiosity"],
+        personas: [], topCreatives: {}, hypothesisIds: [], banditAllocation: {},
+        experimentParams: {
+          hypothesis: "fear beats hope",
+          factors: [{ name: "angle", levels: ["fear", "aspiration", "curiosity"] }],
+          holdConstant: [],
+          primaryMetric: "cpa",
+          dailyBudgetMyr: 200,
+          durationDays: 7,
+        },
+      }),
+      doneStep("X1-query", [[], [], []]),
+    ]);
+    const step = experimentStage.steps[1]!.build(run);
+    if (step.kind !== "write") throw new Error("expected write");
+    expect(step.calls).toHaveLength(1);
+    const args = step.calls[0]!.args as Record&lt;string, unknown&gt;;
+    expect(args.hypothesis).toBe("fear beats hope");
+    expect(args.factors).toEqual([{ name: "angle", levels: ["fear", "aspiration", "curiosity"] }]);
+    expect(args.hold_constant).toEqual([]);
+    expect(args.primary_metric).toBe("cpa");
+    expect(args.daily_budget_myr).toBe(200);
+    expect(args.duration_days).toBe(7);
+  });</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.2 &mdash; Run the tests to verify they fail</span>
+<pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "X2 no-ops when synthesize memo"
+pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "X2 unpacks camelCase memo"</pre>
+  <p class="expected"><strong>Expected:</strong> FAIL on both &mdash; current X2 reads <code>run.params</code>, not the memo step result.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.3 &mdash; Add the two helpers</span>
+  <p>Edit <code>packages/orchestrator/src/stages/experiment.ts</code> &mdash; insert after line 42 (after the existing <code>stepResult</code> helper):</p>
+<pre>/** Read experimentParams from the synthesize memo (S1-reason step result). */
+function memoParams(run: RunState): ExperimentParams | undefined {
+  const memo = stepResult&lt;DecisionMemoV2&gt;(run, "S1-reason");
+  return memo?.experimentParams;
+}
+
+/**
+ * Brain declined to design an experiment this cycle. Either the synthesize
+ * memo is missing (legacy run) or experimentParams is absent / has empty
+ * factors. The experiment stage no-ops; the run flows past into distribute.
+ */
+function experimentDeclined(run: RunState): boolean {
+  const p = memoParams(run);
+  return !p || !p.factors || p.factors.length === 0;
+}</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.4 &mdash; Rewrite X2-design's <code>build</code></span>
+  <p>Edit <code>packages/orchestrator/src/stages/experiment.ts:97-123</code> &mdash; replace the entire <code>x2Design</code> block:</p>
+<pre>const x2Design: StepSpec = {
+  id: "X2-design",
+  kind: "write",
+  build: (run): Step =&gt; {
+    if (experimentExists(run)) {
+      return { kind: "write", stepId: "X2-design", calls: [] }; // idempotent no-op
+    }
+    if (experimentDeclined(run)) {
+      return { kind: "write", stepId: "X2-design", calls: [] }; // legitimate-skip
+    }
+    const p = memoParams(run)!;
+    return {
+      kind: "write",
+      stepId: "X2-design",
+      calls: [
+        {
+          tool: "mcp__experiment__design",
+          args: {
+            hypothesis: p.hypothesis,
+            factors: p.factors,
+            hold_constant: p.holdConstant,
+            primary_metric: p.primaryMetric,
+            daily_budget_myr: p.dailyBudgetMyr,
+            duration_days: p.durationDays,
+          },
+        },
+      ],
+    };
+  },
+};</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.5 &mdash; Run the tests to verify they pass</span>
+  <pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "X2"</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; the two new specs pass; the existing <em>"X2 emits the experiment.design call from run params"</em> spec FAILS because we no longer read from <code>run.params</code>.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.6 &mdash; Update the existing X2 spec to the memo-shaped flow</span>
+  <p>Edit <code>experiment.test.ts</code> &mdash; find <em>"X2 emits the experiment.design call from run params"</em> and replace it:</p>
+<pre>  it("X2 emits the experiment.design call from the synthesize memo", () =&gt; {
+    const run = runWith([
+      doneStep("S1-reason", {
+        schemaVersion: 2, runId: "run_e", memoId: "m1",
+        recommendedAngles: ["fear", "aspiration"],
+        personas: [], topCreatives: {}, hypothesisIds: [], banditAllocation: {},
+        experimentParams: {
+          hypothesis: "fear beats hope",
+          factors: [{ name: "angle", levels: ["fear", "aspiration"] }],
+          holdConstant: [], primaryMetric: "cpa",
+          dailyBudgetMyr: 200, durationDays: 7,
+        },
+      }),
+      doneStep("X1-query", [[], [], []]),
+    ]);
+    const step = experimentStage.steps[1]!.build(run);
+    if (step.kind !== "write") throw new Error("expected write");
+    expect(step.calls).toHaveLength(1);
+    expect(step.calls[0]!.tool).toBe("mcp__experiment__design");
+  });</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 3.7 &mdash; Re-run all experiment tests to verify</span>
+  <pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; all X1/X2/X3 specs pass with the memo-shaped flow. No commit yet &mdash; Task 5 closes C2.</p>
+</div>
+
+<!-- =================== TASK 4 =================== -->
+<h2 class="task" id="t4"><span class="tnum">Task 4.</span> X3-write legitimate-skip in <code>build</code> + <code>verify</code> (TDD)</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.ts:125-170</code></li>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.test.ts</code></li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 4.1 &mdash; Write the failing tests for X3 legitimate-skip</span>
+  <p>Add to <code>experiment.test.ts</code> (after the existing X3 specs):</p>
+<pre>  it("X3 no-ops when synthesize memo carries no experimentParams", () =&gt; {
+    const run = runWith([
+      doneStep("S1-reason", { schemaVersion: 2, runId: "run_e", memoId: "m1",
+                              recommendedAngles: ["solo"], personas: [], topCreatives: {},
+                              hypothesisIds: [], banditAllocation: {} }),
+      doneStep("X1-query", [[], [], []]),
+      doneStep("X2-design", [{ cells: [] }]),
+    ]);
+    const step = experimentStage.steps[2]!.build(run);
+    if (step.kind !== "write") throw new Error("expected write");
+    expect(step.calls).toHaveLength(0);
+  });
+
+  it("X3.verify accepts the legitimate-skip path (no row + no cells = ok)", () =&gt; {
+    const run = runWith([
+      doneStep("S1-reason", { schemaVersion: 2, runId: "run_e", memoId: "m1",
+                              recommendedAngles: ["solo"], personas: [], topCreatives: {},
+                              hypothesisIds: [], banditAllocation: {} }),
+      doneStep("X1-query", [[], [], []]),
+      doneStep("X2-design", [{ cells: [] }]),
+    ]);
+    const x3 = experimentStage.steps[2]!;
+    const result = x3.verify!(run, []);
+    expect(result.ok).toBe(true);
+    expect(result.problems).toEqual([]);
+  });</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 4.2 &mdash; Run the tests to verify they fail</span>
+<pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "X3 no-ops" -t "X3.verify accepts the legitimate-skip"</pre>
+  <p class="expected"><strong>Expected:</strong> FAIL &mdash; current X3 builds the row even with empty experimentParams; the verifier rejects no-cells.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 4.3 &mdash; Patch <code>x3Write.build</code> with the legitimate-skip branch</span>
+  <p>Edit <code>experiment.ts</code> &mdash; inside <code>x3Write.build</code>, after the existing <code>experimentExists</code> check, add:</p>
+<pre>const x3Write: StepSpec = {
+  id: "X3-write",
+  kind: "write",
+  build: (run): Step =&gt; {
+    if (experimentExists(run)) {
+      return { kind: "write", stepId: "X3-write", calls: [] };
+    }
+    if (experimentDeclined(run)) {                              // ← new
+      return { kind: "write", stepId: "X3-write", calls: [] };  // ← new
+    }
+    const cells = allocatedCellsFor(run);
+    // ... rest unchanged</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 4.4 &mdash; Patch <code>x3Write.verify</code> with the same skip branch</span>
+  <p>Inside <code>x3Write.verify</code> (same file, ~line 164):</p>
+<pre>  verify: (run, result): VerifyResult =&gt; {
+    if (experimentExists(run)) return { ok: true, problems: [] };
+    if (experimentDeclined(run)) return { ok: true, problems: [] };  // ← new
+    const calls = Array.isArray(result) ? result : [];
+    const rowCreated = calls.length &gt; 0 &amp;&amp; calls[0] !== null &amp;&amp; calls[0] !== undefined;
+    return verifyExperiment(allocatedCellsFor(run), rowCreated);
+  },</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 4.5 &mdash; Run the tests to verify they pass</span>
+  <pre>pnpm vitest run packages/orchestrator/src/stages/experiment.test.ts -t "X3"</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; all X3 specs (existing + 2 new) pass.</p>
+</div>
+
+<!-- =================== TASK 5 =================== -->
+<h2 class="task" id="t5"><span class="tnum">Task 5.</span> Delete the legacy <code>LegacyExperimentParams</code> interface; close C2 <span class="commit-marker">commit C2</span></h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/stages/experiment.ts:18-26</code> (remove the renamed interface)</li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 5.1 &mdash; Delete the legacy interface</span>
+  <p>Edit <code>experiment.ts</code> &mdash; delete lines 18&ndash;26 (the <code>/** @deprecated */ interface LegacyExperimentParams { ... }</code> block from Task 2). Verify no callers remain.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 5.2 &mdash; Search for any straggler references</span>
+  <pre>grep -rn "LegacyExperimentParams\|run\.params as unknown as Experiment" packages/</pre>
+  <p class="expected"><strong>Expected:</strong> zero output. If anything matches, fix it before continuing.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 5.3 &mdash; Run all orchestrator tests + full build</span>
+  <pre>pnpm -r build &amp;&amp; pnpm vitest run packages/orchestrator</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; every orchestrator test green.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 5.4 &mdash; Commit C2</span>
+<pre>git add packages/orchestrator/src/stages/experiment.ts \
+        packages/orchestrator/src/stages/experiment.test.ts
+git commit -m "feat(experiment): read params from synthesize memo, not run.params
+
+X2-design and X3-write read experimentParams from the resolved S1-reason
+step result via memoParams(). When the block is absent (Brain declined,
+cold-start), both steps no-op and the run flows past experiment into
+distribute. Legacy run.params cast deleted."</pre>
+</div>
+
+<!-- =================== TASK 6 =================== -->
+<h2 class="task" id="t6"><span class="tnum">Task 6.</span> Verifier hardening &mdash; <code>verifyExperimentParams</code> (TDD)</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/verifiers/verify-synthesize.ts</code></li>
+  <li>Modify: <code>packages/orchestrator/src/verifiers/verify-synthesize.test.ts</code></li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 6.1 &mdash; Write the 6 new failing tests</span>
+  <p>Replace the entire contents of <code>verify-synthesize.test.ts</code> with:</p>
+<pre>import { describe, it, expect } from "vitest";
+import { verifySynthesize } from "./verify-synthesize.js";
+
+const validMemo = {
+  schemaVersion: 2 as const,
+  runId: "run_x",
+  memoId: "memo_x",
+  recommendedAngles: ["fear", "aspiration"],
+  personas: [],
+  topCreatives: {},
+  hypothesisIds: [],
+  banditAllocation: {},
+};
+
+const validParams = {
+  hypothesis: "fear beats hope",
+  factors: [{ name: "angle", levels: ["fear", "aspiration"] }],
+  holdConstant: [],
+  primaryMetric: "cpa",
+  dailyBudgetMyr: 200,
+  durationDays: 7,
+};
+
+describe("verifySynthesize", () =&gt; {
+  it("passes a Decision Memo carrying recommendedAngles", () =&gt; {
+    expect(verifySynthesize({ ...validMemo })).toEqual({ ok: true, problems: [] });
+  });
+
+  it("fails a null / non-object result", () =&gt; {
+    expect(verifySynthesize(null).ok).toBe(false);
+    expect(verifySynthesize("memo").ok).toBe(false);
+  });
+
+  it("fails a Memo with no recommendedAngles", () =&gt; {
+    expect(verifySynthesize({}).ok).toBe(false);
+    expect(verifySynthesize({ recommendedAngles: [] }).ok).toBe(false);
+  });
+
+  // --- new: experimentParams shape ---
+
+  it("passes a memo without experimentParams (legitimate-skip)", () =&gt; {
+    expect(verifySynthesize({ ...validMemo })).toEqual({ ok: true, problems: [] });
+  });
+
+  it("passes a memo with a valid experimentParams block", () =&gt; {
+    expect(verifySynthesize({ ...validMemo, experimentParams: validParams }))
+      .toEqual({ ok: true, problems: [] });
+  });
+
+  it("fails on missing/empty hypothesis", () =&gt; {
+    const r = verifySynthesize({ ...validMemo, experimentParams: { ...validParams, hypothesis: "" } });
+    expect(r.ok).toBe(false);
+    expect(r.problems.join(" ")).toMatch(/hypothesis/);
+  });
+
+  it("fails on factors with &lt;2 levels", () =&gt; {
+    const r = verifySynthesize({ ...validMemo, experimentParams: {
+      ...validParams, factors: [{ name: "angle", levels: ["solo"] }] } });
+    expect(r.ok).toBe(false);
+    expect(r.problems.join(" ")).toMatch(/levels/);
+  });
+
+  it("fails on unknown primaryMetric", () =&gt; {
+    const r = verifySynthesize({ ...validMemo, experimentParams: {
+      ...validParams, primaryMetric: "bogus" } });
+    expect(r.ok).toBe(false);
+    expect(r.problems.join(" ")).toMatch(/primaryMetric/);
+  });
+
+  it("fails on non-positive dailyBudgetMyr / durationDays", () =&gt; {
+    const r1 = verifySynthesize({ ...validMemo, experimentParams: { ...validParams, dailyBudgetMyr: 0 } });
+    expect(r1.ok).toBe(false);
+    expect(r1.problems.join(" ")).toMatch(/dailyBudgetMyr/);
+
+    const r2 = verifySynthesize({ ...validMemo, experimentParams: { ...validParams, durationDays: -1 } });
+    expect(r2.ok).toBe(false);
+    expect(r2.problems.join(" ")).toMatch(/durationDays/);
+  });
+
+  it("fails on holdConstant not an array", () =&gt; {
+    const r = verifySynthesize({ ...validMemo, experimentParams: {
+      ...validParams, holdConstant: "not-an-array" as unknown as string[] } });
+    expect(r.ok).toBe(false);
+    expect(r.problems.join(" ")).toMatch(/holdConstant/);
+  });
+});</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 6.2 &mdash; Run the tests to verify the new specs fail</span>
+  <pre>pnpm vitest run packages/orchestrator/src/verifiers/verify-synthesize.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> FAIL &mdash; the 6 new experimentParams specs fail; the 3 original specs still pass.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 6.3 &mdash; Implement <code>verifyExperimentParams</code></span>
+  <p>Replace the contents of <code>verify-synthesize.ts</code> with:</p>
+<pre>import type { VerifyResult } from "../types.js";
+
+/**
+ * Synthesize-stage acceptance test. Two layers:
+ *
+ *   (1) The memo must declare recommendedAngles[] non-empty (existing).
+ *   (2) When the memo carries experimentParams, the block must be shape-correct
+ *       (new). Absent block = legitimate-skip path (Brain declined / cold-start).
+ *       The experiment stage detects absence via experimentDeclined() and no-ops.
+ */
+export interface DecisionMemo {
+  recommendedAngles?: unknown;
+  experimentParams?: unknown;
+}
+
+const VALID_METRICS = new Set(["cpa", "hook_rate", "thumbstop", "ctr"]);
+
+function verifyExperimentParams(p: unknown): string[] {
+  const problems: string[] = [];
+  if (p === null || typeof p !== "object") {
+    return ["experimentParams must be an object"];
+  }
+  const o = p as Record&lt;string, unknown&gt;;
+
+  if (typeof o.hypothesis !== "string" || o.hypothesis.length === 0) {
+    problems.push("experimentParams.hypothesis must be a non-empty string");
+  }
+
+  if (!Array.isArray(o.factors) || o.factors.length === 0) {
+    problems.push("experimentParams.factors must be a non-empty array");
+  } else {
+    o.factors.forEach((f, i) =&gt; {
+      if (f === null || typeof f !== "object") {
+        problems.push(`experimentParams.factors[${i}] must be an object`);
+        return;
+      }
+      const fr = f as { name?: unknown; levels?: unknown };
+      if (typeof fr.name !== "string" || fr.name.length === 0) {
+        problems.push(`experimentParams.factors[${i}].name must be a non-empty string`);
+      }
+      if (!Array.isArray(fr.levels) || fr.levels.length &lt; 2) {
+        problems.push(
+          `experimentParams.factors[${i}].levels must be ≥2 strings (single level = no test)`,
+        );
+      }
+    });
+  }
+
+  if (!Array.isArray(o.holdConstant)) {
+    problems.push("experimentParams.holdConstant must be an array (use [] when nothing held)");
+  }
+
+  if (typeof o.primaryMetric !== "string" || !VALID_METRICS.has(o.primaryMetric)) {
+    problems.push(
+      `experimentParams.primaryMetric must be one of ${[...VALID_METRICS].join("|")}`,
+    );
+  }
+
+  if (typeof o.dailyBudgetMyr !== "number" || o.dailyBudgetMyr &lt;= 0) {
+    problems.push("experimentParams.dailyBudgetMyr must be a positive number");
+  }
+
+  if (typeof o.durationDays !== "number" || o.durationDays &lt;= 0) {
+    problems.push("experimentParams.durationDays must be a positive number");
+  }
+
+  return problems;
+}
+
+export function verifySynthesize(memo: unknown): VerifyResult {
+  if (memo === null || typeof memo !== "object") {
+    return { ok: false, problems: ["synthesize produced no Decision Memo"] };
+  }
+  const m = memo as DecisionMemo;
+
+  const angles = m.recommendedAngles;
+  if (!Array.isArray(angles) || angles.length === 0) {
+    return { ok: false, problems: ["Decision Memo carries no recommendedAngles"] };
+  }
+
+  // experimentParams is optional (cold-start escape). Validate only when present.
+  if (m.experimentParams !== undefined) {
+    const problems = verifyExperimentParams(m.experimentParams);
+    if (problems.length &gt; 0) return { ok: false, problems };
+  }
+
+  return { ok: true, problems: [] };
+}</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 6.4 &mdash; Run all verifier tests to verify they pass</span>
+  <pre>pnpm vitest run packages/orchestrator/src/verifiers/verify-synthesize.test.ts</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; all 10 specs (3 existing + 7 new) pass.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 6.5 &mdash; Full workspace test sweep</span>
+  <pre>pnpm -r build &amp;&amp; pnpm vitest run</pre>
+  <p class="expected"><strong>Expected:</strong> PASS &mdash; no regressions anywhere.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 6.6 &mdash; Commit C3 (part 1)</span>
+<pre>git add packages/orchestrator/src/verifiers/verify-synthesize.ts \
+        packages/orchestrator/src/verifiers/verify-synthesize.test.ts
+git commit -m "feat(verify): assert experimentParams shape on Decision Memo
+
+When the synthesize memo carries an experimentParams block, validate it
+against the experiment library's contract (hypothesis non-empty, factors
+≥2 levels per axis, primaryMetric in {cpa,hook_rate,thumbstop,ctr},
+positive budget + duration, holdConstant array). Absent block remains
+the legitimate-skip path; the verifier passes. Closes B-016 for the
+synthesize slice."</pre>
+</div>
+
+<!-- =================== TASK 7 =================== -->
+<h2 class="task" id="t7"><span class="tnum">Task 7.</span> Brain prompt update &mdash; <code>.claude/agents/brain.md</code> <span class="commit-marker">commit C3</span></h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>.claude/agents/brain.md</code> (&sect;B step 9 EMIT, &sect;C row 10, Hard rules)</li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 7.1 &mdash; Edit &sect;B-step-9 EMIT instruction</span>
+  <p>Open <code>.claude/agents/brain.md</code>. Find this block (around line 130, <code>### 9. EMIT</code> section, step 3):</p>
+<pre>3. **Persist the full Decision Memo as your step result.** Call:
+   ```
+   mcp__orchestrator__write_step_result({
+     runId,
+     stepId: "S1-reason",
+     payload: &lt;the full Decision Memo as a literal JSON object — runId, memoId,
+              recommendedAngles, personas, topCreatives, hypothesisIds[],
+              banditAllocation, notes, ... — DO NOT JSON.stringify it. ...&gt;
+   })
+   ```</pre>
+  <p>Replace with this (note the addition of <code>experimentParams</code> in the payload field list AND a new construction sub-block immediately after):</p>
+<pre>3. **Persist the full Decision Memo as your step result.** Call:
+   ```
+   mcp__orchestrator__write_step_result({
+     runId,
+     stepId: "S1-reason",
+     payload: &lt;the full Decision Memo as a literal JSON object — runId, memoId,
+              recommendedAngles, personas, topCreatives, hypothesisIds[],
+              banditAllocation, experimentParams, notes, ... — DO NOT
+              JSON.stringify it. The MCP boundary encodes the call for you.
+              A pre-stringified payload lands as a JSONB scalar string and
+              breaks the verifier.&gt;
+   })
+   ```
+
+   The `experimentParams` block is constructed as follows:
+
+   ```text
+   experimentParams: {
+     hypothesis: &lt;top Recommended Action's hypothesis sentence&gt;,
+     factors: [{ name: "angle", levels: recommendedAngles }],
+     holdConstant: [],
+     primaryMetric: "cpa",
+     dailyBudgetMyr: &lt;bandit_allocate input dailyBudgetMyr, default 200&gt;,
+     durationDays: &lt;bandit_allocate input durationDays, default 7&gt;,
+   }
+   ```
+
+   You already computed `recommendedAngles` (step 7 CHOOSE) and the budget
+   inputs (step 8 ALLOCATE). This block re-emits them in the experiment
+   library's shape. **No new strategic reasoning required.**
+
+   **Cold-start escape:** if `recommendedAngles.length &lt; 2`, do NOT include
+   `experimentParams` in the payload — surface a warning in `notes` instead.
+   A single-level factor degenerates to no test; the experiment stage detects
+   the absent block and takes the legitimate-skip path.</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 7.2 &mdash; Edit &sect;C structure table &mdash; add row 10</span>
+  <p>Find the &sect;C table ("Decision Memo v2 structure", 9 rows). Add row 10:</p>
+<pre>| 10 | Experiment Params (factors / budget / metric for X2-design) | inline in payload, no Notion property |</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 7.3 &mdash; Add the new Hard Rule bullet</span>
+  <p>Find <code>## Hard rules</code> (line ~217). After the existing bullets and before the closing sentence, insert:</p>
+<pre>- **`experimentParams.factors[0].levels` must have ≥2 entries.** A single-level factor degenerates to no test. If you have only one recommended angle, do not emit `experimentParams`; surface a warning in `notes` instead. The experiment stage detects the absent block and takes the legitimate-skip path so the loop still completes.</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 7.4 &mdash; Sanity-grep for the changes</span>
+  <pre>grep -n "experimentParams" .claude/agents/brain.md</pre>
+  <p class="expected"><strong>Expected:</strong> &ge;4 matches (payload list, construction block, cold-start escape, Hard Rule).</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 7.5 &mdash; Commit C3 (part 2)</span>
+<pre>git add .claude/agents/brain.md
+git commit -m "feat(brain): emit experimentParams in §B-step-9 EMIT
+
+Brain emits a structured experimentParams block alongside the existing
+Decision Memo fields. X2-design reads from the resolved S1-reason step
+result. Cold-start (single recommended angle) skips the block; the
+experiment stage's legitimate-skip path lets the loop complete. Closes
+E-035."</pre>
+</div>
+
+<!-- =================== TASK 8 =================== -->
+<h2 class="task" id="t8"><span class="tnum">Task 8.</span> TASKS.md &mdash; close E-035, open dormant E-036–E-041</h2>
+
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>TASKS.md</code></li></ul>
+
+<div class="step">
+  <span class="label">Step 8.1 &mdash; Read the current E-035 entry to understand the format</span>
+  <pre>grep -nA 20 "^### E-035" TASKS.md</pre>
+  <p class="expected"><strong>Expected:</strong> the existing E-035 block; note its <code>Status:</code> line format and indentation.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 8.2 &mdash; Mark E-035 as shipped</span>
+  <p>Edit <code>TASKS.md</code> &mdash; change the <code>### E-035</code> heading to:</p>
+<pre>### E-035 `v1.5` `P1` `agent` `orchestrator` `SHIPPED 2026-05-26` — Brain → ExperimentParams</pre>
+  <p>Below the existing body, append:</p>
+<pre>- **Shipped 2026-05-26** in Brain Initiative Phase 0 (commits C1+C2+C3 on `feat/brain-experiment-params`). See `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §4 and `docs/superpowers/plans/2026-05-26-brain-initiative-phase-0.md`.</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 8.3 &mdash; Open the six dormant follow-up entries</span>
+  <p>In the "Open enhancements" section of <code>TASKS.md</code>, after the last existing E-### entry, append the following six entries verbatim:</p>
+<pre>### E-036 `v1.5` `P3` `agent` `orchestrator` `BlockedBy: Brain Initiative Phase 3` — Critic step in brief stage
+**The seam.** Apply the generic `kind: "critic"` step (shipped in Brain Initiative Phase 3) to `verify-brief.ts`. The structural verifier admits Briefs that pass shape checks but may fail strategic alignment with the Decision Memo.
+
+**Trigger to re-open**: ≥2 cycles where brief-writer emitted Briefs that passed structural verify but were rejected at HG1 for strategic mismatch (or vice versa).
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11. Doctrine in ADR-026.
+
+### E-037 `v1.5` `P3` `agent` `orchestrator` `BlockedBy: Brain Initiative Phase 3` — Critic step in produce stage
+**The seam.** Apply the generic `kind: "critic"` step to `verify-produce.ts`. Creative Variants can pass derived-spec checks while still being tonally incoherent across the four creatives a Script decomposes into.
+
+**Trigger to re-open**: ≥2 cycles where Creative Variants passed all derived spec checks but were rejected at HG3 for tonal incoherence.
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11. Doctrine in ADR-026.
+
+### E-038 `v1.5` `P3` `agent` `orchestrator` `BlockedBy: Brain Initiative Phase 3` — Critic step in distribute stage
+**The seam.** Apply the generic `kind: "critic"` step to `verify-distribute.ts`. The dry-run path admits distributions that compile but might be paused-by-design when the underlying targeting / placement / asset config has a critic-detectable flaw.
+
+**Trigger to re-open**: ≥1 cycle where distribution went out paused-by-design but a critic would have prevented the dry-run from being submitted at all.
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11. Doctrine in ADR-026.
+
+### E-039 `v2` `P3` `agent` `BlockedBy: Brain Initiative Phase 3` — Multi-factor experiment design (angle × persona)
+**The seam.** The `experimentParams` schema shipped in Phase 0 accepts `factors: Array&lt;{name, levels[]}&gt;` from day one. Brain v3 (Phase 2) only emits a single-factor `"angle"` axis. When Brain v3 is stable across ≥10 cycles and the calibration suite shows a graduation-rate plateau, teach Brain to emit `angle × persona` (or similar two-axis) designs.
+
+**Trigger to re-open**: Brain v3 stable across ≥10 cycles; calibration suite shows graduation_rate plateau (3 cycles with no graduation deltas).
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11. Engine + verifier already accept the wider shape; this is a Brain-prompt-only upgrade.
+
+### E-040 `v3.1` `P3` `agent` `BlockedBy: Brain Initiative Phase 3` — Cross-channel critic debate
+**The seam.** Brain v3 (Phase 2) constrains the debate to intra-channel only. If the judge picks 3 Recommended Actions that don't fit together as a portfolio, add a Phase 4.5 cross-channel critic between R2 and the judge.
+
+**Trigger to re-open**: Portfolio coherence flagged at HG1 in ≥3 consecutive cycles ("Brain picked 3 actions but they don't fit together").
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11.
+
+### E-041 `vfuture` `P3` `agent` `BlockedBy: Brain Initiative Phase 3` — DSPy-style auto-tuning of critic prompts
+**The seam.** When the critic over-attacks (attacks the judge ignored AND the actual outcome landed in the original CI ≥40% across ≥20 cycles), the critic prompt itself needs tuning. Use DSPy or equivalent to learn the critic prompt from calibration scores.
+
+**Trigger to re-open**: Critic over-attack rate ≥40% across ≥20 cycles.
+
+**Origin**: Promoted from `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §11. Orthogonal infrastructure.</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 8.4 &mdash; Update the Status header</span>
+  <p>Edit the <code>## Status (as of YYYY-MM-DD)</code> line. Change the date to today:</p>
+<pre>## Status (as of 2026-05-26)</pre>
+  <p>Update the bullet starting <code>- **Open**:</code>:</p>
+<pre>- **Open**: 4 bugs — B-005 (P1); B-010 (P1, fix landed, `/distribute` dry-run unverified); B-015 (P3, superseded by ADR-023's path-aware substitution); B-016 (P1, content slice fixed, rest open) · 18 enhancements (E-034) + E-029-followup (enum-drift audit) + 6 new dormant Brain-Initiative-tail entries (E-036/E-037/E-038/E-039/E-040/E-041, `BlockedBy: Brain Initiative Phase 3`). E-035 shipped 2026-05-26 in Brain Initiative Phase 0.</pre>
+  <p>Add a new top-line achievement bullet right after the existing <code>ADR-023 shipped</code> bullet:</p>
+<pre>- **Brain Initiative Phase 0 shipped 2026-05-26** — `experimentParams` wired from Decision Memo into X2-design; `/loop` cycle no longer halts at "factors must be non-empty". See `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` §4 and the umbrella spec for Phases 1–3.</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 8.5 &mdash; Commit C3 (part 3)</span>
+<pre>git add TASKS.md
+git commit -m "chore(tasks): close E-035; open 6 dormant Brain Initiative Phase 3 follow-ups
+
+E-035 shipped in Brain Initiative Phase 0. Six new dormant enhancements
+(E-036/E-037/E-038/E-039/E-040/E-041) opened blocked by Phase 3; each
+has an explicit re-open trigger condition per umbrella spec §11."</pre>
+</div>
+
+<!-- =================== TASK 9 =================== -->
+<h2 class="task" id="t9"><span class="tnum">Task 9.</span> Delete the superseded specs</h2>
+
+<p><strong>Files (delete):</strong></p>
+<ul>
+  <li><code>docs/superpowers/specs/2026-05-24-brain-moe-critic-topology-design.html</code></li>
+  <li><code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.html</code></li>
+  <li><code>docs/superpowers/specs/2026-05-25-brain-experiment-params-design.md</code></li>
+</ul>
+
+<div class="step">
+  <span class="label">Step 9.1 &mdash; Delete the three files</span>
+<pre>git rm docs/superpowers/specs/2026-05-24-brain-moe-critic-topology-design.html \
+       docs/superpowers/specs/2026-05-25-brain-experiment-params-design.html \
+       docs/superpowers/specs/2026-05-25-brain-experiment-params-design.md</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 9.2 &mdash; Confirm the umbrella spec is the only remaining brain-* spec</span>
+  <pre>ls docs/superpowers/specs/ | grep -i brain</pre>
+  <p class="expected"><strong>Expected:</strong> only <code>2026-05-26-brain-initiative-design.html</code> and <code>2026-05-26-brain-initiative-design.html</code>.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 9.3 &mdash; Commit the deletes</span>
+<pre>git commit -m "chore(specs): delete superseded brain specs
+
+The Brain Initiative umbrella spec (2026-05-26) replaces both the
+MoE-Critic topology spec (2026-05-24) and the experimentParams spec
+(2026-05-25). Old specs are deleted; their content is folded into
+the umbrella's §4 (Phase 0) and §6 (Phase 2)."</pre>
+</div>
+
+<!-- =================== TASK 10 =================== -->
+<h2 class="task" id="t10"><span class="tnum">Task 10.</span> Integration verification &mdash; one <code>/loop</code> cycle reaches HG4</h2>
+
+<div class="callout ok">
+  <span class="tag">Phase 0 merge gate.</span>
+  This is the umbrella spec &sect;4.10 acceptance criterion. No code changes; observation only.
+</div>
+
+<div class="step">
+  <span class="label">Step 10.1 &mdash; Start the local OS</span>
+<pre>docker compose up -d postgres
+pnpm dev:webapp &amp;     # review UI at localhost:3030</pre>
+  <p class="expected">Verify Postgres is healthy: <code>docker compose ps postgres</code> shows <code>healthy</code>.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.2 &mdash; Wipe orchestrator state for a clean cold-start cycle</span>
+<pre>pnpm orchestrator:truncate-runs
+# Or SQL equivalent:
+sqlite3 data/engineerdad.sqlite "DELETE FROM runs; DELETE FROM step_results;"</pre>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.3 &mdash; Kick a cold-start cycle</span>
+  <p>Open Claude Code in this repo and run the slash command:</p>
+<pre>/loop-once</pre>
+  <p>Wait for the orchestrator to drive through tracking &rarr; analytics &rarr; synthesize &rarr; brief &rarr; HG1. Approve any Briefs at <code>http://localhost:3030/review/briefs</code>.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.4 &mdash; Continue through HG2 &rarr; HG3 &rarr; HG4</span>
+  <p>After HG1 approval, run <code>/content</code> to advance to HG2. Repeat: <code>/produce</code> &rarr; HG3 &rarr; <code>/distribute</code> (which now includes the experiment + schedule stages) &rarr; HG4.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.5 &mdash; Confirm <code>experimentParams</code> is populated on the memo</span>
+<pre>docker compose exec postgres psql -U postgres -d engineerdad -c \
+  "select run_id, experiment_params is not null as has_params,
+          jsonb_array_length(experiment_params-&gt;'factors') as n_factors
+   from performance_reports
+   order by created_at desc limit 1;"</pre>
+  <p class="expected"><strong>Expected:</strong> one row, <code>has_params = true</code>, <code>n_factors = 1</code> (single-factor "angle").</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.6 &mdash; Confirm <code>experiment_id</code> is attached to the run's Hypotheses</span>
+<pre>docker compose exec postgres psql -U postgres -d engineerdad -c \
+  "select id, test_experiment from hypotheses
+   where run_id = (select run_id from performance_reports
+                   order by created_at desc limit 1);"</pre>
+  <p class="expected"><strong>Expected:</strong> all rows have <code>test_experiment</code> set (non-null), pointing at the Experiments row created by X3-write.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.7 &mdash; Confirm <code>/status</code> shows the run at distribute &rarr; HG4</span>
+  <p>Run <code>/status</code> in Claude Code.</p>
+  <p class="expected"><strong>Expected:</strong> the run's stage is <code>distribute</code> and status is <code>awaiting-gate</code> (HG4).</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.8 &mdash; (Cold-start fallback) Force the legitimate-skip path</span>
+  <p>If Brain emitted only one recommended angle, <code>experimentParams</code> was absent and X2 + X3 no-op'd. Verify:</p>
+<pre>docker compose exec postgres psql -U postgres -d engineerdad -c \
+  "select stage, status from runs order by created_at desc limit 1;"</pre>
+  <p class="expected"><strong>Expected:</strong> <code>stage = distribute</code>, <code>status = awaiting-gate</code>. The run reached HG4 even on the skip path.</p>
+</div>
+
+<div class="step">
+  <span class="label">Step 10.9 &mdash; Push branch + open PR</span>
+<pre>git push -u origin feat/brain-experiment-params
+
+gh pr create --title "feat: Brain Initiative Phase 0 — experimentParams + umbrella spec" --body "$(cat &lt;&lt;'EOF'
+## Summary
+
+- Wires `experimentParams` from Brain's Decision Memo into `X2-design` so the `/loop` cycle reaches HG4 instead of halting at `factors must be non-empty`.
+- Introduces the umbrella `docs/superpowers/specs/2026-05-26-brain-initiative-design.html` (4-phase Brain programme) and supersedes the two prior brain specs.
+- Closes E-035; opens E-036–E-041 dormant entries blocked by Phase 3.
+
+## Test plan
+- [x] \`pnpm -r build\` passes
+- [x] \`pnpm vitest run\` passes (10 verify-synthesize specs, 7 experiment specs)
+- [x] One \`/loop-once\` cycle reaches HG4 with \`experiment_params is not null\` on the latest \`performance_reports\` row, OR with the legitimate-skip path on cold-start
+- [x] No regressions in other orchestrator tests
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"</pre>
+  <p>Phase 0 ships. The branch may be renamed to <code>feat/brain-initiative</code> for the squash-merge target; not required.</p>
+</div>
+
+<h2 class="section" id="self-review">Self-Review</h2>
+
+<p>After writing the plan, checking against the spec &sect;4:</p>
+
+<h3>Spec coverage</h3>
+<ul>
+  <li>&sect;4.1 problem &rarr; described in Goal + Task 3</li>
+  <li>&sect;4.2 decisions (ownership, factor model, no run.params mutation, legitimate-skip) &rarr; Tasks 1, 3, 4</li>
+  <li>&sect;4.3 type lineage (<code>packages/shared/src/types/brain.ts</code>) &rarr; Task 1</li>
+  <li>&sect;4.4 brain prompt change &rarr; Task 7</li>
+  <li>&sect;4.5 engine wiring (<code>experiment.ts</code>) &rarr; Tasks 2&ndash;5</li>
+  <li>&sect;4.6 verifier extension &rarr; Task 6</li>
+  <li>&sect;4.7 commit slicing (C1/C2/C3) &rarr; Tasks 1 (C1), 5 (C2), 6&ndash;8 (C3)</li>
+  <li>&sect;4.8 tests &rarr; Tasks 1, 3, 4, 6 (all TDD)</li>
+  <li>&sect;4.9 backward compat &rarr; verified implicitly in Task 10</li>
+  <li>&sect;4.10 merge gate &rarr; Task 10</li>
+  <li>Supersession of old specs &rarr; Task 9</li>
+  <li>&sect;11 rollover TASKS entries &rarr; Task 8</li>
+</ul>
+
+<p>All &sect;4 sub-sections accounted for.</p>
+
+<h3>Placeholder scan</h3>
+<p>No "TBD", "TODO", "fill in", or "similar to Task N" in any step. Every code step shows actual code. Every command step shows the actual command + expected output.</p>
+
+<h3>Type consistency</h3>
+<p><code>memoParams</code> returns <code>ExperimentParams | undefined</code> in Task 3 and is referenced verbatim in Task 4. <code>verifyExperimentParams</code> defined in Task 6 and referenced only inside <code>verify-synthesize.ts</code>. <code>DecisionMemoV2</code> defined in Task 1, used in Task 3. <code>experimentDeclined</code> is defined in Task 3, used in Task 4. All consistent. No gaps.</p>
+
+<footer class="doc">
+  Brain Initiative Phase 0 implementation plan &middot; 2026-05-26 &middot; 10 tasks &middot; ~1&ndash;2 days focused work &middot; ships from <code>feat/brain-experiment-params</code> as one PR with 3 logical commits (C1/C2/C3) plus chore commits.
+</footer>
+
+</div>
+</body>
+</html>

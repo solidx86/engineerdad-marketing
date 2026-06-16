@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Rebuild — Implementation Plan (Roadmap)</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.62; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 27px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 19px; margin: 44px 0 12px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); letter-spacing: -0.01em; }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 26px 0 6px; }
+  p { margin: 10px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--accent); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .tldr { background: var(--accent-soft); border-left: 4px solid var(--accent);
+    padding: 16px 20px; border-radius: 0 4px 4px 0; margin: 24px 0; font-size: 15px; }
+  .tldr strong { color: var(--accent); }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 14px 18px; margin: 18px 0; border-radius: 0 4px 4px 0; font-size: 14.5px; }
+  .callout.key { border-left-color: var(--bad); background: #fdf2f1; }
+  .callout.decision { border-left-color: var(--good); background: #f0f8f3; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; }
+  .callout.key .lbl { color: var(--bad); }
+  .callout.decision .lbl { color: var(--good); }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 14px 16px; border-radius: 4px; overflow-x: auto; font-size: 12.5px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 11px; border: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 12px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .ok { color: var(--good); font-weight: 700; }
+  .no { color: var(--bad); font-weight: 700; }
+  .wn { color: var(--warn); font-weight: 700; }
+  ul, ol { margin: 10px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  .phase { border: 1px solid var(--rule); border-radius: 6px; padding: 4px 22px 18px;
+    margin: 22px 0; background: #fcfcfb; }
+  .phase h3 { color: var(--accent); font-size: 16px; }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 12px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  .foot { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+    background: var(--accent-soft); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Agentic Rebuild — Implementation Plan <span style="color:var(--muted);font-weight:400;">(Roadmap)</span></h1>
+  <p class="meta">
+    Implementation plan · index &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">ROADMAP — 7 PHASES</span><br>
+    Plan-of-record for design <code>2026-05-22-agentic-rebuild-design.html</code> &nbsp;·&nbsp;
+    Branch: <code>feat/agentic-rebuild</code>
+  </p>
+
+  <div class="callout">
+    <span class="lbl">For agentic workers</span>
+    This HTML is the human-review plan-of-record. The <em>executable</em> form of each phase is a
+    markdown file with <code>- [ ]</code> checkbox steps, consumed by
+    <code>superpowers:subagent-driven-development</code> or <code>superpowers:executing-plans</code>.
+    Phase&nbsp;1 is fully detailed in <code>phase-1.html</code> and ready to convert to executable
+    markdown now. Phases&nbsp;2–7 are scoped here at the task / interface / acceptance-criteria
+    level; each gets its own <code>phase-N.html</code> expanded to bite-sized TDD detail when its
+    predecessors land (their exact code depends on interfaces discovered in execution).
+  </div>
+
+  <p><strong>Goal:</strong> Rebuild the EngineerDad Marketing OS as a small set of genuinely
+    agentic cells standing on a typed, deterministic orchestrator state machine — replacing eight
+    scripted agents and prose-orchestration with ~4 agentic cells, deterministic stages, and a
+    code-owned run loop.</p>
+  <p><strong>Architecture:</strong> The slash command orchestrates (main session); a typed
+    <code>orchestrator</code> MCP owns the run-state machine (<code>plan</code> / <code>verify</code>
+    / <code>advance</code>); agentic cells and fan-out workers are terminal level-1 spawns.
+    Deterministic transforms and orchestration move out of agent prompts into unit-tested
+    TypeScript. Notion stays the human review surface and gate signal; SQLite is the orchestrator's
+    source of truth.</p>
+  <p><strong>Tech stack:</strong> TypeScript / Node 20+, pnpm workspaces, vitest (TDD),
+    better-sqlite3, <code>@modelcontextprotocol/sdk</code> ^1.18 (stdio), Zod, Claude Code agents +
+    slash commands.</p>
+
+  <div class="tldr">
+    Seven phases, each producing working, testable software on its own.
+    <strong>Phase&nbsp;1 (extract deterministic transforms) is independent, greenfield, and
+    zero-behavior-change</strong> — it can land first and alone, killing the recurring G-series
+    drift class. Phases&nbsp;2–7 then build the orchestrator and reshape the agents on top of it.
+  </div>
+
+  <h2><span class="num">1.</span> The seven phases at a glance</h2>
+  <table>
+    <thead><tr><th>#</th><th>Phase</th><th>Ships</th><th>Depends on</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Extract deterministic transforms</strong></td><td>A tested pure-function library in <code>packages/shared</code></td><td>—</td></tr>
+      <tr><td>2</td><td><strong>Orchestrator core + <code>/loop</code></strong></td><td>The state machine, the <code>produce</code> stage, the <code>/loop</code> conductor</td><td>1</td></tr>
+      <tr><td>3</td><td><strong>Collapse distribution + experiment-os</strong></td><td>Two deterministic stages (agent deletion deferred to 6)</td><td>2</td></tr>
+      <tr><td>4</td><td><strong>Collapse tracking + analytics; add schedule</strong></td><td>Three deterministic stages (agent deletion deferred to 6)</td><td>2</td></tr>
+      <tr><td>5</td><td><strong>Decompose media-production</strong></td><td><code>creative-director</code> agent + render workers + <code>deriveSpecs</code></td><td>2</td></tr>
+      <tr><td>6</td><td><strong>Wire the live loop</strong></td><td>synthesize/brief/content stages; the ordered live registry; HG4; 5 agents deleted</td><td>2–5</td></tr>
+      <tr><td>7</td><td><strong>Trim brain.md; retire PLAN.md; ADR-020</strong></td><td>A reasoning-leaf <code>brain.md</code>, <code>ARCHITECTURE.md</code>, the ADR</td><td>2–6</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2.</span> File map (whole rebuild)</h2>
+  <pre>packages/
+  shared/src/derive/                  P1  NEW — pure deterministic transforms
+    text.ts · channels.ts · ids.ts        slugify, truncate, readingTime, topicTag,
+    schedule.ts · specs.ts                keywords, variantId, deriveChannels, ytCategory,
+    index.ts  (+ *.test.ts each)          metaCtaType ; assignSchedule (P4) ; deriveSpecs (P5)
+  shared/src/index.ts                 P1  MODIFY — re-export ./derive
+  shared/package.json                 P1  MODIFY — exports map: "./derive"
+
+  orchestrator/src/                   P2  NEW — the typed run-state machine (pure logic)
+    state.ts        run-state types + SQLite-backed store (runs, run_steps)
+    engine.ts       plan / verify / advance generic engine
+    stages/produce.ts                 P2  the produce StageDefinition
+    stages/distribute.ts              P3
+    stages/experiment.ts              P3
+    stages/tracking.ts                P4
+    stages/analytics.ts               P4
+    stages/schedule.ts                P4
+    stages/{synthesize,brief,content}.ts  P6  the agentic-cell stages
+    registry.ts                       P6  assemble the ordered live registry
+    verifiers/verifyProduce.ts        P2  (verifyDistribute P3, etc.)
+    (+ *.test.ts each)
+
+mcp-servers/orchestrator/             P2  NEW — thin stdio wrapper (3 tools)
+  src/index.ts · package.json
+
+.claude/commands/
+  loop.md · status.md                 P2  NEW — the thin conductor + status reader
+  produce.md, targeting.md, ...       P2  MODIFY — granular commands → thin conductors (scoped)
+.claude/agents/
+  creative-director.md                P5  NEW — replaces the creative half of media-production
+  brain.md                            P6  trim §A/§E → reasoner ; P7  trim §G
+  distribution.md · experiment-os.md  P6  DELETE — at the registry cutover
+  tracking.md · analytics.md          P6  DELETE — at the registry cutover
+  media-production.md                 P6  DELETE — at the registry cutover
+corpus/templates/worker-prompts/
+  render-worker.md                    P5  NEW (from static-asset.md)
+
+data/  — migration: runs, run_steps tables in engineerdad.sqlite   P2
+.mcp.json                             P2  MODIFY — register orchestrator server
+docs/decisions/020-*.md               P7  NEW — ADR-020
+docs/decisions/005-*.md               P7  MODIFY — one-line status note
+ARCHITECTURE.md / PLAN.md             P7  NEW / archive</pre>
+
+  <h2><span class="num">3.</span> Phase detail</h2>
+
+  <div class="phase">
+    <h3>Phase 1 — Extract deterministic transforms <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Move every deterministic transform currently described in
+      English inside agent prompts into pure, unit-tested TypeScript in
+      <code>packages/shared/src/derive/</code>. Greenfield, zero behavior change, no agent or MCP
+      touched — purely additive. This is the foundation Phases 2–7 import.</p>
+    <p><strong>Files.</strong> Create <code>packages/shared/src/derive/{text,channels,ids,index}.ts</code>
+      + colocated <code>*.test.ts</code>; modify <code>packages/shared/src/index.ts</code> and
+      <code>packages/shared/package.json</code>.</p>
+    <p><strong>Tasks (10, full TDD detail in <code>phase-1.html</code>).</strong></p>
+    <ol>
+      <li><code>slugify(title)</code> — kebab-case slug (was media-production Step 8.2)</li>
+      <li><code>truncateAtWord(text, max)</code> — word-boundary truncation primitive (Step 5.7a)</li>
+      <li><code>readingTime(body)</code> — word-count ÷ 250 → "<code>N min read</code>" (Step 8.2)</li>
+      <li><code>topicTag(topic)</code> — uppercase category chip, ≤60 chars (Step 8.2)</li>
+      <li><code>extractKeywords(targetQuery, topic)</code> — deduped keyword list, cap 10 (Step 8.2)</li>
+      <li><code>variantId(scriptId, format, aspect)</code> — <code>sha256(...)[:12]</code> (Step 5.5 G5)</li>
+      <li><code>deriveChannels(format, aspect, funnelStage)</code> + <code>Channel</code> type (Step 5.6)</li>
+      <li><code>youtubeCategoryId(notionCategory)</code> — name→ID map (distribution §4b)</li>
+      <li><code>metaCtaType(funnelStage, ctaText)</code> — CTA-by-funnel map (Step 5.7a)</li>
+      <li>Wire-up — barrel <code>index.ts</code>, root re-export, <code>package.json</code> exports, full build</li>
+    </ol>
+    <p><code>assignSchedule</code> (organic cadence) lands in Phase&nbsp;4 alongside its consuming
+      <code>schedule</code> stage; <code>deriveSpecs</code> (the composer) lands in Phase&nbsp;5
+      alongside <code>creative-director</code> — both belong with their consumers, not here.</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      All 9 functions exist and are exported from <code>@engineerdad/shared/derive</code>;
+      every function has a colocated vitest suite covering happy path + edge cases;
+      <code>pnpm vitest run packages/shared</code> green; <code>pnpm -r build</code> clean
+      (sequential); <code>pnpm sync:agents:check</code> unaffected. No file under
+      <code>.claude/</code> or <code>mcp-servers/</code> changed.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 2 — Orchestrator core + <code>/loop</code> <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Build the typed run-state machine and the thin conductor. After
+      this phase, one stage (<code>produce</code>) runs end-to-end under <code>/loop</code>.</p>
+    <p><strong>Files.</strong> <code>packages/orchestrator/</code> (logic) + <code>mcp-servers/orchestrator/</code>
+      (thin wrapper) + a SQLite migration + <code>.claude/commands/loop.md</code> &amp;
+      <code>status.md</code> + <code>.mcp.json</code> registration.</p>
+    <h4 style="font-size:13px;margin:14px 0 4px;">Key tasks</h4>
+    <ul>
+      <li>SQLite migration — <code>runs</code> (run_id, stage, status, params, timestamps) +
+        <code>run_steps</code> (run_id, step_id, stage, status, result JSON, problems, attempts).</li>
+      <li><code>state.ts</code> — typed read/write over those tables (<code>node:sqlite</code> — Node's built-in <code>DatabaseSync</code>, matching the analytics MCP; not better-sqlite3).</li>
+      <li><code>engine.ts</code> — <code>plan</code> / <code>verify</code> / <code>advance</code>;
+        <code>plan</code> is a pure function of persisted run state (the resumability property).</li>
+      <li><code>stages/produce.ts</code> — the <code>StageDefinition</code> (P1 spawn → P2 fanout →
+        P3 write → HG3 gate); <code>verifiers/verifyProduce.ts</code>.</li>
+      <li><code>mcp-servers/orchestrator/</code> — stdio server, 3 tools, delegates to the package
+        (ADR-005 thin-adapter); register in <code>.mcp.json</code>.</li>
+      <li><code>.claude/commands/loop.md</code> — the domain-agnostic conductor (plan → spawn /
+        fanout / write → verify → advance → repeat; stop at gate). <code>status.md</code> —
+        read-only run dashboard.</li>
+      <li>Re-point the granular commands (<code>/produce</code> etc.) at the same conductor, scoped.</li>
+    </ul>
+    <h4 style="font-size:13px;margin:14px 0 4px;">Interfaces exposed (locked here, consumed by 3–6)</h4>
+    <pre>type StepKind = "spawn" | "fanout" | "write" | "verify" | "gate" | "done" | "halt";
+interface Step { kind: StepKind; step_id: string; /* + kind-specific fields */ }
+
+interface StageDefinition {
+  id: string;
+  entry: (run: RunState) =&gt; boolean;
+  steps: StepSpec[];          // builders: buildSpawnPrompt / buildUnits / buildCalls
+  exit:  (run: RunState) =&gt; boolean;
+}
+
+orchestrator.plan(runId | { args })          -&gt; Step
+orchestrator.verify(runId, stepId, result)   -&gt; { ok: boolean; problems: string[] }
+orchestrator.advance(runId, stepId, result)  -&gt; { stage: string; status: string }</pre>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      <code>orchestrator</code> MCP registered and starts clean; given a seeded run with approved
+      Scripts, <code>/loop</code> drives the <code>produce</code> stage to its HG3 gate;
+      <code>verifyProduce</code> unit-tested against fixture run state; a resumability test proves
+      re-entry after a partial failure re-plans only the undone steps; <code>plan</code> never
+      double-creates. <code>pnpm -r build</code> + <code>pnpm vitest run</code> green.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 3 — Collapse distribution + experiment-os <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Convert both agents to orchestrator stages.
+      <code>experiment</code> is a pure step-chain; <code>distribute</code> is a worker cell —
+      a generic worker executing a pure routing plan, guarded by a verifier (its async
+      polling + campaign→adset→ad dependency chain don't fit a pure step-chain). Routing
+      <em>decisions</em> stay deterministic; the worker derives nothing (ADR-018 intact).</p>
+    <p><strong>Files.</strong> <code>orchestrator/src/stages/{experiment,distribute}.ts</code> +
+      verifiers + the pure <code>planDistribution</code> / allocation functions; the gate-passing
+      mechanism (a <code>check</code> on the gate Step). Agent-file deletion + command
+      re-pointing move to Phase 6 — doing it now, with the stages not yet live and
+      <code>brain.md</code> still referencing them, would leave a broken intermediate state.</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      <code>experiment</code> + <code>distribute</code> exist as unit-tested
+      <code>StageDefinition</code>s; <code>planDistribution</code>, allocation, and the two
+      verifiers are pure + tested; gate-passing works (proven by an integration test);
+      <code>dryRun</code> preserved as a plan flag; idempotency tested (re-run skips
+      back-filled rows); Meta entities still land PAUSED (ADR-015, MCP-enforced). Live-registry
+      wiring + agent deletion: Phase 6.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 4 — Collapse tracking + analytics; add the schedule stage <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> <code>tracking</code> and <code>analytics</code> are fixed
+      pipelines — convert to deterministic <code>write</code>-step stages. Add the new
+      <code>schedule</code> stage and the <code>assignSchedule</code> pure function (the organic
+      decision, §7 of the design).</p>
+    <p><strong>Files.</strong> <code>orchestrator/src/stages/{tracking,analytics,schedule}.ts</code> +
+      <code>verify-schedule</code>; <code>packages/shared/src/derive/schedule.ts</code>
+      (<code>assignSchedule</code> — organic per-post datetimes from the cadence table; paid
+      adset flight); <code>analytics/fatigue.ts</code> (<code>detectFatigue</code>, §12.5);
+      <code>planDistribution</code> gains the organic-FB branch. Agent-file deletion +
+      live-registry wiring move to Phase 6 — the same C1 staging as Phase 3.</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      <code>assignSchedule</code> + <code>detectFatigue</code> + <code>verifySchedule</code> pure
+      and unit-tested; <code>tracking</code>/<code>analytics</code>/<code>schedule</code> exist as
+      unit-tested <code>StageDefinition</code>s; <code>planDistribution</code> routes organic-FB;
+      <code>tracking</code> halts the loop on a CAPI failure (verify-fail STOP). The new stages
+      are <em>not</em> in the live registry — Phase 6 wires them and deletes the agents.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 5 — Decompose media-production <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Split the 707-line agent into its three real parts: a small
+      taste-only agent, fan-out render workers, and pure spec-derivation code.</p>
+    <p><strong>Files.</strong> <code>.claude/agents/creative-director.md</code> (~80 lines — storyboard,
+      hook-register choice, thumbnail brief — taste only); <code>corpus/templates/worker-prompts/render-worker.md</code>;
+      <code>packages/shared/src/derive/specs.ts</code> (<code>deriveSpecs</code> — composes the
+      Phase&nbsp;1 atomics into per-channel specs, channel-conditional incl. organic);
+      <code>verifyProduce</code> wired to real Notion reads. <code>media-production.md</code> is
+      superseded but stays on disk — deleted at the Phase 6 cutover (C1).</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      The <code>produce</code> stage spawns <code>creative-director</code> then fans out render
+      workers; <code>deriveSpecs</code> + <code>deriveArticlePackaging</code> unit-tested
+      (Meta/YT/organic branches keyed off <code>Channels</code>); <code>verifyProduce</code> reads
+      Notion + the events table for ground truth; the F2 / G10 / G11 / Step-7.0 prose is
+      superseded by the verifier; compliance scan still fires at the notion MCP boundary. Stage
+      not yet in the live registry — Phase 6 wires it.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 6 — Wire the live loop <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Build the three remaining agentic-cell stages, assemble the
+      ordered live registry, and cut the orchestrator over to it — the loop goes live end-to-end.</p>
+    <p><strong>Files.</strong> <code>orchestrator/src/stages/{synthesize,brief,content}.ts</code>
+      (thin spawn/gate stages; the spawn-prompt formats relocate from <code>brain.md</code> §E);
+      <code>registry.ts</code> — the ordered live registry (design §8); the HG4 upgrade to a
+      passable Meta check. Rename <code>targeting</code>→<code>brief-writer</code>,
+      <code>content-gen</code>→<code>content-writer</code>. Trim <code>brain.md</code> §A/§E
+      (dispatch + spawn) so the live loop runs with <code>brain</code> as a pure reasoner.
+      Delete the five replaced agents (<code>tracking</code>, <code>analytics</code>,
+      <code>distribution</code>, <code>experiment-os</code>, <code>media-production</code>).</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      <code>/loop</code> walks the full design-§8 order (<code>tracking → analytics → synthesize →
+      brief → content → produce → schedule → experiment → distribute</code>) against real stages;
+      the four human gates fire in order; HG4 is a passable Meta check; the five agent files are
+      gone with no dangling references; build + suite + <code>sync:agents:check</code> green.</div>
+  </div>
+
+  <div class="phase">
+    <h3>Phase 7 — Trim brain.md; retire PLAN.md; ADR-020 <span class="tag">shipped</span></h3>
+    <p><strong>Objective.</strong> Reduce <code>brain.md</code> to a reasoning leaf, rewrite the
+      granular command surface, and settle the documentation/doctrine.</p>
+    <p><strong>Files.</strong> <code>.claude/agents/brain.md</code> — remove §G organic-planner
+      (§A/§E already trimmed in Phase 6; keep §B scaffold, §C memo, §D move catalog, §F
+      cold-start). New <code>ARCHITECTURE.md</code>; archive <code>PLAN.md</code>.
+      New <code>docs/decisions/020-agentic-cell-architecture.md</code>; one-line status note on
+      <code>docs/decisions/005-mcp-architecture.md</code>. Rewrite the granular commands as
+      orchestrator drivers (loop-stage delegators + off-loop <code>brain</code> spawns); delete
+      <code>/post-week</code> + <code>/targeting</code>.</p>
+    <div class="ac"><span class="lbl">Acceptance</span>
+      <code>brain.md</code> contains no dispatch or spawn content and reads as a pure reasoner;
+      <code>pnpm sync:agents:check</code> clean; ADR-020 committed, sourced from both specs,
+      retaining ADR-005's thin-adapter + no-MCP-mesh + compliance-boundary; ADR-005 carries the
+      status note; <code>PLAN.md</code> archived, <code>ARCHITECTURE.md</code> current.</div>
+  </div>
+
+  <h2><span class="num">4.</span> Sequencing &amp; branch strategy</h2>
+  <ul>
+    <li><strong>Phase 1</strong> is independent and zero-risk — land it first on
+      <code>feat/agentic-rebuild</code>, optionally ship/merge it on its own.</li>
+    <li><strong>Phase 2</strong> is the spine; <strong>3, 4, 5</strong> each depend only on 2, not
+      on each other — they can be done in any order, or in parallel on sub-branches.</li>
+    <li><strong>Phase 6</strong> wires the live loop — it depends on 3, 4, and 5 all being done,
+      since it activates every stage they built and deletes the agents they replaced.</li>
+    <li><strong>Phase 7</strong> is last — it cannot delete <code>brain.md</code>'s dispatch
+      sections until every stage that replaced them (2–6) exists.</li>
+    <li>Each phase ends green (<code>pnpm -r build</code> + <code>pnpm vitest run</code> +
+      <code>pnpm sync:agents:check</code>) and is a review checkpoint.</li>
+  </ul>
+
+  <h2><span class="num">5.</span> Execution model</h2>
+  <p>
+    This HTML is the plan-of-record for review. To execute a phase, its <code>phase-N.html</code>
+    is converted to an executable markdown file (<code>docs/superpowers/plans/2026-05-22-agentic-rebuild/phase-N.md</code>)
+    with <code>- [ ]</code> checkbox steps, then run via <code>superpowers:subagent-driven-development</code>
+    (fresh subagent per task, review between) or <code>superpowers:executing-plans</code> (inline,
+    batched with checkpoints). Phase&nbsp;1 is detailed and ready; Phases&nbsp;2–7 are expanded to
+    that fidelity just before they execute.
+  </p>
+
+  <div class="foot">
+    Companion: <code>phase-1.html</code> (full TDD detail, ready to execute). Design source:
+    <code>../../specs/2026-05-22-agentic-rebuild-design.html</code>.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeyGen Reel Pipeline — Implementation Plan</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 36px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  h2 { font-size: 20px; margin: 44px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 28px 0 10px; color: var(--ink); }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); }
+  p, ul, ol { font-size: 15px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+  pre code { background: none; padding: 0; }
+  blockquote {
+    margin: 14px 0;
+    padding: 12px 16px;
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 8px 8px 0;
+    font-size: 14.5px;
+  }
+  .checkbox-list li {
+    list-style: none;
+    margin-left: -18px;
+  }
+  .checkbox-list li::before {
+    content: "☐ ";
+    color: var(--muted);
+    font-weight: 600;
+  }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>HeyGen Reel Pipeline — Implementation Plan</h1>
+  <p class="subtitle">Companion to <code>2026-05-28-heygen-reel-pipeline-design.html</code></p>
+</header>
+
+<div style="background:#fff3cd;border:2px solid #f0c040;border-radius:6px;padding:12px 16px;margin-bottom:20px;font-weight:bold;">
+  SUPERSEDED (2026-05-29) by ADR-028 and <code>docs/superpowers/plans/2026-05-29-heygen-native-scene-assembly.md</code>. The local-stitch architecture below is historical; the reel pipeline now uses HeyGen-native multi-scene assembly.
+</div>
+
+<blockquote><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</blockquote>
+
+<p><strong>Goal:</strong> Close the Reel-format gap in the produce stage so every Reel CreativeUnit reaches HG3 with a playable MP4 in <code>assetFiles[0].url</code>. Replaces TASKS.md E-004's kie.ai-based plan with a HeyGen + static-renderer + ffmpeg stitcher that matches the EngineerDad brand voice ("show the math, not stock footage").</p>
+
+<p><strong>Architecture:</strong> A new render path parallel to the static-renderer Feed/Carousel path. The Reel worker (1) submits one HeyGen call for the full narration, (2) acquires word-level timings from HeyGen SRT or whisper fallback, (3) renders chart frames via the existing static-renderer for <code>chartRef</code> scenes, (4) stitches face + chart cuts with burned-in EN subtitles via a new <code>packages/media-stitch</code> library that shells out to ffmpeg in Docker, (5) uploads via asset-store. HeyGen jobId is persisted to the CreativeVariant row <em>before</em> polling begins so a worker crash never orphans a HeyGen invocation (the scar at <code>packages/orchestrator/src/exec.ts:92</code>).</p>
+
+<p><strong>Tech Stack:</strong> TypeScript, Vitest, pnpm workspaces, Drizzle (Postgres schema), Claude Code subagents (<code>reel-render-worker.md</code>, <code>creative-director.md</code>), Docker (for ffmpeg sandbox), HeyGen v2 API, whisper (fallback only).</p>
+
+<p><strong>Branching model:</strong> A long-lived integration branch <code>feat/heygen-reel-pipeline</code> is branched off <code>main</code> (the prerequisite <code>feat/brain-experiment-params</code> distribute refactor + Distributions entity merged to main on 2026-05-29). All 5 implementation PRs target the integration branch; once they all merge and G2 sandbox smoke + manual HG3 approval pass, the integration branch merges to main as one squash-merge. Rebase the integration branch onto main at the start of each PR. Spec at <code>docs/superpowers/specs/2026-05-28-heygen-reel-pipeline-design.html</code>.</p>
+
+<hr>
+
+<h2>Task 1: Schema migration — add reelHeygenJobId and renderState to CreativeVariants</h2>
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/store/src/schema.ts</code></li>
+  <li>Generate: <code>packages/store/drizzle/&lt;n&gt;_&lt;name&gt;.sql</code> (Drizzle migration)</li>
+  <li>Modify: <code>packages/shared/src/types.ts</code> (CreativeVariant type extension)</li>
+  <li>Modify: <code>packages/shared/src/zod.ts</code> (CreativeVariantSchema)</li>
+  <li>Add tests: <code>packages/store/src/crud.test.ts</code> (new render-state cases)</li>
+</ul>
+<p>Add two nullable columns supporting Reel orphan recovery. Backward-compatible with existing Feed/Carousel rows (both stay <code>null</code>).</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Extend schema definition</strong>
+<p>In <code>packages/store/src/schema.ts</code>, find the <code>creativeVariants</code> <code>pgTable</code> definition and append:</p>
+<pre><code>reelHeygenJobId: text("reel_heygen_job_id"),
+renderState: text("render_state"),
+renderStartedAt: timestamp("render_started_at", { withTimezone: true }),</code></pre>
+<p>Also add the enum constant:</p>
+<pre><code>export const RENDER_STATE = [
+  "HeygenGenerating", "HeygenCompleted", "Stitching", "Uploaded", "RenderFailed",
+] as const;</code></pre>
+</li>
+<li><strong>Step 2: Generate migration</strong>
+<pre><code>pnpm db:sandbox     # apply schema change to branch sandbox first
+pnpm db:generate    # produce SQL migration</code></pre>
+<p>Verify the generated SQL only adds columns. Commit <code>schema.ts</code> + generated <code>packages/store/drizzle/</code> files together (per CLAUDE.md database workflow rule).</p>
+</li>
+<li><strong>Step 3: Extend TypeScript types</strong>
+<p>In <code>packages/shared/src/types.ts</code>, find <code>CreativeVariant</code> interface and add the three optional fields.</p>
+</li>
+<li><strong>Step 4: Extend Zod schema</strong>
+<p>In <code>packages/shared/src/zod.ts</code>, extend <code>CreativeVariantSchema</code>. Export <code>RenderStateEnum = z.enum(RENDER_STATE)</code>.</p>
+</li>
+<li><strong>Step 5: CRUD test coverage</strong>
+<p>Insert / update / read-back tests for the three new fields.</p>
+</li>
+<li><strong>Step 6: Verify migration lint</strong>
+<pre><code>pnpm lint:migrations</code></pre>
+</li>
+</ul>
+
+<h2>Task 2: ReelShotlistSchema in packages/shared/src/zod.ts</h2>
+<p><strong>Files:</strong> Modify <code>packages/shared/src/zod.ts</code>; add tests in <code>packages/shared/src/zod.test.ts</code>.</p>
+<p>The shape creative-director must emit for Reels. Validated at the orchestrator boundary.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Define schema</strong>
+<pre><code>export const ReelSceneTypeEnum = z.enum(["face", "chart", "face-over-chart"]);
+
+export const ReelShotlistSceneSchema = z.object({
+  scene: z.string(),
+  voiceover: z.string().refine(
+    (s) =&gt; s.trim().split(/\s+/).length &lt;= 30,
+    { message: "voiceover must be ≤ 30 words" },
+  ),
+  onScreenText: z.string(),
+  chartRef: z.string().nullable(),
+  shotNotes: z.string(),
+  sceneType: ReelSceneTypeEnum,
+  estimatedSeconds: z.number().positive(),
+}).refine(
+  (s) =&gt; s.sceneType === "face" || s.chartRef !== null,
+  { message: "chart and face-over-chart scenes require chartRef" },
+);
+
+export const ReelShotlistSchema = z.object({
+  format: z.literal("Reel"),
+  aspect: z.literal("9:16"),
+  hook: z.object({ en: z.string(), ms: z.string() }),
+  shotlistEn: z.array(ReelShotlistSceneSchema).min(1),
+  targetSeconds: z.number().int().min(15).max(60),
+  faceFirstHook: z.boolean(),
+});</code></pre>
+</li>
+<li><strong>Step 2: Test acceptance</strong> — accept valid; reject targetSeconds out-of-range; reject chart scene with null chartRef; reject voiceover &gt; 30 words; accept face scene with null chartRef.</li>
+</ul>
+
+<h2>Task 3: packages/media-stitch — new package skeleton</h2>
+<p><strong>Files:</strong> new <code>package.json</code>, <code>tsconfig.json</code>, <code>src/index.ts</code> (public API), <code>src/types.ts</code> (StitchSpec, StitchResult).</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Scaffold package</strong> — mirror <code>packages/static-renderer/package.json</code>. Dev deps: <code>vitest</code>, <code>@types/node</code>.</li>
+<li><strong>Step 2: Define public types in src/types.ts</strong>
+<pre><code>export type Cut =
+  | { type: "face"; startSec: number; endSec: number; source: { url: string } }
+  | { type: "chart"; startSec: number; endSec: number; framePngPath: string };
+
+export interface StitchSpec {
+  workDir: string;
+  output: { width: number; height: number; durationSeconds: number };
+  audioTrack: { url: string };
+  cuts: Cut[];
+  subtitles?: { srtPath: string };
+  music?: { url: string; gainDb: number };
+}
+
+export interface StitchResult {
+  mp4Path: string;
+  durationSeconds: number;
+  warnings: string[];
+}</code></pre>
+</li>
+<li><strong>Step 3: Stub stitch() in src/index.ts</strong> — throws "not implemented"; real implementation in Tasks 4–6.</li>
+</ul>
+
+<h2>Task 4: build-filtergraph.ts — pure ffmpeg argv constructor</h2>
+<p><strong>Files:</strong> <code>packages/media-stitch/src/build-filtergraph.ts</code> + test + <code>__fixtures__/</code> snapshot files.</p>
+<p>The single highest-risk function in the package. Pure. No subprocess. Snapshot-tested.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Write failing tests with golden snapshots</strong> — cases: single face cut with audio passthrough; 4 cuts (face, chart, face, chart) with subtitle burn-in; face-over-chart PiP via overlay; with music (amix + volume filters).</li>
+<li><strong>Step 2: Implement filtergraph builder</strong>
+<ul>
+  <li><code>-i &lt;audioTrack.url&gt;</code> (HeyGen mp4 — provides audio)</li>
+  <li>One <code>-i</code> per unique cut source</li>
+  <li><code>-filter_complex</code>: <code>[0:a]</code> passthrough; trim+setpts per face cut; <code>scale=1080:1920,setpts</code> per chart cut; <code>concat=n=N:v=1:a=0</code></li>
+  <li>Optional <code>subtitles=&lt;srtPath&gt;:force_style=...</code></li>
+  <li>Optional music mix: <code>[0:a][music]amix=inputs=2:duration=first:weights=1 0.3[aout]</code></li>
+  <li><code>-c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k</code></li>
+</ul>
+</li>
+<li><strong>Step 3: Verify snapshots match across re-runs</strong> — guards against non-determinism.</li>
+</ul>
+
+<h2>Task 5: scene-to-time.ts — word-timing aligner</h2>
+<p>Given a transcript with word-level timings and a list of scenes, return <code>Array&lt;{ sceneIndex, startSec, endSec, matched: boolean }&gt;</code>.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Tests for each branch</strong> — exact-match; punctuation-fuzzy; partial match falls to proportional; empty transcript; reports <code>matched=false</code> for fallbacks.</li>
+<li><strong>Step 2: Implement</strong> — two-pass; exact-match first (case-insensitive, whitespace-normalized), then proportional distribution for unmatched.</li>
+</ul>
+
+<h2>Task 6: stitch() end-to-end implementation</h2>
+<p><strong>Files:</strong> <code>src/index.ts</code> (real), <code>src/docker-run.ts</code>, <code>src/download.ts</code>, <code>src/probe.ts</code>, <code>integration.test.ts</code>.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Docker invocation</strong> — <code>docker run --rm -v ${workDir}:/work jrottenberg/ffmpeg:6.1 &lt;argv&gt;</code>. Fall back to host ffmpeg if <code>DOCKER_HOST</code> unset and <code>which ffmpeg</code> succeeds.</li>
+<li><strong>Step 2: URL downloader</strong> — streams remote URLs to <code>${workDir}/cuts/&lt;index&gt;.&lt;ext&gt;</code>; rewrites argv paths.</li>
+<li><strong>Step 3: Implement stitch()</strong>
+<pre><code>export async function stitch(spec: StitchSpec): Promise&lt;StitchResult&gt; {
+  const warnings: string[] = [];
+  const localized = await localizeAllSources(spec);
+  const argv = buildFilterGraph(localized);
+  const { exitCode, stderr } = await runFfmpegInDocker(argv, spec.workDir);
+  if (exitCode !== 0) throw new MediaStitchError(stderr.slice(-4096));
+  const mp4Path = path.join(spec.workDir, "output.mp4");
+  const probe = await ffprobe(mp4Path);
+  if (probe.duration &lt; spec.output.durationSeconds * 0.9) {
+    warnings.push(`output duration ${probe.duration}s vs expected ${spec.output.durationSeconds}s`);
+  }
+  return { mp4Path, durationSeconds: probe.duration, warnings };
+}</code></pre>
+</li>
+<li><strong>Step 4: Integration test (Docker required)</strong> — fixtures: 3s test mp4, 1 chart PNG, 5-line SRT. Skip if <code>DOCKER_HOST</code> unset.</li>
+<li><strong>Step 5: Run pnpm -r build (sequential, NOT parallel)</strong></li>
+</ul>
+
+<h2>Task 7: HeyGen wrapper — surface subtitleUrl and durationSeconds</h2>
+<p><strong>Files:</strong> <code>mcp-servers/heygen-wrapper/src/heygen.ts</code> + tests.</p>
+<p>Additive — never breaks existing callers.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Probe HeyGen v1 status response shape</strong> — manual one-off against real API to determine whether the account tier returns <code>subtitle_url</code> + <code>duration</code>. Document in a comment.</li>
+<li><strong>Step 2: Extend return type</strong>
+<pre><code>{
+  status: "processing" | "completed" | "failed";
+  videoUrl?: string;
+  subtitleUrl?: string;        // NEW
+  durationSeconds?: number;    // NEW
+  error?: string;
+}</code></pre>
+</li>
+<li><strong>Step 3: Test extension</strong> — surfaces SRT when present; undefined when not.</li>
+</ul>
+
+<h2>Task 8: Whisper fallback — optional dependency</h2>
+<p>Only invoked if HeyGen <code>subtitleUrl</code> is missing.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Define interface</strong>
+<pre><code>export interface WordTiming { word: string; startSec: number; endSec: number; }
+export async function transcribeToWordTimings(audioPath: string): Promise&lt;WordTiming[]&gt;;</code></pre>
+</li>
+<li><strong>Step 2: Choose backend</strong> — if Task 7 confirms HeyGen returns SRT, stub with "not configured" error. Else implement via <code>whisper.cpp</code> Docker image (no Python dep, deterministic version pinning).</li>
+<li><strong>Step 3: Test against fixture audio</strong> — only if implemented; 5s fixture with known content; assert word array length + approximate timings.</li>
+</ul>
+
+<h2>Task 9: reel-render-worker.md prompt</h2>
+<p><strong>Files:</strong> add <code>corpus/templates/worker-prompts/reel-render-worker.md</code>. Mirror existing <code>render-worker.md</code> structure.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Input schema</strong> — document ReelWorkerInput field-by-field; worker MUST call <code>mcp__orchestrator__read_step_result</code> first.</li>
+<li><strong>Step 2: 8-step procedure</strong> — mirror spec §6 Phase 2 with explicit MCP calls. Step 3a (persist reelHeygenJobId before polling) is non-negotiable.</li>
+<li><strong>Step 3: Output JSON shape</strong> — final message must include <code>assetFiles</code>, <code>variantId</code>, <code>reelHeygenJobId</code>, <code>sceneCuts</code>.</li>
+<li><strong>Step 4: Failure conventions</strong> — HeyGen failed → <code>renderState: "RenderFailed"</code>, return error JSON, exit. Same for chart-render fail and stitch fail. Never auto-retry.</li>
+</ul>
+
+<h2>Task 10: Orchestrator P2-render Reel branch</h2>
+<p><strong>Files:</strong> <code>packages/orchestrator/src/stages/produce.ts</code> + tests; new <code>produce/reel-worker-input.ts</code> projection helper.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Extend STATIC_FORMATS handling</strong> — keep the existing <code>STATIC_FORMATS</code> set; Reel branch is additional.</li>
+<li><strong>Step 2: Add reel projection helper</strong>
+<pre><code>export function reelWorkerInput(unit: CreativeUnit, runId: string): ReelWorkerInput {
+  return {
+    runId,
+    scriptId: unit.scriptId,
+    variantId: variantId(unit.scriptId, "Reel", "9:16"),
+    format: "Reel",
+    aspect: "9:16",
+    width: 1080,
+    height: 1920,
+    language: "en",
+    targetSeconds: unit.targetSeconds,
+    faceFirstHook: unit.faceFirstHook,
+    scenes: unit.shotlistEn,
+    heygen: {
+      avatarId: requireEnv("HEYGEN_AVATAR_ID"),
+      voiceId: requireEnv("HEYGEN_VOICE_ID"),
+    },
+  };
+}</code></pre>
+</li>
+<li><strong>Step 3: Add Reel fanout branch</strong>
+<pre><code>const reelEnabled = process.env.EDOS_REEL_PIPELINE === "on";
+const reels = reelEnabled ? plan.creatives.filter((c) =&gt; c.format === "Reel") : [];
+
+const reelUnits = await Promise.all(reels.map(async (unit, i) =&gt; {
+  const existing = await readExistingVariant(unit.scriptId);
+  const input = reelWorkerInput(unit, run.runId);
+  if (existing?.renderState === "HeygenGenerating" &amp;&amp; existing.reelHeygenJobId) {
+    input.resumeFromJobId = existing.reelHeygenJobId;
+  }
+  const inputRef = await ctx.stageInput(`reel-${i}`, input);
+  return { spawnPrompt: reelSpawnPrompt(inputRef) };
+}));</code></pre>
+</li>
+<li><strong>Step 4: Update orchestrator tests</strong> — mixed plan test (8 units, 2 Reels). Assert 6 static + 2 reel spawns; <code>sr_…</code> refs only; resume case writes <code>resumeFromJobId</code> into staged input.</li>
+<li><strong>Step 5: Kill-switch test</strong> — <code>EDOS_REEL_PIPELINE=off</code> ⇒ zero reel spawns emitted.</li>
+</ul>
+
+<h2>Task 11: Extend creative-director prompt with Reel shotlist rules</h2>
+<p><strong>Files:</strong> Modify <code>packages/shared/src/prompts/creative-director.md</code>. Run <code>pnpm sync:agents</code>. Verify <code>pnpm sync:agents:check</code>.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Add a "Reel shotlist" section</strong>
+<pre><code>## Reel shotlist (NEW format requirements)
+
+For the Reel CreativeUnit, your shotlist MUST conform to ReelShotlistSchema.
+
+Per-scene fields (in addition to static-format fields):
+- sceneType: "face" | "chart" | "face-over-chart"
+- estimatedSeconds: best estimate; planning hint only
+- chartRef: required for chart and face-over-chart; must point to corpus/data/charts/*.yaml
+
+Reel-level fields:
+- targetSeconds: 15–60. Choose by content type:
+  - 15–25s: hook / origin / confessional / bilingual punch
+  - 25–35s: data reveal / single-stat unpack
+  - 40–60s: framework explainer / Bug Series / MFR
+- faceFirstHook: true. First 3s MUST be a face scene.
+
+Voiceover budget: ≤ 30 words per scene.
+Rule: ONE idea per Reel. If you can't tell it in 60s, it's a Carousel.</code></pre>
+</li>
+<li><strong>Step 2: Re-sync agents</strong>
+<pre><code>pnpm sync:agents
+git diff .claude/agents/creative-director.md</code></pre>
+</li>
+<li><strong>Step 3: Validate creative-director output</strong> — call <code>ReelShotlistSchema.parse</code> on every <code>format === "Reel"</code> unit at the P1-fanout boundary; reject run if schema fails.</li>
+</ul>
+
+<h2>Task 12: Webapp HG3 review surface — verify MP4 playback</h2>
+<p>Verification, not new code.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Locate variant review page</strong></li>
+<li><strong>Step 2: Confirm MP4 rendering</strong> — switch on <code>assetFiles[0].kind === "video"</code> if needed.</li>
+<li><strong>Step 3: Manual test</strong> — drop a test MP4 URL into sandbox CreativeVariant; load review page; confirm playback.</li>
+</ul>
+
+<h2>Task 13: Sandbox smoke test — end-to-end with one Reel</h2>
+<p>G2 gate before flipping production env var.</p>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Write smoke script</strong> at <code>scripts/smoke-reel.mts</code></li>
+<li><strong>Step 2: Run smoke against sandbox DB</strong>
+<pre><code>pnpm db:sandbox
+HEYGEN_AVATAR_ID=&lt;real&gt; HEYGEN_VOICE_ID=&lt;real&gt; \
+  pnpm tsx scripts/smoke-reel.mts</code></pre>
+</li>
+<li><strong>Step 3: Sandbox /loop run</strong> — full <code>/loop</code> with one Reel-only Script. Verify P2-render dispatches; HG3 plays MP4; approving flows to schedule + distribute (dry-run).</li>
+</ul>
+
+<h2>Task 14: TASKS.md and ARCHITECTURE.md cleanup</h2>
+
+<ul class="checkbox-list">
+<li><strong>Step 1: Rescope E-004</strong> — drop kie.ai language; replace with HeyGen + static-renderer + ffmpeg; add YT-Long / YT-Short follow-up sub-rows.</li>
+<li><strong>Step 2: Update ARCHITECTURE.md § Media Production</strong> — note Reel branch in P2-render, packages/media-stitch, HeyGen + static-renderer toolchain.</li>
+</ul>
+
+<h2>Task 15: PR sequencing checklist</h2>
+
+<ul class="checkbox-list">
+<li><strong>PR 1</strong> — Schema + zod (Tasks 1 + 2)</li>
+<li><strong>PR 2</strong> — <code>packages/media-stitch</code> library (Tasks 3 + 4 + 5 + 6)</li>
+<li><strong>PR 3</strong> — HeyGen wrapper + whisper + reel-render-worker prompt (Tasks 7 + 8 + 9)</li>
+<li><strong>PR 4</strong> — Orchestrator P2-render Reel branch + creative-director update (Tasks 10 + 11) — ships with <code>EDOS_REEL_PIPELINE</code> default-off (opt-in via <code>=on</code>)</li>
+<li><strong>PR 6</strong> — Default-off semantic + <code>.env.example</code> cleanup (correction PR; the PR 4 default landed inverted)</li>
+<li><strong>PR 5</strong> — Smoke + docs (Tasks 12 + 13 + 14)</li>
+</ul>
+
+<p>After PR 4 merges and PR 5's smoke gate passes, flip <code>EDOS_REEL_PIPELINE=on</code> in production env. Monitor first 5 Reels manually through HG3.</p>
+
+<h2>Rollout gates (from spec §9)</h2>
+
+<ul class="checkbox-list">
+<li><strong>G1 — Silent</strong> — All 5 PRs merged, env <code>off</code>. No-op for production.</li>
+<li><strong>G2 — Sandbox smoke</strong> — <code>/loop</code> on sandbox DB with 1 Reel-only Script.</li>
+<li><strong>G3 — Single-Reel prod</strong> — Flip <code>EDOS_REEL_PIPELINE=on</code>. First production run produces 1 Reel. Manual HG3.</li>
+<li><strong>G4 — Steady state</strong> — 5 production Reels with HG3 approve rate ≥ 60%. Close E-004.</li>
+<li><strong>G5 — YT extension</strong> — After steady state holds 2 weeks, add 16:9 (YT-Long) and 9:16-Short.</li>
+</ul>
+
+<h2>Out of scope (filed forward)</h2>
+<ul>
+  <li>BM-language Reels</li>
+  <li>kie.ai / Veo 3 cinematic B-roll (dropped from E-004)</li>
+  <li>HeyGen webhooks (still polling-based)</li>
+  <li>Instagram automated publishing (stays via <code>/posting-pack</code> until E-024)</li>
+  <li>Cross-run RenderEvents analytics dashboard</li>
+  <li>Background music in V1 (defer to G3 review)</li>
+</ul>
+
+</div>
+</body>
+</html>

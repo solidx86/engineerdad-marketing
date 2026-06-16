@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 1 — Extract Deterministic Transforms</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #5b6770; --accent: #4338ca; --accent-soft: #ebebf9;
+    --paper: #f4f3ee; --card: #ffffff; --good: #1a7f4f; --bad: #c0392b; --warn: #b7791f;
+    --rule: #e3e1d9; --mono-bg: #f7f8fa;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px; }
+  .doc { max-width: 880px; margin: 40px auto; background: var(--card);
+    padding: 56px 64px 72px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+    border-radius: 4px; }
+  h1 { font-size: 26px; line-height: 1.3; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 10px; padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent-soft); color: var(--accent); }
+  h2 .num { display: inline-block; min-width: 1.6em; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 15px; margin: 22px 0 4px; }
+  p { margin: 9px 0; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .badge { display: inline-block; background: var(--good); color: #fff; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 3px; vertical-align: 2px; }
+  .callout { border-left: 4px solid var(--muted); background: #fafafa;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 4px 4px 0; font-size: 14px; }
+  .callout .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; display: block; margin-bottom: 4px; color: var(--muted); }
+  .files { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 10px 0 14px; font-size: 13px; }
+  .files .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  pre { background: var(--mono-bg); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    padding: 13px 15px; border-radius: 4px; overflow-x: auto; font-size: 12px; line-height: 1.5;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; color: #2b2f36; }
+  pre.run { border-left-color: var(--warn); background: #fbf7ef; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--rule); }
+  .step { margin: 14px 0 4px; font-size: 14px; }
+  .ck { display: inline-block; width: 1.15em; color: var(--accent); font-weight: 700; }
+  .task { border: 1px solid var(--rule); border-radius: 6px; padding: 6px 22px 18px;
+    margin: 20px 0; background: #fcfcfb; }
+  .task h3 { color: var(--accent); font-size: 15.5px; }
+  .ac { background: #f0f8f3; border-left: 3px solid var(--good); padding: 10px 14px;
+    border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 13.5px; }
+  .ac .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--good); display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--rule); }
+  th { background: var(--accent-soft); color: var(--accent); font-size: 11.5px;
+    letter-spacing: 0.03em; text-transform: uppercase; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <h1>Phase 1 — Extract Deterministic Transforms</h1>
+  <p class="meta">
+    Implementation plan · phase 1 of 6 &nbsp;·&nbsp; 2026-05-22 &nbsp;·&nbsp;
+    <span class="badge">READY TO EXECUTE</span><br>
+    Roadmap: <code>index.html</code> &nbsp;·&nbsp; Branch: <code>feat/agentic-rebuild</code>
+  </p>
+
+  <div class="callout">
+    <span class="lbl">For agentic workers</span>
+    REQUIRED SUB-SKILL: use <code>superpowers:subagent-driven-development</code> (recommended) or
+    <code>superpowers:executing-plans</code> to implement this plan task-by-task. To execute, this
+    file is first converted to <code>phase-1.md</code> with <code>- [ ]</code> checkbox steps —
+    the steps below map 1:1. One commit per task. TDD throughout: write the failing test, watch it
+    fail, implement the minimum, watch it pass.
+  </div>
+
+  <p><strong>Goal:</strong> Move nine deterministic transforms out of agent prompts into pure,
+    unit-tested functions in <code>packages/shared/src/derive/</code>.</p>
+  <p><strong>Architecture:</strong> Pure functions — no I/O, no dependency beyond
+    <code>node:crypto</code>. Colocated vitest suites. Strictly additive: no agent, MCP, Notion
+    schema, or existing source file behavior is changed. Phases 2–5 import this library.</p>
+  <p><strong>Tech stack:</strong> TypeScript (ESM, <code>.js</code> import specifiers), vitest,
+    <code>node:crypto</code>.</p>
+
+  <h2><span class="num">0.</span> File structure</h2>
+  <table>
+    <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><code>packages/shared/src/derive/text.ts</code></td><td>String transforms: <code>slugify</code>, <code>truncateAtWord</code>, <code>readingTime</code>, <code>topicTag</code>, <code>extractKeywords</code></td></tr>
+      <tr><td><code>packages/shared/src/derive/channels.ts</code></td><td>Routing maps: <code>Channel</code> type, <code>deriveChannels</code>, <code>youtubeCategoryId</code>, <code>MetaCtaType</code>, <code>metaCtaType</code></td></tr>
+      <tr><td><code>packages/shared/src/derive/ids.ts</code></td><td>Deterministic identity: <code>variantId</code></td></tr>
+      <tr><td><code>packages/shared/src/derive/index.ts</code></td><td>Barrel re-export of the three modules</td></tr>
+      <tr><td><code>packages/shared/src/derive/*.test.ts</code></td><td>Colocated vitest suite per module</td></tr>
+      <tr><td><code>packages/shared/src/index.ts</code> <em>(modify)</em></td><td>Re-export <code>./derive</code></td></tr>
+      <tr><td><code>packages/shared/package.json</code> <em>(modify)</em></td><td>Add <code>"./derive"</code> to the <code>exports</code> map</td></tr>
+    </tbody>
+  </table>
+  <p>Tests are colocated next to source (the established repo pattern — see
+    <code>compliance.test.ts</code>). Run a single file with
+    <code>pnpm vitest run &lt;path&gt;</code> from the repo root.</p>
+
+  <!-- ============ TASK 1 ============ -->
+  <div class="task">
+    <h3>Task 1 — <code>slugify</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Create: <code>packages/shared/src/derive/text.ts</code><br>
+      Create: <code>packages/shared/src/derive/text.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Create <code>packages/shared/src/derive/text.test.ts</code>:</p>
+<pre>import { describe, it, expect } from "vitest";
+import { slugify } from "./text.js";
+
+describe("slugify", () =&gt; {
+  it("kebab-cases a plain title", () =&gt; {
+    expect(slugify("Public Mutual vs PRS")).toBe("public-mutual-vs-prs");
+  });
+  it("strips punctuation and collapses separators", () =&gt; {
+    expect(slugify("  Hello, World! -- Again  ")).toBe("hello-world-again");
+  });
+  it("returns an empty string for punctuation-only input", () =&gt; {
+    expect(slugify("!!!")).toBe("");
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: FAIL — Cannot find module "./text.js" (text.ts does not exist yet)</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Create <code>packages/shared/src/derive/text.ts</code>:</p>
+<pre>/** kebab-case slug: lowercase, alphanumerics joined by single hyphens, trimmed. */
+export function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: PASS — 3 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/text.ts packages/shared/src/derive/text.test.ts
+git commit -m "feat(shared): add slugify deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 2 ============ -->
+  <div class="task">
+    <h3>Task 2 — <code>truncateAtWord</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/text.ts</code><br>
+      Modify: <code>packages/shared/src/derive/text.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      In <code>text.test.ts</code>, change the import line to add <code>truncateAtWord</code>, then
+      append the new <code>describe</code> block:</p>
+<pre>import { slugify, truncateAtWord } from "./text.js";   // &lt;-- updated import
+
+// ... existing describe("slugify", ...) stays ...
+
+describe("truncateAtWord", () =&gt; {
+  it("returns text unchanged when within the limit", () =&gt; {
+    expect(truncateAtWord("short text", 50)).toBe("short text");
+  });
+  it("cuts at the last word boundary within the limit", () =&gt; {
+    expect(truncateAtWord("the quick brown fox jumps", 16)).toBe("the quick brown");
+  });
+  it("hard-cuts when no space precedes the limit", () =&gt; {
+    expect(truncateAtWord("supercalifragilistic", 10)).toBe("supercalif");
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: FAIL — truncateAtWord is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>text.ts</code>:</p>
+<pre>/** Truncate to at most `max` chars, preferring the last word boundary. */
+export function truncateAtWord(text: string, max: number): string {
+  if (text.length &lt;= max) return text;
+  const cut = text.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace &gt; 0 ? cut.slice(0, lastSpace) : cut).trimEnd();
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: PASS — 6 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/text.ts packages/shared/src/derive/text.test.ts
+git commit -m "feat(shared): add truncateAtWord deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 3 ============ -->
+  <div class="task">
+    <h3>Task 3 — <code>readingTime</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/text.ts</code> · <code>text.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Update the import to add <code>readingTime</code>; append:</p>
+<pre>import { slugify, truncateAtWord, readingTime } from "./text.js";   // &lt;-- updated
+
+describe("readingTime", () =&gt; {
+  it("rounds up to whole minutes at 250 wpm", () =&gt; {
+    expect(readingTime("word ".repeat(600))).toBe("3 min read");
+  });
+  it("never returns less than 1 minute", () =&gt; {
+    expect(readingTime("just a few words")).toBe("1 min read");
+  });
+  it("treats empty input as 1 minute", () =&gt; {
+    expect(readingTime("")).toBe("1 min read");
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: FAIL — readingTime is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>text.ts</code>:</p>
+<pre>/** Estimated reading time at 250 wpm, e.g. "3 min read" (minimum 1 minute). */
+export function readingTime(body: string): string {
+  const words = body.trim().split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.ceil(words / 250));
+  return `${minutes} min read`;
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: PASS — 9 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/text.ts packages/shared/src/derive/text.test.ts
+git commit -m "feat(shared): add readingTime deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 4 ============ -->
+  <div class="task">
+    <h3>Task 4 — <code>topicTag</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/text.ts</code> · <code>text.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Update the import to add <code>topicTag</code>; append:</p>
+<pre>import { slugify, truncateAtWord, readingTime, topicTag } from "./text.js";   // &lt;-- updated
+
+describe("topicTag", () =&gt; {
+  it("uppercases and drops question words and fillers", () =&gt; {
+    expect(topicTag("Why PRS Matters for Retirement")).toBe("PRS MATTERS RETIREMENT");
+  });
+  it("strips punctuation", () =&gt; {
+    expect(topicTag("The Compound-Interest Effect")).toBe("COMPOUND INTEREST EFFECT");
+  });
+  it("caps the result at 60 characters", () =&gt; {
+    const long =
+      "education fund planning strategy guide malaysia parents savings horizon outlook";
+    expect(topicTag(long).length).toBeLessThanOrEqual(60);
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: FAIL — topicTag is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>text.ts</code>:</p>
+<pre>const TOPIC_TAG_STOPWORDS = new Set([
+  "how", "to", "why", "what", "is", "should", "i", "the", "a", "an",
+  "set", "up", "start", "begin", "learn", "understand", "and", "or", "in", "of", "for",
+]);
+
+/** Short uppercase category chip from a topic line, capped at 60 chars. */
+export function topicTag(topic: string): string {
+  const kept = topic
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((w) =&gt; !TOPIC_TAG_STOPWORDS.has(w.toLowerCase()));
+  let tag = kept.join(" ");
+  while (tag.length &gt; 60 &amp;&amp; tag.includes(" ")) {
+    tag = tag.slice(0, tag.lastIndexOf(" "));
+  }
+  return tag.slice(0, 60);
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: PASS — 12 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/text.ts packages/shared/src/derive/text.test.ts
+git commit -m "feat(shared): add topicTag deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 5 ============ -->
+  <div class="task">
+    <h3>Task 5 — <code>extractKeywords</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/text.ts</code> · <code>text.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Update the import to add <code>extractKeywords</code>; append:</p>
+<pre>import {
+  slugify, truncateAtWord, readingTime, topicTag, extractKeywords,
+} from "./text.js";   // &lt;-- updated
+
+describe("extractKeywords", () =&gt; {
+  it("pulls deduped keywords from query and topic, dropping stopwords", () =&gt; {
+    expect(
+      extractKeywords("best PRS fund for child education", "PRS Education Planning"),
+    ).toEqual(["best", "prs", "fund", "child", "education", "planning"]);
+  });
+  it("caps the list at 10 keywords", () =&gt; {
+    const q = "one two three four five six seven eight nine ten eleven twelve";
+    expect(extractKeywords(q, "").length).toBe(10);
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: FAIL — extractKeywords is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>text.ts</code>:</p>
+<pre>const KEYWORD_STOPWORDS = new Set([
+  "the", "a", "an", "is", "to", "for", "of", "and", "or", "in", "on", "with",
+  "how", "what", "why", "do", "i",
+]);
+
+/** Deduped lowercase keywords from a target query plus up to 3 from the topic, capped at 10. */
+export function extractKeywords(targetQuery: string, topic: string): string[] {
+  const tokenize = (s: string): string[] =&gt;
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const fromQuery = tokenize(targetQuery).filter((w) =&gt; !KEYWORD_STOPWORDS.has(w));
+  const fromTopic = tokenize(topic).filter((w) =&gt; !KEYWORD_STOPWORDS.has(w)).slice(0, 3);
+  const out: string[] = [];
+  for (const w of [...fromQuery, ...fromTopic]) {
+    if (!out.includes(w)) out.push(w);
+  }
+  return out.slice(0, 10);
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/text.test.ts
+Expect: PASS — 14 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/text.ts packages/shared/src/derive/text.test.ts
+git commit -m "feat(shared): add extractKeywords deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 6 ============ -->
+  <div class="task">
+    <h3>Task 6 — <code>variantId</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Create: <code>packages/shared/src/derive/ids.ts</code> · <code>ids.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Create <code>ids.test.ts</code>. Because the value is a SHA-256 digest, the correct test
+      design asserts <em>shape, determinism, and distinctness</em> — not a hand-computed hash:</p>
+<pre>import { describe, it, expect } from "vitest";
+import { variantId } from "./ids.js";
+
+describe("variantId", () =&gt; {
+  it("returns a 12-char lowercase hex string", () =&gt; {
+    expect(variantId("script_abc", "Reel", "9:16")).toMatch(/^[0-9a-f]{12}$/);
+  });
+  it("is deterministic for the same inputs", () =&gt; {
+    expect(variantId("script_abc", "Feed", "4:5"))
+      .toBe(variantId("script_abc", "Feed", "4:5"));
+  });
+  it("differs when the aspect differs", () =&gt; {
+    expect(variantId("script_abc", "Carousel", "4:5"))
+      .not.toBe(variantId("script_abc", "Carousel", "1:1"));
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/ids.test.ts
+Expect: FAIL — Cannot find module "./ids.js"</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Create <code>ids.ts</code>:</p>
+<pre>import { createHash } from "node:crypto";
+import type { ScriptFormat, Aspect } from "../types.js";
+
+/** Deterministic 12-hex-char Variant id from its identity tuple (was media-production G5). */
+export function variantId(
+  scriptId: string,
+  format: ScriptFormat,
+  aspect: Aspect,
+): string {
+  return createHash("sha256")
+    .update(`${scriptId}|${format}|${aspect}`)
+    .digest("hex")
+    .slice(0, 12);
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/ids.test.ts
+Expect: PASS — 3 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/ids.ts packages/shared/src/derive/ids.test.ts
+git commit -m "feat(shared): add variantId deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 7 ============ -->
+  <div class="task">
+    <h3>Task 7 — <code>Channel</code> type + <code>deriveChannels</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Create: <code>packages/shared/src/derive/channels.ts</code> · <code>channels.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Create <code>channels.test.ts</code> (table from media-production Step 5.6 / design §7):</p>
+<pre>import { describe, it, expect } from "vitest";
+import { deriveChannels } from "./channels.js";
+
+describe("deriveChannels", () =&gt; {
+  it("routes YT-Long to YouTube only", () =&gt; {
+    expect(deriveChannels("YT-Long", "16:9", "MOFU")).toEqual(["YouTube"]);
+  });
+  it("routes a TOFU Reel to Meta-paid only", () =&gt; {
+    expect(deriveChannels("Reel", "9:16", "TOFU")).toEqual(["Meta-paid"]);
+  });
+  it("routes a MOFU Feed to paid and organic", () =&gt; {
+    expect(deriveChannels("Feed", "4:5", "MOFU")).toEqual(["Meta-paid", "Meta-organic"]);
+  });
+  it("routes a 1:1 Carousel to organic only", () =&gt; {
+    expect(deriveChannels("Carousel", "1:1", "TOFU")).toEqual(["Meta-organic"]);
+  });
+  it("routes a 4:5 Carousel to paid and organic", () =&gt; {
+    expect(deriveChannels("Carousel", "4:5", "TOFU")).toEqual(["Meta-paid", "Meta-organic"]);
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: FAIL — Cannot find module "./channels.js"</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Create <code>channels.ts</code>:</p>
+<pre>import type { ScriptFormat, Aspect, FunnelStage } from "../types.js";
+
+export type Channel = "Meta-paid" | "Meta-organic" | "YouTube" | "YouTube-Shorts";
+
+/** The per-Variant Channels set, from Format x Aspect x Funnel Stage (media-production Step 5.6). */
+export function deriveChannels(
+  format: ScriptFormat,
+  aspect: Aspect,
+  funnelStage: FunnelStage,
+): Channel[] {
+  if (format === "YT-Long") return ["YouTube"];
+  if (format === "YT-Short") return ["YouTube-Shorts"];
+  if (format === "Carousel") {
+    return aspect === "1:1" ? ["Meta-organic"] : ["Meta-paid", "Meta-organic"];
+  }
+  // Reel and Feed
+  return funnelStage === "TOFU" ? ["Meta-paid"] : ["Meta-paid", "Meta-organic"];
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: PASS — 5 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/channels.ts packages/shared/src/derive/channels.test.ts
+git commit -m "feat(shared): add Channel type and deriveChannels transform"</pre>
+  </div>
+
+  <!-- ============ TASK 8 ============ -->
+  <div class="task">
+    <h3>Task 8 — <code>youtubeCategoryId</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/channels.ts</code> · <code>channels.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Update the import to add <code>youtubeCategoryId</code>; append:</p>
+<pre>import { deriveChannels, youtubeCategoryId } from "./channels.js";   // &lt;-- updated
+
+describe("youtubeCategoryId", () =&gt; {
+  it("maps a known Notion category to its YouTube id", () =&gt; {
+    expect(youtubeCategoryId("Howto &amp; Style")).toBe("26");
+  });
+  it("defaults unknown categories to Education (27)", () =&gt; {
+    expect(youtubeCategoryId("Cooking")).toBe("27");
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: FAIL — youtubeCategoryId is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>channels.ts</code>:</p>
+<pre>const YT_CATEGORY_IDS: Record&lt;string, string&gt; = {
+  Education: "27",
+  "Howto &amp; Style": "26",
+  "People &amp; Blogs": "22",
+  "Science &amp; Technology": "28",
+  "News &amp; Politics": "25",
+  Entertainment: "24",
+};
+
+/** Map a Notion YT Category option name to a YouTube numeric category id (default Education). */
+export function youtubeCategoryId(notionCategory: string): string {
+  return YT_CATEGORY_IDS[notionCategory] ?? "27";
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: PASS — 7 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/channels.ts packages/shared/src/derive/channels.test.ts
+git commit -m "feat(shared): add youtubeCategoryId map"</pre>
+  </div>
+
+  <!-- ============ TASK 9 ============ -->
+  <div class="task">
+    <h3>Task 9 — <code>metaCtaType</code></h3>
+    <div class="files"><span class="lbl">Files</span>
+      Modify: <code>packages/shared/src/derive/channels.ts</code> · <code>channels.test.ts</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Write the failing test.</strong>
+      Update the import to add <code>metaCtaType</code>; append:</p>
+<pre>import { deriveChannels, youtubeCategoryId, metaCtaType } from "./channels.js";   // &lt;-- updated
+
+describe("metaCtaType", () =&gt; {
+  it("uses LEARN_MORE for TOFU", () =&gt; {
+    expect(metaCtaType("TOFU", "Find out more")).toBe("LEARN_MORE");
+  });
+  it("uses SIGN_UP for MOFU", () =&gt; {
+    expect(metaCtaType("MOFU", "Register today")).toBe("SIGN_UP");
+  });
+  it("uses WHATSAPP_MESSAGE for a BOFU consult CTA", () =&gt; {
+    expect(metaCtaType("BOFU", "Chat with our consultant")).toBe("WHATSAPP_MESSAGE");
+  });
+  it("uses SIGN_UP for a BOFU CTA with no consult hint", () =&gt; {
+    expect(metaCtaType("BOFU", "Open your account")).toBe("SIGN_UP");
+  });
+});</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Run the test; confirm it fails.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: FAIL — metaCtaType is not a function</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Implement.</strong>
+      Append to <code>channels.ts</code>. The <code>FunnelStage</code> import added in Task&nbsp;7
+      already covers this — do not re-import it:</p>
+<pre>export type MetaCtaType =
+  | "LEARN_MORE" | "SIGN_UP" | "CONTACT_US" | "WHATSAPP_MESSAGE"
+  | "GET_QUOTE" | "SHOP_NOW" | "DOWNLOAD" | "SUBSCRIBE";
+
+const WHATSAPP_HINTS = ["consult", "chat", "whatsapp", "hubungi"];
+
+/** Meta CTA button type from funnel stage, with a WhatsApp override for BOFU consult CTAs. */
+export function metaCtaType(funnelStage: FunnelStage, ctaText: string): MetaCtaType {
+  if (funnelStage === "TOFU") return "LEARN_MORE";
+  const lower = ctaText.toLowerCase();
+  if (funnelStage === "BOFU" &amp;&amp; WHATSAPP_HINTS.some((h) =&gt; lower.includes(h))) {
+    return "WHATSAPP_MESSAGE";
+  }
+  return "SIGN_UP";
+}</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Run the test; confirm it passes.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared/src/derive/channels.test.ts
+Expect: PASS — 11 passed</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Commit.</strong></p>
+<pre>git add packages/shared/src/derive/channels.ts packages/shared/src/derive/channels.test.ts
+git commit -m "feat(shared): add metaCtaType deterministic transform"</pre>
+  </div>
+
+  <!-- ============ TASK 10 ============ -->
+  <div class="task">
+    <h3>Task 10 — Wire-up: barrel, re-export, package exports, full build</h3>
+    <div class="files"><span class="lbl">Files</span>
+      Create: <code>packages/shared/src/derive/index.ts</code><br>
+      Modify: <code>packages/shared/src/index.ts</code> · <code>packages/shared/package.json</code></div>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 1 — Create the barrel.</strong>
+      Create <code>packages/shared/src/derive/index.ts</code>:</p>
+<pre>export * from "./text.js";
+export * from "./channels.js";
+export * from "./ids.js";</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 2 — Re-export from the package root.</strong>
+      In <code>packages/shared/src/index.ts</code>, add this line after the existing
+      <code>export * from "./types.js";</code>:</p>
+<pre>export * from "./derive/index.js";</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 3 — Add the subpath export.</strong>
+      In <code>packages/shared/package.json</code>, add a <code>"./derive"</code> entry to the
+      <code>exports</code> object, immediately after the <code>"./compliance"</code> entry:</p>
+<pre>    "./derive": {
+      "types": "./dist/derive/index.d.ts",
+      "import": "./dist/derive/index.js"
+    },</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 4 — Build the workspace (sequential — never <code>--parallel</code>).</strong></p>
+<pre class="run">Run:    pnpm -r build
+Expect: SUCCESS — @engineerdad/shared compiles; dist/derive/*.js + *.d.ts emitted</pre>
+
+    <p class="step"><span class="ck">&#9744;</span><strong>Step 5 — Run the full shared test suite + commit.</strong></p>
+<pre class="run">Run:    pnpm vitest run packages/shared
+Expect: PASS — all suites green (derive/text 14, derive/channels 11, derive/ids 3,
+        plus the pre-existing compliance + zod suites unchanged)</pre>
+<pre>git add packages/shared/src/derive/index.ts packages/shared/src/index.ts packages/shared/package.json
+git commit -m "feat(shared): wire up derive barrel and package export"</pre>
+  </div>
+
+  <h2><span class="num">11.</span> Phase acceptance</h2>
+  <div class="ac"><span class="lbl">Done when</span>
+    All nine functions (<code>slugify</code>, <code>truncateAtWord</code>, <code>readingTime</code>,
+    <code>topicTag</code>, <code>extractKeywords</code>, <code>variantId</code>,
+    <code>deriveChannels</code>, <code>youtubeCategoryId</code>, <code>metaCtaType</code>) are
+    importable from <code>@engineerdad/shared</code> and <code>@engineerdad/shared/derive</code>;
+    every function has a colocated vitest suite covering happy path + edge cases;
+    <code>pnpm vitest run packages/shared</code> is green; <code>pnpm -r build</code> succeeds
+    sequentially; <code>pnpm sync:agents:check</code> still passes (untouched). No file under
+    <code>.claude/</code>, <code>mcp-servers/</code>, or the Notion schema was changed — Phase&nbsp;1
+    is strictly additive and ships on its own.</div>
+
+  <h2><span class="num">12.</span> Self-review notes</h2>
+  <ul>
+    <li><strong>Spec coverage.</strong> Phase 1's scope in <code>index.html</code> lists nine
+      functions — all nine have a task. <code>assignSchedule</code> and <code>deriveSpecs</code>
+      are explicitly deferred to Phases 4 and 5 (documented in the roadmap), not dropped.</li>
+    <li><strong>Type consistency.</strong> <code>variantId</code> and <code>deriveChannels</code>
+      import <code>ScriptFormat</code> / <code>Aspect</code> / <code>FunnelStage</code> from
+      <code>../types.js</code> — the exact names in <code>packages/shared/src/types.ts</code>.
+      <code>metaCtaType</code> reuses the <code>FunnelStage</code> import added in Task&nbsp;7.</li>
+    <li><strong>No placeholders.</strong> Every step carries complete code or an exact command +
+      expected output. The <code>variantId</code> test is property-based by design (a SHA-256
+      digest cannot be hand-verified) — shape, determinism, distinctness.</li>
+  </ul>
+
+  <div class="foot">
+    On completion: Phase 1 is independently shippable. Next, <code>phase-2.html</code> is expanded
+    to this fidelity (orchestrator core + <code>/loop</code>). Roadmap: <code>index.html</code>.
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:        #1B2B6B;
+    --navy-dark:   #111c45;
+    --orange:      #F07621;
+    --teal:        #00B4A6;
+    --teal-light:  #e6f8f7;
+    --offwhite:    #F7F8FC;
+    --warm-white:  #FEFEFE;
+    --text:        #1a1a2e;
+    --muted:       #6b7280;
+    --border:      #e5e7f0;
+    --font-head: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1920px;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--offwhite);
+  }
+  .stage {
+    position: absolute;
+    top: 290px;
+    left: 80px;
+    right: 140px;
+    bottom: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+  .kicker {
+    font-family: var(--font-body);
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin: 0 0 22px 0;
+  }
+  /* big qualitative stat-callout — Time > Timing, no numbers */
+  .bigstat {
+    font-family: var(--font-head);
+    font-weight: 900;
+    line-height: 0.98;
+    color: var(--navy-dark);
+    margin: 0 0 12px 0;
+  }
+  .bigstat .l1 { font-size: 200px; display: block; }
+  .bigstat .op { color: var(--orange); }
+  .bigstat .l2 { font-size: 120px; display: block; color: var(--muted); }
+  .rule {
+    width: 160px;
+    height: 8px;
+    background: var(--orange);
+    border-radius: 4px;
+    margin: 48px 0;
+  }
+  /* simple labelled diagram: three stacked steps building up */
+  .steps { display: flex; flex-direction: column; gap: 22px; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .dot {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--navy);
+  }
+  .step.accent .dot { background: var(--orange); }
+  .step .lbl {
+    font-family: var(--font-body);
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .step.accent .lbl { color: var(--orange); }
+  .closing {
+    font-family: var(--font-body);
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--navy);
+    margin: 56px 0 0 0;
+  }
+  .logo-mark {
+    margin-top: auto;
+    align-self: flex-end;
+    z-index: 100;
+    pointer-events: none;
+  }
+  .logo-text {
+    font-family: var(--font-head);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  .logo-text .engineer { color: var(--navy); }
+  .logo-text .dad      { color: var(--orange); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <p class="kicker">The Quiet Rule of Wealth</p>
+    <div class="bigstat">
+      <span class="l1">Time <span class="op">&gt;</span></span>
+      <span class="l2">Timing</span>
+    </div>
+    <div class="rule"></div>
+    <div class="steps">
+      <div class="step"><span class="dot"></span><span class="lbl">Start now</span></div>
+      <div class="step"><span class="dot"></span><span class="lbl">Stay consistent</span></div>
+      <div class="step accent"><span class="dot"></span><span class="lbl">Let it compound</span></div>
+    </div>
+    <p class="closing">You can't predict the market. You can give it time.</p>
+    <div class="logo-mark">
+      <div class="logo-text"><span class="engineer">Engineer</span><span class="dad">Dad</span></div>
+    </div>
+  </div>
+</body>
+</html>

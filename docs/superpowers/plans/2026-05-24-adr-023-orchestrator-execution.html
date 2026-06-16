@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ADR-023 — Orchestrator-resident execution (plan)</title>
+<style>
+  :root { --ink:#1c2230; --muted:#5b6577; --line:#e2e6ee; --accent:#4f46e5; --accent-soft:#eef0fe; --code-bg:#f5f6f9; --ok-bg:#ecf7ef; --ok-line:#9ed0ac; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); line-height: 1.62; margin: 0; background: #fafbfc; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 36px; }
+  h1 { font-size: 28px; margin: 0 0 6px; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 14px; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13.5px; }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 { font-size: 19px; margin: 38px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15px; margin: 22px 0 6px; }
+  p { margin: 9px 0; }
+  code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.6px; background: var(--code-bg); padding: 1.5px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 12.4px; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.4px; }
+  th, td { border: 1px solid var(--line); padding: 8px 11px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); font-weight: 600; }
+  ul.check { list-style: none; padding-left: 0; }
+  ul.check li { margin: 6px 0; padding-left: 22px; position: relative; }
+  ul.check li::before { content: "☐"; position: absolute; left: 0; color: var(--muted); }
+  ul.check ul.check { padding-left: 18px; margin: 4px 0; }
+  .phase-pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent); margin-right: 6px; }
+  footer.doc { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>ADR-023 — Orchestrator-resident execution (plan)</h1>
+  <p class="subtitle">Eight phases, agent-executable. Generalizes ADR-005 / ADR-018 / ADR-022 into one doctrine; closes the orchestrator → conductor cap surface; collapses the conductor's loop to reasoning-only.</p>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-24</dd>
+    <dt>Branch</dt><dd><code>feat/adr-023-orchestrator-execution</code> (off <code>main</code> at <code>e00d606</code>)</dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-24-adr-023-orchestrator-resident-execution.html</code></dd>
+    <dt>ADR</dt><dd><code>docs/decisions/023-orchestrator-resident-execution.md</code></dd>
+    <dt>Companion md</dt><dd><code>docs/superpowers/plans/2026-05-24-adr-023-orchestrator-execution.md</code></dd>
+  </dl>
+</header>
+
+<h2><span class="num">1.</span> Phase map</h2>
+
+<table>
+<tr><th>Phase</th><th>What lands</th><th>Tests grow</th><th>Commit pattern</th></tr>
+<tr><td><span class="phase-pill">0</span></td><td>ADR + status notes on ADR-005/018/022. No code.</td><td>0</td><td><code>docs(adr-023): foundation</code></td></tr>
+<tr><td><span class="phase-pill">A</span></td><td><code>packages/orchestrator/src/exec.ts</code> + <code>ExecDeps</code> + store-only dispatch. Unit + integration tests.</td><td>+12</td><td><code>feat(orchestrator): executeWriteStep + executeCheck</code></td></tr>
+<tr><td><span class="phase-pill">B</span></td><td>Orchestrator MCP <code>plan()</code> handler wraps eager-execute loop. Fallback path for missing deps.</td><td>+6</td><td><code>feat(mcp-orchestrator): eager-execute inside plan()</code></td></tr>
+<tr><td><span class="phase-pill">C</span></td><td><code>.claude/commands/loop.md</code> rewritten for the narrower contract.</td><td>0 (docs)</td><td><code>docs(loop): contract narrows</code></td></tr>
+<tr><td><span class="phase-pill">D</span></td><td>Extract <code>packages/analytics</code>; graduate A1/A2/A3/T2-partial.</td><td>+8</td><td><code>feat(analytics): extract to packages/analytics</code></td></tr>
+<tr><td><span class="phase-pill">E</span></td><td>Extract <code>packages/corpus</code>; future-proof for corpus-touching write steps.</td><td>+4</td><td><code>feat(corpus): extract to packages/corpus</code></td></tr>
+<tr><td><span class="phase-pill">F</span></td><td>Extract <code>packages/meta-ads</code>; graduate T1 + Meta-side of T2.</td><td>+10</td><td><code>feat(meta-ads): extract to packages/meta-ads</code></td></tr>
+<tr><td><span class="phase-pill">G</span></td><td>Extract <code>packages/experiment</code>; <code>LIVE_REGISTRY</code> coverage complete.</td><td>+3</td><td><code>feat(experiment): extract to packages/experiment</code></td></tr>
+<tr><td><span class="phase-pill">H</span></td><td>Live walk verification (resume <code>run_1779611092</code> + fresh cold-start). PR.</td><td>(live walk)</td><td>(squash on merge)</td></tr>
+</table>
+
+<h2><span class="num">2.</span> Phase 0 — ADR + status notes</h2>
+<ul class="check">
+  <li><strong>0.1</strong> Confirm <code>docs/decisions/023-orchestrator-resident-execution.md</code> exists. Flip status <code>Draft</code> → <code>Proposed</code>.</li>
+  <li><strong>0.2</strong> Confirm status notes appended on ADR-005, ADR-018, ADR-022.</li>
+  <li><strong>0.3</strong> Commit <code>docs(adr-023): foundation — ADR + status notes on 005/018/022</code>.</li>
+</ul>
+
+<h2><span class="num">3.</span> Phase A — Build the executor</h2>
+<ul class="check">
+  <li><strong>A.1</strong> <code>packages/orchestrator/src/exec.types.ts</code> — <code>ExecDeps</code> interface (start with <code>store</code> + <code>compliance</code> only).</li>
+  <li><strong>A.2</strong> <code>packages/orchestrator/src/exec.dispatch.ts</code> — table-driven tool dispatch. Phase A populates only <code>mcp__store__*</code> rows.</li>
+  <li><strong>A.3</strong> <code>packages/orchestrator/src/exec.ts</code> — <code>executeWriteStep(step, deps)</code> walks <code>step.calls[]</code>; throws <code>UnsupportedToolError</code> for unmapped tools.</li>
+  <li><strong>A.4</strong> Same file — <code>executeCheck(check, deps)</code> for gate-check reads.</li>
+  <li><strong>A.5</strong> Tests first (TDD):
+    <ul class="check">
+      <li><code>exec.test.ts</code> — unit tests, mocked deps. Happy path per tool; <code>UnsupportedToolError</code>; <code>$&lt;label&gt;</code> substitution; compliance-scan invocation count.</li>
+      <li><code>exec.integration.test.ts</code> — live <code>engineerdad_test</code> Postgres. Fixture stage with 3 <code>store.create</code> calls. Assert 3 rows + 3 scanner calls + result shape.</li>
+    </ul>
+  </li>
+  <li><strong>A.6</strong> <code>pnpm --filter @engineerdad/orchestrator test</code> all green.</li>
+  <li><strong>A.7</strong> Commit <code>feat(orchestrator): executeWriteStep + executeCheck (store-only dispatch)</code>.</li>
+</ul>
+
+<h2><span class="num">4.</span> Phase B — Wire eager-execute into <code>plan()</code></h2>
+<ul class="check">
+  <li><strong>B.1</strong> Import <code>executeWriteStep</code> + <code>UnsupportedToolError</code> in <code>mcp-servers/orchestrator/src/index.ts</code>. Construct singleton <code>EXEC_DEPS</code> at startup (store + compliance only for Phase B).</li>
+  <li><strong>B.2</strong> Wrap the <code>plan</code> handler with the eager-execute loop (see plan.md §Phase B Task B.2 for the exact handler shape).</li>
+  <li><strong>B.3</strong> <code>isConductorRelevant(step)</code> predicate: true for spawn / fanout / gate-stop / done / halt.</li>
+  <li><strong>B.4</strong> <code>makeGateStop(step)</code> synthesizes the gate-stop kind from a failing-check gate.</li>
+  <li><strong>B.5</strong> Tests (TDD):
+    <ul class="check">
+      <li><code>mcp-servers/orchestrator/src/index.test.ts</code> — fixture-registry exercise.</li>
+      <li>Extend <code>integration.test.ts</code> — C0-briefs + (when state allows) P3-persist eager path.</li>
+    </ul>
+  </li>
+  <li><strong>B.6</strong> <code>pnpm --filter @engineerdad/mcp-orchestrator test</code> all green.</li>
+  <li><strong>B.7</strong> Commit <code>feat(mcp-orchestrator): eager-execute write/gate-check inside plan() handler</code>.</li>
+</ul>
+
+<h2><span class="num">5.</span> Phase C — Narrow the conductor's contract</h2>
+<ul class="check">
+  <li><strong>C.1</strong> Remove the <code>case "write":</code> branch from §2 in <code>.claude/commands/loop.md</code>; replace with a one-line note pointing at ADR-023.</li>
+  <li><strong>C.2</strong> Remove the <code>$&lt;label&gt;</code> substitution paragraph.</li>
+  <li><strong>C.3</strong> Modify <code>case "gate":</code> branch — keep only the no-check (gate-stop) variant.</li>
+  <li><strong>C.4</strong> §3 / §4 notes that write/gate-check never reach the conductor.</li>
+  <li><strong>C.5</strong> §Rules cleanup — drop obsolete rules.</li>
+  <li><strong>C.6</strong> Update <code>ARCHITECTURE.md</code> — doctrine sections (substrate sections deferred to Phase H):
+    <ul class="check">
+      <li>"The orchestrator" — distinguish engine-internal vs conductor-visible <code>Step</code> kinds; verify-folds-into-advance for write/gate-check.</li>
+      <li>"Three layers" — conductor talks only to <code>mcp__orchestrator__*</code> + <code>Task</code>.</li>
+      <li>"Command surface" — tighten <code>/loop</code> description to the new contract.</li>
+      <li>"Where doctrine lives" — add ADR-022 and ADR-023 to the load-bearing list.</li>
+    </ul>
+  </li>
+  <li><strong>C.7</strong> <code>pnpm sync:agents:check</code> clean.</li>
+  <li><strong>C.8</strong> Commit <code>docs(loop): contract narrows — write + gate-check eagerly executed inside orchestrator (ADR-023)</code>.</li>
+</ul>
+
+<h2><span class="num">6.</span> Phase D — Extract <code>packages/analytics</code></h2>
+<p>Pattern that Phases E/F/G follow exactly. Each extraction:</p>
+<ol>
+  <li>New <code>packages/&lt;name&gt;/</code> dir with <code>package.json</code> + <code>tsconfig.json</code> + <code>src/index.ts</code>.</li>
+  <li>Move business-logic files from <code>mcp-servers/&lt;name&gt;/src/</code> to <code>packages/&lt;name&gt;/src/</code>.</li>
+  <li>Re-export tool-shaped functions from <code>packages/&lt;name&gt;/src/index.ts</code>.</li>
+  <li>Rewrite <code>mcp-servers/&lt;name&gt;/src/index.ts</code> as ~30-line stdio adapter (pattern = <code>mcp-servers/store/src/index.ts</code>).</li>
+  <li>Add deps entry, dispatch rows, update <code>ExecDeps</code>.</li>
+  <li>Run MCP server's existing tests unchanged (regression check on protocol surface).</li>
+  <li>Add orchestrator-side tests for the new graduations.</li>
+</ol>
+<ul class="check">
+  <li><strong>D.1</strong> Create <code>packages/analytics/</code>.</li>
+  <li><strong>D.2</strong> Move files: <code>ingest.ts</code>, <code>rank.ts</code>, <code>decay.ts</code>, <code>bandit.ts</code>, <code>upsert.ts</code>, <code>log_event.ts</code>, <code>ingest_meta_organic.ts</code>, SQLite connection wrapper, migrations.</li>
+  <li><strong>D.3</strong> Re-export from <code>packages/analytics/src/index.ts</code>.</li>
+  <li><strong>D.4</strong> Rewrite <code>mcp-servers/analytics/src/index.ts</code> as thin adapter.</li>
+  <li><strong>D.5</strong> Update <code>mcp-servers/analytics/package.json</code>.</li>
+  <li><strong>D.6</strong> <code>pnpm --filter @engineerdad/mcp-analytics test</code> passes unchanged.</li>
+  <li><strong>D.7</strong> Add analytics rows to <code>exec.dispatch.ts</code>.</li>
+  <li><strong>D.8</strong> Update <code>ExecDeps</code> + orchestrator MCP deps construction.</li>
+  <li><strong>D.9</strong> Tests (TDD): A1-ingest, A2-rank, A3-decay eager-execute paths.</li>
+  <li><strong>D.10</strong> <code>pnpm -r build</code> (sequential) and <code>pnpm test</code> green.</li>
+  <li><strong>D.11</strong> Commit <code>feat(analytics): extract to packages/analytics; orchestrator self-executes A1/A2/A3 (ADR-023 Scope C)</code>.</li>
+</ul>
+
+<h2><span class="num">7.</span> Phase E — Extract <code>packages/corpus</code></h2>
+<ul class="check">
+  <li><strong>E.1</strong> Extract <code>search.ts</code>, <code>get.ts</code>, <code>compliance.ts</code>, <code>proof.ts</code>, BM25 loader.</li>
+  <li><strong>E.2</strong> Thin-adapter MCP server.</li>
+  <li><strong>E.3</strong> Add corpus rows to dispatch + deps.</li>
+  <li><strong>E.4</strong> Tests green.</li>
+  <li><strong>E.5</strong> Commit <code>feat(corpus): extract to packages/corpus (ADR-023 Scope C)</code>.</li>
+</ul>
+
+<h2><span class="num">8.</span> Phase F — Extract <code>packages/meta-ads</code></h2>
+<ul class="check">
+  <li><strong>F.1</strong> Extract <code>capi.ts</code>, <code>insights.ts</code>, <code>create.ts</code>, <code>upload.ts</code>, helpers. Preserve <code>META_CAPI_TEST_EVENT_CODE</code> env-injection (ADR-015 hard-wire). Preserve PAUSED-on-create invariant.</li>
+  <li><strong>F.2</strong> Thin-adapter MCP server.</li>
+  <li><strong>F.3</strong> Add meta-ads rows to dispatch + deps. Tools graduated: <code>capi_test_event</code>, <code>capi_send</code>, <code>get_insights</code>.</li>
+  <li><strong>F.4</strong> Extra-careful tests:
+    <ul class="check">
+      <li>test_event_code injection path (server-side enforcement; no silent prod fires)</li>
+      <li>PAUSED-on-create invariant on every <code>create_*</code></li>
+      <li>SHA-256 PII normalization on <code>em</code> / <code>ph</code></li>
+    </ul>
+  </li>
+  <li><strong>F.5</strong> Tests green.</li>
+  <li><strong>F.6</strong> Commit <code>feat(meta-ads): extract to packages/meta-ads; T1/T2 graduate to orchestrator-resident (ADR-023 Scope C)</code>.</li>
+</ul>
+
+<h2><span class="num">9.</span> Phase G — Extract <code>packages/experiment</code></h2>
+<ul class="check">
+  <li><strong>G.1</strong> Extract <code>design.ts</code>, <code>readout.ts</code>, factorial allocator.</li>
+  <li><strong>G.2</strong> Thin-adapter MCP server.</li>
+  <li><strong>G.3</strong> Add experiment rows to dispatch + deps.</li>
+  <li><strong>G.4</strong> Tests green.</li>
+  <li><strong>G.5</strong> Commit <code>feat(experiment): extract to packages/experiment (ADR-023 Scope C — complete coverage)</code>.</li>
+</ul>
+
+<h2><span class="num">10.</span> Phase H — Live walk verification + PR</h2>
+<ul class="check">
+  <li><strong>H.1</strong> Restart Claude Code so orchestrator MCP loads the new imports + exec path.</li>
+  <li><strong>H.2</strong> <strong>Resume walk:</strong> <code>/loop run_1779611092</code>. Verify:
+    <ul class="check">
+      <li>One <code>plan()</code> call from the conductor.</li>
+      <li>Eager loop executes P3-persist (16 + 1 store calls) and reaches HG3.</li>
+      <li>Conductor sees <code>kind:"gate-stop"</code> for HG3.</li>
+      <li>No "result exceeds maximum allowed tokens" in transcript.</li>
+      <li>16 CreativeVariants in Postgres (<code>approvalStatus:"Awaiting Approval"</code>).</li>
+      <li>Compliance scanner: 16 entity-write scans logged.</li>
+    </ul>
+  </li>
+  <li><strong>H.3</strong> Snapshot HG3 state: <code>data/snapshots/hg3-run_1779611092/</code>.</li>
+  <li><strong>H.4</strong> <strong>Fresh cold-start walk:</strong> wipe state, <code>/loop-once</code>, auto-approve HG1/HG2, drive to HG3. Acceptance:
+    <ul class="check">
+      <li>Conductor tool-call count to HG3 ≤ 30.</li>
+      <li>Every write step executed eagerly.</li>
+      <li>No cap-class errors.</li>
+    </ul>
+  </li>
+  <li><strong>H.5</strong> Update <code>ARCHITECTURE.md</code> — substrate sections (doctrine sections were updated in Phase C):
+    <ul class="check">
+      <li>"Storage" — add <code>orchestrator.step_results</code> JSONB row (ADR-022).</li>
+      <li>"MCP servers" — refresh post-extraction split (5 of 7 thin-adapter; <code>youtube</code> + <code>heygen</code> deferred).</li>
+      <li>Doctrine paragraph — extend "no MCP server opens a client to another MCP server" with ADR-023's "inside the workspace, prefer library imports."</li>
+    </ul>
+  </li>
+  <li><strong>H.6</strong> Flip ADR-023 <code>Proposed</code> → <code>Accepted</code>.</li>
+  <li><strong>H.7</strong> Open PR <code>feat(adr-023): orchestrator-resident execution — Scope C</code>. Description quotes ADR Decision + spec link + resume-walk artefacts.</li>
+  <li><strong>H.8</strong> Squash to a single commit on merge to <code>main</code>.</li>
+</ul>
+
+<h2><span class="num">11.</span> Acceptance scoreboard</h2>
+<table>
+<tr><th>Metric</th><th>Today</th><th>After ADR-023 (Phase H gate)</th></tr>
+<tr><td>Conductor tool calls to HG3 (fresh walk)</td><td>~74 + cap failure</td><td>≤ 30</td></tr>
+<tr><td>Step kinds the conductor sees</td><td>6</td><td>4 (spawn, fanout, gate-stop, done)</td></tr>
+<tr><td>MCP servers the conductor talks to</td><td>orchestrator + 4–6 others</td><td>orchestrator only</td></tr>
+<tr><td>Plan envelope max on the wire</td><td>238 KB (wedge)</td><td>&lt; 5 KB</td></tr>
+<tr><td><code>mcp-servers/*</code> thin-adapter coverage</td><td>1 of 7 (store)</td><td>5 of 7 (store, analytics, corpus, meta-ads, experiment)</td></tr>
+<tr><td>Test count</td><td>~258 passing</td><td>~260+, no regressions</td></tr>
+</table>
+
+<h2><span class="num">12.</span> Out of scope (deferred)</h2>
+<ul>
+  <li><code>packages/youtube</code> + <code>packages/heygen</code> extractions — until a write step actually needs them from orchestrator-resident time.</li>
+  <li>E-033 critic-evaluator step pattern (independent axis).</li>
+  <li>E-030 SQLite → Postgres unification (independent axis; analytics extraction sets the structure that makes E-030 local).</li>
+  <li>Cross-MCP-mesh fallback (explicitly rejected on ADR-005 grounds).</li>
+</ul>
+
+<footer class="doc">
+  Plan · ADR-023 · 2026-05-24 · branch <code>feat/adr-023-orchestrator-execution</code> · companion <code>docs/superpowers/plans/2026-05-24-adr-023-orchestrator-execution.md</code> · spec <code>docs/superpowers/specs/2026-05-24-adr-023-orchestrator-resident-execution.html</code>
+</footer>
+
+</div>
+</body>
+</html>

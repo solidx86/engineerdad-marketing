@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meta-paid Manual Posting Pack + Webapp Migration — Implementation Plan</title>
+<style>
+  :root{
+    --ink:#1f2933;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;
+    --accent-soft:#eff6ff;--code-bg:#f6f8fa;--code-ink:#24292f;--paper:#fbfcfd;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);margin:0;background:var(--paper);
+  }
+  .topbar{
+    position:sticky;top:0;z-index:9;padding:.7rem 1.5rem;font-size:.82rem;color:var(--muted);
+    background:rgba(251,252,253,.9);backdrop-filter:saturate(1.6) blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .topbar b{color:var(--ink)}
+  .wrap{max-width:880px;margin:0 auto;padding:2.2rem 1.5rem 6rem}
+  h1{font-size:2rem;line-height:1.2;margin:.2rem 0 .6rem;letter-spacing:-.02em}
+  h2{font-size:1.4rem;margin:2.8rem 0 1rem;padding-top:1.4rem;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:1.12rem;margin:1.9rem 0 .6rem}
+  h4{font-size:.82rem;margin:1.4rem 0 .5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+  p{margin:.7rem 0}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{
+    font:13.5px/1.5 "SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    background:var(--code-bg);color:var(--code-ink);padding:.12em .4em;border-radius:5px;border:1px solid var(--line);
+  }
+  pre{
+    background:#0f172a;border-radius:10px;padding:1.1rem 1.25rem;overflow:auto;margin:1rem 0;
+    box-shadow:0 1px 2px rgba(0,0,0,.06);
+  }
+  pre code{background:none;border:none;color:#e2e8f0;padding:0;font-size:13px;line-height:1.6}
+  blockquote{
+    margin:1.1rem 0;padding:.7rem 1.1rem;background:#fffbeb;border-left:4px solid #f59e0b;
+    border-radius:0 8px 8px 0;color:#713f12;
+  }
+  blockquote code{background:#fef3c7;border-color:#fde68a;color:#713f12}
+  blockquote p{margin:.2rem 0}
+  table{border-collapse:collapse;width:100%;margin:1.2rem 0;font-size:.92rem;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:.55rem .75rem;text-align:left;vertical-align:top}
+  th{background:var(--accent-soft);font-weight:600;white-space:nowrap}
+  tbody tr:nth-child(even) td{background:#fafbfc}
+  ul,ol{margin:.6rem 0;padding-left:1.5rem}
+  li{margin:.32rem 0}
+  ul.tasklist{list-style:none;padding-left:.2rem}
+  li.task{display:flex;align-items:flex-start;gap:.55rem}
+  .cb{
+    flex:none;width:18px;height:18px;border:2px solid #cbd5e1;border-radius:5px;margin-top:.18rem;
+    background:#fff;display:inline-flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:#fff;line-height:1;
+  }
+  hr{border:none;border-top:1px solid var(--line);margin:2.5rem 0}
+  strong{font-weight:650}
+  .lead{font-size:1.02rem}
+</style>
+</head>
+<body>
+<div class="topbar">📋 Implementation Plan · <b>feat/meta-paid-posting-pack</b> · 2026-05-30</div>
+<div class="wrap">
+
+<h1>Meta-paid Manual Posting Pack + Webapp Migration — Implementation Plan</h1>
+
+<blockquote>
+  <p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+
+<p class="lead"><strong>Goal:</strong> Add a flag-gated <code>manual</code> Meta-paid distribute mode that renders the existing distribution plan into a human-readable posting pack in the webapp (with ad-ID backfill), remove HG4, and migrate the organic IG posting pack from an R2-HTML script into a per-run webapp page.</p>
+
+<p><strong>Architecture:</strong> The posting pack is a <strong>derived view</strong> of the existing <code>planMetaPaid</code> output — no new config logic, no new persisted entity. A new <code>packages/distribute</code> lib renders the pack; a new <code>mcp-servers/distribute</code> exposes it to the agent loop; the <strong>webapp reads it via direct package import</strong> (MCP is stdio/agent-only). Manual mode excludes Meta-paid from the <code>D2a</code>/<code>D2b</code> agent fan-out in <code>stages/distribute.ts</code>. Backfill reuses <code>CreativeVariants.adId</code>.</p>
+
+<p><strong>Tech Stack:</strong> TypeScript (ESM, NodeNext), pnpm workspace, Vitest, Drizzle/Postgres store, <code>@modelcontextprotocol/sdk</code> MCP servers, Next.js 15 App Router + Tailwind webapp, Playwright e2e.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-05-30-meta-paid-posting-pack-design.html</code></p>
+
+<p><strong>Branch:</strong> <code>feat/meta-paid-posting-pack</code> (already checked out; spec committed).</p>
+
+<hr>
+
+<h2>Pre-flight (read once before starting)</h2>
+
+<ul>
+  <li>Build is <strong>sequential</strong>: <code>pnpm -r build</code> (never <code>--parallel</code>). To skip the webapp during package work: <code>pnpm -r --filter='!@engineerdad/webapp' build</code>.</li>
+  <li>DB tests require a sandbox: run <code>pnpm db:sandbox</code> once on this branch, then <strong>restart Claude Code</strong> so MCP/env picks up <code>.env.local</code>. No schema change is needed in this plan (the pack is derived; <code>adId</code> already exists).</li>
+  <li>Single test: <code>pnpm vitest run &lt;path&gt;</code> or <code>pnpm vitest &lt;pattern&gt; -t "&lt;name&gt;"</code>.</li>
+  <li>After adding the new MCP server to <code>.mcp.json</code>, <strong>restart Claude Code</strong> to load it.</li>
+  <li><code>planMetaPaid</code>, <code>targetingForCell</code>, <code>LOCALE_ID</code>, <code>adsetStep</code>, types (<code>DistVariant</code>, <code>AllocatedCell</code>, <code>PlanPart</code>, <code>RowPlan</code>, <code>ToolStep</code>) are all exported from <code>@engineerdad/orchestrator</code>.</li>
+</ul>
+
+<hr>
+
+<h2>File Structure</h2>
+
+<table>
+<thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+<tbody>
+<tr><td><code>packages/distribute/package.json</code>, <code>tsconfig.json</code></td><td>New workspace lib scaffold.</td></tr>
+<tr><td><code>packages/distribute/src/types.ts</code></td><td><code>PostingPackSpec</code>, <code>PostingPackAd</code>, <code>BackfillInput</code>.</td></tr>
+<tr><td><code>packages/distribute/src/render-posting-pack.ts</code></td><td><code>renderPostingPack()</code> — pure: DistVariants + cells → <code>PostingPackSpec</code>.</td></tr>
+<tr><td><code>packages/distribute/src/index.ts</code></td><td>Barrel.</td></tr>
+<tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></td><td>Export <code>dailyBudgetCentsFor</code> + <code>CAMPAIGN_OBJECTIVE</code> (extracted constants).</td></tr>
+<tr><td><code>packages/orchestrator/src/config.ts</code></td><td><code>metaPaidMode()</code> flag reader.</td></tr>
+<tr><td><code>packages/orchestrator/src/stages/distribute.ts</code></td><td>Manual mode: exclude Meta-paid from D2a/D2b; mark skipped in D3b; remove <code>d4Gate</code>.</td></tr>
+<tr><td><code>mcp-servers/distribute/{package.json,tsconfig.json,src/index.ts}</code></td><td>New MCP: <code>get_posting_pack</code>, <code>backfill_meta_ids</code>, <code>list_posting_packs</code>.</td></tr>
+<tr><td><code>apps/webapp/src/app/lib/posting-pack.ts</code></td><td>Webapp data helper (direct <code>@engineerdad/store</code> + <code>renderPostingPack</code>).</td></tr>
+<tr><td><code>apps/webapp/src/app/lib/actions.ts</code></td><td>Add <code>backfillAdId</code>, <code>backfillIgPostId</code> server actions.</td></tr>
+<tr><td><code>apps/webapp/src/app/posting-pack/[runId]/page.tsx</code></td><td>Meta-paid pack reference table + backfill.</td></tr>
+<tr><td><code>apps/webapp/src/app/posting-pack/organic/[runId]/page.tsx</code></td><td>Migrated organic pack (per-run) + igPostId backfill.</td></tr>
+<tr><td><code>apps/webapp/src/app/components/LeftNav.tsx</code></td><td>Add "Posting Packs" nav.</td></tr>
+<tr><td><code>.mcp.json</code></td><td>Register <code>distribute</code> server.</td></tr>
+<tr><td><code>scripts/build-posting-pack.mjs</code>, <code>.claude/commands/posting-pack.md</code></td><td>Retire.</td></tr>
+<tr><td>Docs: <code>ARCHITECTURE.md</code>, <code>CLAUDE.md</code>, <code>.claude/commands/{loop,distribute,experiment}.md</code>, <code>docs/decisions/015-write-api-safety.md</code>, <code>TASKS.md</code>, <code>DONE.md</code>, <code>.env.example</code></td><td>Sync.</td></tr>
+</tbody>
+</table>
+
+<hr>
+
+<h2>Task 1: Extract reusable constants from the planner</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/distribute/plan-distribution.ts</code></li>
+  <li>Test: <code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Write the failing test</strong></span></li>
+</ul>
+
+<p>Add to <code>plan-distribution.test.ts</code>:</p>
+
+<pre><code>import { dailyBudgetCentsFor, CAMPAIGN_OBJECTIVE } from "./plan-distribution.js";
+import type { AllocatedCell } from "../experiment/allocation.js";
+
+describe("dailyBudgetCentsFor", () =&gt; {
+  const cell = { cellId: "cell-A", allocationPct: 70, variantPageIds: [] } as AllocatedCell;
+  it("multiplies MYR by allocationPct and rounds", () =&gt; {
+    expect(dailyBudgetCentsFor(cell, 10)).toBe(700);
+  });
+  it("floors at 1 cent for zero allocation", () =&gt; {
+    expect(dailyBudgetCentsFor({ ...cell, allocationPct: 0 }, 10)).toBe(1);
+  });
+  it("exposes the campaign objective constant", () =&gt; {
+    expect(CAMPAIGN_OBJECTIVE).toBe("OUTCOME_LEADS");
+  });
+});</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Run test to verify it fails</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "dailyBudgetCentsFor"</code><br>
+Expected: FAIL — <code>dailyBudgetCentsFor is not a function</code>.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Extract the constant + helper</strong></span></li>
+</ul>
+
+<p>In <code>plan-distribution.ts</code>, add near the top of the Meta-paid section:</p>
+
+<pre><code>export const CAMPAIGN_OBJECTIVE = "OUTCOME_LEADS" as const;
+
+/** daily_budget_cents = MYR × allocationPct (percent units → cents), floored at 1. */
+export function dailyBudgetCentsFor(cell: AllocatedCell, dailyBudgetMyr: number): number {
+  return Math.max(1, Math.round(dailyBudgetMyr * cell.allocationPct));
+}</code></pre>
+
+<p>Then refactor <code>campaignStep</code> to use <code>objective: CAMPAIGN_OBJECTIVE</code> and <code>adsetStep</code> to use <code>daily_budget_cents: dailyBudgetCentsFor(cell, dailyBudgetMyr)</code> (replacing the inline <code>Math.max(1, Math.round(...))</code>). Behaviour is unchanged.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Run tests to verify pass</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts</code><br>
+Expected: PASS (new + all existing tests still green).</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Commit</strong></span></li>
+</ul>
+
+<pre><code>git add packages/orchestrator/src/distribute/plan-distribution.ts packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "refactor(distribute): export dailyBudgetCentsFor + CAMPAIGN_OBJECTIVE for pack reuse"</code></pre>
+
+<hr>
+
+<h2>Task 2: Scaffold <code>packages/distribute</code> + types</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>packages/distribute/package.json</code></li>
+  <li>Create: <code>packages/distribute/tsconfig.json</code></li>
+  <li>Create: <code>packages/distribute/src/types.ts</code></li>
+  <li>Create: <code>packages/distribute/src/index.ts</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Create <code>package.json</code></strong></span></li>
+</ul>
+
+<pre><code>{
+  "name": "@engineerdad/distribute",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@engineerdad/orchestrator": "workspace:*"
+  }
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Create <code>tsconfig.json</code></strong></span></li>
+</ul>
+
+<p>Copy <code>packages/meta-ads/tsconfig.json</code> verbatim (same compiler settings, <code>outDir: ./dist</code>, <code>rootDir: ./src</code>). If it <code>extends</code> <code>../../tsconfig.base.json</code>, keep that.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Create <code>src/types.ts</code></strong></span></li>
+</ul>
+
+<pre><code>export interface PostingPackAdset {
+  cellId: string;
+  name: string;
+  dailyBudgetCents: number;
+  dailyBudgetMyr: number;
+  optimizationGoal: string;
+  billingEvent: string;
+  bidStrategy: string;
+  targeting: { countries: string[]; ageMin: number; ageMax: number; locales: number[] };
+}
+
+export interface PostingPackAdCopy {
+  primaryText: string;
+  headline: string;
+  description: string;
+}
+
+export interface PostingPackAd {
+  variantId: string;
+  rowId: string;
+  title: string;
+  cellId: string;
+  adsetName: string;
+  asset: { urls: string[]; format: string; aspect: string | null };
+  en: PostingPackAdCopy;
+  bm: PostingPackAdCopy;
+  ctaType: string;
+  backfill: { adIdEn: string | null; adIdMs: string | null; done: boolean };
+}
+
+export interface PostingPackSpec {
+  runId: string;
+  campaign: { name: string; objective: string; specialAdCategories: string[] };
+  adsets: PostingPackAdset[];
+  ads: PostingPackAd[];
+}
+
+export interface BackfillInput {
+  rowId: string;
+  adIdEn: string | null;
+  adIdMs: string | null;
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Create <code>src/index.ts</code></strong></span></li>
+</ul>
+
+<pre><code>export * from "./types.js";
+export * from "./render-posting-pack.js";</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Add to workspace + commit</strong></span></li>
+</ul>
+
+<p>Confirm <code>pnpm-workspace.yaml</code> globs <code>packages/*</code> (it does). Run <code>pnpm install</code> to link the new package.</p>
+
+<pre><code>git add packages/distribute pnpm-workspace.yaml pnpm-lock.yaml
+git commit -m "feat(distribute): scaffold @engineerdad/distribute lib + PostingPack types"</code></pre>
+
+<hr>
+
+<h2>Task 3: <code>renderPostingPack()</code></h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>packages/distribute/src/render-posting-pack.ts</code></li>
+  <li>Test: <code>packages/distribute/src/render-posting-pack.test.ts</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Write the failing test</strong></span></li>
+</ul>
+
+<pre><code>import { describe, it, expect } from "vitest";
+import { renderPostingPack } from "./render-posting-pack.js";
+import type { DistVariant } from "@engineerdad/orchestrator";
+import type { AllocatedCell } from "@engineerdad/orchestrator";
+
+const cell: AllocatedCell = { cellId: "cell-A", allocationPct: 70, variantPageIds: ["v1"] } as AllocatedCell;
+
+function variant(over: Partial&lt;DistVariant&gt; = {}): DistVariant {
+  return {
+    rowId: "row-1", variantId: "v1", format: "Feed", aspect: "4:5",
+    channels: ["Meta-paid"], assetFiles: [{ url: "https://r2/a/1.png" }],
+    adId: null, ytVideoId: null,
+    metaSpec: {
+      primaryTextEn: "PT en", primaryTextMs: "PT ms", headlineEn: "H en", headlineMs: "H ms",
+      descriptionEn: "D en", descriptionMs: "D ms", ctaType: "LEARN_MORE", targetingJson: "",
+    },
+    ytSpec: null, cellId: "cell-A", fbPostId: null,
+    organicScheduledFor: null, organicCaption: null, organicLang: null, ...over,
+  } as DistVariant;
+}
+
+describe("renderPostingPack", () =&gt; {
+  it("renders campaign, one adset per cell, and EN/BM ad copy", () =&gt; {
+    const pack = renderPostingPack("run_1", [variant()], [cell], 10);
+    expect(pack.campaign.objective).toBe("OUTCOME_LEADS");
+    expect(pack.adsets).toHaveLength(1);
+    expect(pack.adsets[0].dailyBudgetCents).toBe(700);
+    expect(pack.adsets[0].targeting.locales).toEqual([6, 41]);
+    expect(pack.ads).toHaveLength(1);
+    expect(pack.ads[0].en.primaryText).toBe("PT en");
+    expect(pack.ads[0].bm.headline).toBe("H ms");
+    expect(pack.ads[0].asset.urls).toEqual(["https://r2/a/1.png"]);
+    expect(pack.ads[0].backfill.done).toBe(false);
+  });
+
+  it("marks backfill done when adId is set", () =&gt; {
+    const pack = renderPostingPack("run_1", [variant({ adId: { en: "111", ms: "222" } })], [cell], 10);
+    expect(pack.ads[0].backfill).toEqual({ adIdEn: "111", adIdMs: "222", done: true });
+  });
+
+  it("skips variants without a metaSpec or cellId", () =&gt; {
+    const pack = renderPostingPack("run_1", [variant({ metaSpec: null })], [cell], 10);
+    expect(pack.ads).toHaveLength(0);
+    expect(pack.adsets).toHaveLength(0);
+  });
+
+  it("excludes non-Meta-paid variants", () =&gt; {
+    const pack = renderPostingPack("run_1", [variant({ channels: ["YouTube"] })], [cell], 10);
+    expect(pack.ads).toHaveLength(0);
+  });
+});</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Run test to verify it fails</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/distribute/src/render-posting-pack.test.ts</code><br>
+Expected: FAIL — cannot find <code>render-posting-pack.js</code>.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Implement <code>renderPostingPack</code></strong></span></li>
+</ul>
+
+<pre><code>import {
+  CAMPAIGN_OBJECTIVE,
+  dailyBudgetCentsFor,
+  targetingForCell,
+  type DistVariant,
+  type AllocatedCell,
+} from "@engineerdad/orchestrator";
+import type { PostingPackSpec, PostingPackAdset, PostingPackAd } from "./types.js";
+
+const META = "Meta-paid";
+
+/** Parse the text adId column into {en, ms}. Tolerates JSON object/string/bare. */
+function parseAdId(raw: unknown): { en: string | null; ms: string | null } {
+  if (raw &amp;&amp; typeof raw === "object") {
+    const o = raw as Record&lt;string, unknown&gt;;
+    return { en: typeof o.en === "string" ? o.en : null, ms: typeof o.ms === "string" ? o.ms : null };
+  }
+  if (typeof raw === "string" &amp;&amp; raw.length &gt; 0) {
+    try { return parseAdId(JSON.parse(raw)); } catch { return { en: raw, ms: null }; }
+  }
+  return { en: null, ms: null };
+}
+
+/** Routable = Meta-paid, has metaSpec, has a cell present in the design. */
+function isRoutable(v: DistVariant, cellIds: Set&lt;string&gt;): boolean {
+  return v.channels.includes(META) &amp;&amp; !!v.metaSpec &amp;&amp; !!v.cellId &amp;&amp; cellIds.has(v.cellId);
+}
+
+export function renderPostingPack(
+  runId: string,
+  variants: DistVariant[],
+  cells: AllocatedCell[],
+  dailyBudgetMyr: number,
+): PostingPackSpec {
+  const cellById = new Map(cells.map((c) =&gt; [c.cellId, c]));
+  const cellIds = new Set(cells.map((c) =&gt; c.cellId));
+  const routable = variants.filter((v) =&gt; isRoutable(v, cellIds));
+
+  const adsetByCell = new Map&lt;string, PostingPackAdset&gt;();
+  const ads: PostingPackAd[] = [];
+
+  for (const v of routable) {
+    const cell = cellById.get(v.cellId!)!;
+    const adsetName = `${runId}__${cell.cellId}`;
+    if (!adsetByCell.has(cell.cellId)) {
+      const t = targetingForCell(cell);
+      const cents = dailyBudgetCentsFor(cell, dailyBudgetMyr);
+      adsetByCell.set(cell.cellId, {
+        cellId: cell.cellId,
+        name: adsetName,
+        dailyBudgetCents: cents,
+        dailyBudgetMyr: cents / 100,
+        optimizationGoal: "LEAD_GENERATION",
+        billingEvent: "IMPRESSIONS",
+        bidStrategy: "LOWEST_COST_WITHOUT_CAP",
+        targeting: {
+          countries: t.geo_locations.countries,
+          ageMin: t.age_min,
+          ageMax: t.age_max,
+          locales: t.locales,
+        },
+      });
+    }
+    const s = v.metaSpec!;
+    const bf = parseAdId(v.adId);
+    ads.push({
+      variantId: v.variantId,
+      rowId: v.rowId,
+      title: (v as unknown as { title?: string }).title ?? v.variantId,
+      cellId: cell.cellId,
+      adsetName,
+      asset: { urls: v.assetFiles.map((f) =&gt; f.url), format: v.format, aspect: v.aspect ?? null },
+      en: { primaryText: s.primaryTextEn, headline: s.headlineEn, description: s.descriptionEn },
+      bm: { primaryText: s.primaryTextMs, headline: s.headlineMs, description: s.descriptionMs },
+      ctaType: s.ctaType,
+      backfill: { adIdEn: bf.en, adIdMs: bf.ms, done: !!(bf.en &amp;&amp; bf.ms) },
+    });
+  }
+
+  return {
+    runId,
+    campaign: { name: `EDOS_${runId}`, objective: CAMPAIGN_OBJECTIVE, specialAdCategories: [] },
+    adsets: [...adsetByCell.values()],
+    ads,
+  };
+}</code></pre>
+
+<blockquote>
+  <p>Note: <code>aspect</code> on <code>DistVariant</code> is typed <code>string</code> but DB rows may be empty; the <code>?? null</code> keeps the display tolerant. <code>title</code> isn't on <code>DistVariant</code> — Task 6's webapp query passes it through the row, so the lib reads it defensively.</p>
+</blockquote>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Run tests to verify pass</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/distribute/src/render-posting-pack.test.ts</code><br>
+Expected: PASS (4 tests).</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Build the package + commit</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm -r --filter='!@engineerdad/webapp' build</code> (confirms no type errors across packages).</p>
+
+<pre><code>git add packages/distribute
+git commit -m "feat(distribute): renderPostingPack — derived PostingPackSpec from planner inputs"</code></pre>
+
+<hr>
+
+<h2>Task 4: <code>META_PAID_MODE</code> flag reader</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>packages/orchestrator/src/config.ts</code></li>
+  <li>Create: <code>packages/orchestrator/src/config.test.ts</code></li>
+  <li>Modify: <code>packages/orchestrator/src/index.ts</code> (export config)</li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Write the failing test</strong></span></li>
+</ul>
+
+<pre><code>import { describe, it, expect, afterEach } from "vitest";
+import { metaPaidMode } from "./config.js";
+
+afterEach(() =&gt; { delete process.env.META_PAID_MODE; });
+
+describe("metaPaidMode", () =&gt; {
+  it("defaults to manual", () =&gt; { expect(metaPaidMode()).toBe("manual"); });
+  it("returns api when set", () =&gt; { process.env.META_PAID_MODE = "api"; expect(metaPaidMode()).toBe("api"); });
+  it("falls back to manual for garbage", () =&gt; { process.env.META_PAID_MODE = "xyz"; expect(metaPaidMode()).toBe("manual"); });
+});</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Run test to verify it fails</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/config.test.ts</code><br>
+Expected: FAIL — cannot find <code>config.js</code>.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Implement</strong></span></li>
+</ul>
+
+<p><code>config.ts</code>:</p>
+
+<pre><code>export type MetaPaidMode = "api" | "manual";
+
+/** Default `manual` until Meta business verification unblocks the API path. */
+export function metaPaidMode(): MetaPaidMode {
+  return process.env.META_PAID_MODE === "api" ? "api" : "manual";
+}</code></pre>
+
+<p>Add to <code>packages/orchestrator/src/index.ts</code>:</p>
+
+<pre><code>export * from "./config.js";</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Run test to verify pass</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/config.test.ts</code><br>
+Expected: PASS.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Commit</strong></span></li>
+</ul>
+
+<pre><code>git add packages/orchestrator/src/config.ts packages/orchestrator/src/config.test.ts packages/orchestrator/src/index.ts
+git commit -m "feat(orchestrator): META_PAID_MODE flag (default manual)"</code></pre>
+
+<hr>
+
+<h2>Task 5: Manual mode in <code>stages/distribute.ts</code> + remove HG4</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>packages/orchestrator/src/stages/distribute.ts</code></li>
+  <li>Test: <code>packages/orchestrator/src/stages/distribute.test.ts</code></li>
+</ul>
+
+<p>Behaviour: when <code>metaPaidMode() === "manual"</code>, the Meta-paid channel is excluded from the <code>D2a-setup</code> spawn and the <code>D2b-route</code> fan-out (no Meta API workers), and <code>D3b-summary</code> records Meta-paid rows as <code>skipped</code> with reason <code>"manual posting pack"</code>. <code>d4Gate</code> (HG4) is removed from the stage in all modes.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Write the failing tests</strong></span></li>
+</ul>
+
+<p>Add to <code>distribute.test.ts</code> (reuse the file's existing run/variant fixtures; pattern shown):</p>
+
+<pre><code>import { metaPaidMode } from "../config.js";
+
+describe("distribute manual mode", () =&gt; {
+  afterEach(() =&gt; { delete process.env.META_PAID_MODE; });
+
+  it("excludes Meta-paid units from D2b-route fan-out in manual mode", async () =&gt; {
+    process.env.META_PAID_MODE = "manual";
+    // build a run with one approved Meta-paid variant assigned to a cell (use the
+    // existing fixture builder in this file), then:
+    const step = await __d2bRouteForTests.build(run, ctx);
+    const prompts = step.units.map((u) =&gt; u.spawnPrompt);
+    expect(prompts.some((p) =&gt; p.includes("Meta-paid"))).toBe(false);
+  });
+
+  it("includes Meta-paid units in api mode", async () =&gt; {
+    process.env.META_PAID_MODE = "api";
+    const step = await __d2bRouteForTests.build(run, ctx);
+    expect(step.units.length).toBeGreaterThan(0);
+  });
+
+  it("distributeStage has no HG4 gate step", () =&gt; {
+    const ids = distributeStage.steps.map((s) =&gt; s.id);
+    expect(ids).not.toContain("D4-gate");
+  });
+});</code></pre>
+
+<blockquote>
+  <p>Use the existing fixtures/<code>ctx</code> stub already present in <code>distribute.test.ts</code> (it exercises <code>__d2bRouteForTests</code>/<code>__d2aSetupForTests</code>). Match their construction exactly.</p>
+</blockquote>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Run tests to verify they fail</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/distribute.test.ts -t "manual mode"</code><br>
+Expected: FAIL — Meta-paid still present; <code>D4-gate</code> still in steps.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Implement — exclude Meta-paid when manual</strong></span></li>
+</ul>
+
+<p>In <code>distribute.ts</code>, add an import: <code>import { metaPaidMode } from "../config.js";</code></p>
+
+<p>In <code>d2aSetup.build</code>, gate the setup planning so manual mode produces no Meta setup:</p>
+
+<pre><code>const setupPart = metaPaidMode() === "manual"
+  ? { setup: [], rowPlans: [], backfills: [], skipped: [], notes: [] }
+  : planMetaPaidSetup(run.runId, variants, cells, dailyBudgetMyrFor(run));</code></pre>
+
+<p>In <code>d2bRoute.build</code>, make the channel guard also drop Meta-paid in manual mode. Replace the <code>channelOk("Meta-paid")</code> branch:</p>
+
+<pre><code>const metaApi = metaPaidMode() === "api";
+const rowUnits: RouteUnit[] = [
+  ...(metaApi &amp;&amp; channelOk("Meta-paid") ? unitsFromPart("Meta-paid", planMetaPaidRows(variants, cells)) : []),
+  ...(channelOk("YouTube")      ? unitsFromPart("YouTube",      planYouTube(variants))  : []),
+  ...(channelOk("Article")      ? unitsFromPart("Article",      planArticles(articles)) : []),
+  ...(channelOk("Meta-organic") ? unitsFromPart("Meta-organic", planOrganic(variants))  : []),
+];</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Implement — D3b skip reason for manual Meta-paid</strong></span></li>
+</ul>
+
+<p>In <code>plannerSkipReason</code> (in <code>distribute.ts</code>), add at the top of the <code>Meta-paid</code> branch:</p>
+
+<pre><code>if (channel === "Meta-paid") {
+  if (metaPaidMode() === "manual") return "manual posting pack";
+  if (!exp.metaSpec) return "Meta spec missing — re-run /produce";
+  if (!exp.cellId) return "not assigned to an experiment cell";
+}</code></pre>
+
+<p>This makes <code>D3b-summary</code> record Meta-paid rows as <code>status: "skipped"</code> (not <code>failed</code>) and keeps <code>verifyDistribute</code> green (it already filters planner-skips).</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Implement — remove HG4</strong></span></li>
+</ul>
+
+<p>In <code>distribute.ts</code>, change the stage definition to drop <code>d4Gate</code>:</p>
+
+<pre><code>export const distributeStage: StageDefinition = {
+  id: "distribute",
+  steps: [d1Query, d2aSetup, d2bRoute, d3aConfirm, d3bSummary],
+};</code></pre>
+
+<p>Leave the <code>d4Gate</code> const + <code>__*ForTests</code> exports in place only if other tests import them; otherwise delete <code>d4Gate</code> and its helpers (<code>adStatus</code>, <code>adRowsOf</code>) and remove the now-unused <code>mcp__meta-ads__list_ads</code> gate check. Grep first: <code>grep -rn "d4Gate\|D4-gate" packages/orchestrator/src</code>. Remove dead code that no longer compiles.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 6: Run tests to verify pass</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/distribute.test.ts</code><br>
+Expected: PASS. Fix any existing test that asserted <code>D4-gate</code>/HG4 (update it to the new 5-step stage).</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 7: Commit</strong></span></li>
+</ul>
+
+<pre><code>git add packages/orchestrator/src/stages/distribute.ts packages/orchestrator/src/stages/distribute.test.ts
+git commit -m "feat(distribute): manual Meta-paid mode (no API fan-out) + remove HG4 gate"</code></pre>
+
+<hr>
+
+<h2>Task 6: <code>mcp-servers/distribute</code> MCP server</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>mcp-servers/distribute/package.json</code>, <code>tsconfig.json</code>, <code>src/index.ts</code></li>
+  <li>Test: <code>mcp-servers/distribute/src/index.test.ts</code></li>
+  <li>Modify: <code>.mcp.json</code></li>
+</ul>
+
+<p>The MCP queries the store, calls <code>renderPostingPack</code>, and offers backfill. It is the <strong>agent-loop</strong> surface; the webapp uses the lib directly (Task 7).</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Create <code>package.json</code></strong></span></li>
+</ul>
+
+<pre><code>{
+  "name": "@engineerdad/mcp-distribute",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": { "mcp-distribute": "./dist/index.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@engineerdad/distribute": "workspace:*",
+    "@engineerdad/orchestrator": "workspace:*",
+    "@engineerdad/store": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "zod": "^3.23.8"
+  }
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Create <code>tsconfig.json</code></strong></span></li>
+</ul>
+
+<p>Copy <code>mcp-servers/meta-organic/tsconfig.json</code> verbatim.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Create a testable assembly helper first (TDD)</strong></span></li>
+</ul>
+
+<p>Create <code>src/build-pack.ts</code> — the store-reading assembly the tool wraps, so it can be unit-tested without stdio:</p>
+
+<pre><code>import { store } from "@engineerdad/store";
+import { renderPostingPack } from "@engineerdad/distribute";
+import type { PostingPackSpec } from "@engineerdad/distribute";
+import type { DistVariant, AllocatedCell } from "@engineerdad/orchestrator";
+
+const VARIANT_FIELDS = [
+  "title", "format", "aspect", "channels", "assetFiles", "adId",
+  "metaPrimaryTextEn", "metaPrimaryTextBm", "metaHeadlineEn", "metaHeadlineBm",
+  "metaDescriptionEn", "metaDescriptionBm", "metaCtaType",
+];
+
+function projectVariant(row: Record&lt;string, unknown&gt;): DistVariant {
+  const s = (k: string) =&gt; (typeof row[k] === "string" ? (row[k] as string) : "");
+  return {
+    rowId: s("id"), variantId: s("id"), format: s("format"), aspect: s("aspect"),
+    channels: Array.isArray(row.channels) ? (row.channels as string[]) : [],
+    assetFiles: Array.isArray(row.assetFiles) ? (row.assetFiles as { url: string }[]) : [],
+    adId: row.adId ?? null, ytVideoId: null,
+    metaSpec: (s("metaPrimaryTextEn") || s("metaHeadlineEn"))
+      ? {
+          primaryTextEn: s("metaPrimaryTextEn"), primaryTextMs: s("metaPrimaryTextBm"),
+          headlineEn: s("metaHeadlineEn"), headlineMs: s("metaHeadlineBm"),
+          descriptionEn: s("metaDescriptionEn"), descriptionMs: s("metaDescriptionBm"),
+          ctaType: s("metaCtaType"), targetingJson: "",
+        }
+      : null,
+    ytSpec: null, cellId: null, fbPostId: null,
+    organicScheduledFor: null, organicCaption: null, organicLang: null,
+    ...( { title: s("title") } as object ),
+  } as DistVariant;
+}
+
+function cellsOf(expRow: unknown): AllocatedCell[] {
+  if (!expRow || typeof expRow !== "object") return [];
+  const raw = (expRow as { cells?: unknown }).cells;
+  if (Array.isArray(raw)) return raw as AllocatedCell[];
+  if (typeof raw === "string") { try { return JSON.parse(raw) as AllocatedCell[]; } catch { return []; } }
+  return [];
+}
+
+export async function buildPostingPack(runId: string, dailyBudgetMyr: number): Promise&lt;PostingPackSpec&gt; {
+  const variantRows = await store.query("CreativeVariants", { runId, approvalStatus: "Approved" }, { fields: VARIANT_FIELDS });
+  const full = await Promise.all(variantRows.map((r) =&gt; store.get("CreativeVariants", r.id)));
+  const cellId2variant = new Map&lt;string, AllocatedCell&gt;();
+  const exps = await store.query("Experiments", { runId }, { fields: ["cells"] });
+  const expFull = exps[0] ? await store.get("Experiments", exps[0].id) : null;
+  const cells = cellsOf(expFull);
+  // attach cellId via the experiment's variantPageIds
+  const variants = full.filter(Boolean).map((row) =&gt; {
+    const v = projectVariant(row as Record&lt;string, unknown&gt;);
+    const hit = cells.find((c) =&gt; c.variantPageIds.includes(v.variantId));
+    return { ...v, cellId: hit ? hit.cellId : null } as DistVariant;
+  });
+  return renderPostingPack(runId, variants, cells, dailyBudgetMyr);
+}
+
+export async function backfillAdId(rowId: string, adIdEn: string | null, adIdMs: string | null) {
+  const r = await store.update("CreativeVariants", rowId, { adId: JSON.stringify({ en: adIdEn, ms: adIdMs }) });
+  if (!r.ok) throw new Error(r.problems?.join("; ") ?? "backfill failed");
+  return { ok: true, rowId };
+}</code></pre>
+
+<p>Test <code>src/build-pack.test.ts</code> — mock <code>@engineerdad/store</code>:</p>
+
+<pre><code>import { describe, it, expect, vi } from "vitest";
+vi.mock("@engineerdad/store", () =&gt; ({
+  store: {
+    query: vi.fn(async (entity: string) =&gt;
+      entity === "Experiments" ? [{ id: "exp1" }] : [{ id: "row-1" }]),
+    get: vi.fn(async (entity: string, id: string) =&gt;
+      entity === "Experiments"
+        ? { id, cells: [{ cellId: "cell-A", allocationPct: 70, variantPageIds: ["row-1"] }] }
+        : {
+            id, title: "T1", format: "Feed", aspect: "4:5", channels: ["Meta-paid"],
+            assetFiles: [{ url: "https://r2/1.png" }], adId: null,
+            metaPrimaryTextEn: "PT", metaHeadlineEn: "H", metaDescriptionEn: "D", metaCtaType: "LEARN_MORE",
+            metaPrimaryTextBm: "PTm", metaHeadlineBm: "Hm", metaDescriptionBm: "Dm",
+          }),
+    update: vi.fn(async () =&gt; ({ ok: true })),
+  },
+}));
+import { buildPostingPack, backfillAdId } from "./build-pack.js";
+
+describe("buildPostingPack", () =&gt; {
+  it("assembles a pack from store rows", async () =&gt; {
+    const pack = await buildPostingPack("run_1", 10);
+    expect(pack.ads).toHaveLength(1);
+    expect(pack.ads[0].title).toBe("T1");
+    expect(pack.adsets[0].dailyBudgetCents).toBe(700);
+  });
+  it("backfillAdId writes the adId json", async () =&gt; {
+    const { store } = await import("@engineerdad/store");
+    await backfillAdId("row-1", "111", "222");
+    expect(store.update).toHaveBeenCalledWith("CreativeVariants", "row-1", { adId: JSON.stringify({ en: "111", ms: "222" }) });
+  });
+});</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Run the test (red → green)</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm vitest run mcp-servers/distribute/src/build-pack.test.ts</code><br>
+First expect FAIL (no file), then PASS after Step 3 files exist.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Create <code>src/index.ts</code> (stdio MCP wrapper)</strong></span></li>
+</ul>
+
+<pre><code>#!/usr/bin/env node
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import { buildPostingPack, backfillAdId } from "./build-pack.js";
+
+const server = new McpServer({ name: "distribute", version: "0.1.0" });
+const toolResult = (p: unknown) =&gt; ({ content: [{ type: "text" as const, text: JSON.stringify(p, null, 2) }] });
+const errorResult = (e: unknown) =&gt; ({ isError: true, content: [{ type: "text" as const, text: e instanceof Error ? e.message : String(e) }] });
+
+server.tool(
+  "get_posting_pack",
+  "Render the Meta-paid manual posting pack for a run (campaign/adset/ad config + budget + creative asset URLs). Read-only; the user posts these by hand in Ads Manager.",
+  { runId: z.string().min(1), dailyBudgetMyr: z.number().nonnegative().default(0) },
+  async ({ runId, dailyBudgetMyr }) =&gt; {
+    try { return toolResult(await buildPostingPack(runId, dailyBudgetMyr)); }
+    catch (e) { return errorResult(e); }
+  },
+);
+
+server.tool(
+  "backfill_meta_ids",
+  "Record the Meta ad IDs (EN/BM) the user created by hand into CreativeVariants.adId so analytics can join on them.",
+  { rowId: z.string().min(1), adIdEn: z.string().nullable(), adIdMs: z.string().nullable() },
+  async ({ rowId, adIdEn, adIdMs }) =&gt; {
+    try { return toolResult(await backfillAdId(rowId, adIdEn, adIdMs)); }
+    catch (e) { return errorResult(e); }
+  },
+);
+
+const transport = new StdioServerTransport();
+await server.connect(transport);</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 6: Register in <code>.mcp.json</code></strong></span></li>
+</ul>
+
+<p>Add inside <code>mcpServers</code>:</p>
+
+<pre><code>    "distribute": {
+      "command": "node",
+      "args": ["--env-file=.env", "--env-file-if-exists=.env.local", "mcp-servers/distribute/dist/index.js"]
+    }</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 7: Build + commit</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm install &amp;&amp; pnpm -r --filter='!@engineerdad/webapp' build</code></p>
+
+<pre><code>git add mcp-servers/distribute .mcp.json pnpm-lock.yaml
+git commit -m "feat(mcp): distribute server — get_posting_pack + backfill_meta_ids"</code></pre>
+
+<blockquote>
+  <p>After this lands, <strong>restart Claude Code</strong> so the new MCP server loads.</p>
+</blockquote>
+
+<hr>
+
+<h2>Task 7: Webapp — Meta-paid posting-pack page + backfill action</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>apps/webapp/src/app/lib/posting-pack.ts</code></li>
+  <li>Modify: <code>apps/webapp/src/app/lib/actions.ts</code></li>
+  <li>Create: <code>apps/webapp/src/app/posting-pack/[runId]/page.tsx</code></li>
+  <li>Modify: <code>apps/webapp/src/app/components/LeftNav.tsx</code></li>
+  <li>Test: <code>apps/webapp/tests/e2e/posting-pack.spec.ts</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Create the data helper (direct package import — NOT MCP)</strong></span></li>
+</ul>
+
+<p><code>apps/webapp/src/app/lib/posting-pack.ts</code>:</p>
+
+<pre><code>import "server-only";
+import { store } from "@engineerdad/store";
+import { renderPostingPack, type PostingPackSpec } from "@engineerdad/distribute";
+import type { DistVariant, AllocatedCell } from "@engineerdad/orchestrator";
+
+const VARIANT_FIELDS = [
+  "title", "format", "aspect", "channels", "assetFiles", "adId",
+  "metaPrimaryTextEn", "metaPrimaryTextBm", "metaHeadlineEn", "metaHeadlineBm",
+  "metaDescriptionEn", "metaDescriptionBm", "metaCtaType",
+];
+
+function cellsOf(expRow: unknown): AllocatedCell[] {
+  if (!expRow || typeof expRow !== "object") return [];
+  const raw = (expRow as { cells?: unknown }).cells;
+  if (Array.isArray(raw)) return raw as AllocatedCell[];
+  if (typeof raw === "string") { try { return JSON.parse(raw) as AllocatedCell[]; } catch { return []; } }
+  return [];
+}
+
+export async function getMetaPostingPack(runId: string, dailyBudgetMyr = 0): Promise&lt;PostingPackSpec&gt; {
+  const ids = await store.query("CreativeVariants", { runId, approvalStatus: "Approved" }, { fields: VARIANT_FIELDS });
+  const rows = (await Promise.all(ids.map((r) =&gt; store.get("CreativeVariants", r.id)))).filter(Boolean) as Record&lt;string, unknown&gt;[];
+  const exps = await store.query("Experiments", { runId }, { fields: ["cells"] });
+  const expFull = exps[0] ? await store.get("Experiments", exps[0].id) : null;
+  const cells = cellsOf(expFull);
+  const s = (row: Record&lt;string, unknown&gt;, k: string) =&gt; (typeof row[k] === "string" ? (row[k] as string) : "");
+  const variants: DistVariant[] = rows.map((row) =&gt; {
+    const vid = s(row, "id");
+    const hit = cells.find((c) =&gt; c.variantPageIds.includes(vid));
+    return {
+      rowId: vid, variantId: vid, format: s(row, "format"), aspect: s(row, "aspect"),
+      channels: Array.isArray(row.channels) ? (row.channels as string[]) : [],
+      assetFiles: Array.isArray(row.assetFiles) ? (row.assetFiles as { url: string }[]) : [],
+      adId: row.adId ?? null, ytVideoId: null, cellId: hit ? hit.cellId : null,
+      metaSpec: (s(row, "metaPrimaryTextEn") || s(row, "metaHeadlineEn"))
+        ? {
+            primaryTextEn: s(row, "metaPrimaryTextEn"), primaryTextMs: s(row, "metaPrimaryTextBm"),
+            headlineEn: s(row, "metaHeadlineEn"), headlineMs: s(row, "metaHeadlineBm"),
+            descriptionEn: s(row, "metaDescriptionEn"), descriptionMs: s(row, "metaDescriptionBm"),
+            ctaType: s(row, "metaCtaType"), targetingJson: "",
+          }
+        : null,
+      ytSpec: null, fbPostId: null, organicScheduledFor: null, organicCaption: null, organicLang: null,
+      ...({ title: s(row, "title") } as object),
+    } as DistVariant;
+  });
+  return renderPostingPack(runId, variants, cells, dailyBudgetMyr);
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Add backfill server actions to <code>actions.ts</code></strong></span></li>
+</ul>
+
+<p>Append to <code>apps/webapp/src/app/lib/actions.ts</code>:</p>
+
+<pre><code>export async function backfillAdId(rowId: string, formData: FormData) {
+  const adIdEn = (formData.get("adIdEn") as string | null)?.trim() || null;
+  const adIdMs = (formData.get("adIdMs") as string | null)?.trim() || null;
+  const r = await store.update("CreativeVariants", rowId, { adId: JSON.stringify({ en: adIdEn, ms: adIdMs }) });
+  if (!r.ok) throw new Error(r.problems?.join("; ") ?? "backfill failed");
+  const runId = formData.get("runId") as string;
+  revalidatePath(`/posting-pack/${runId}`);
+}
+
+export async function backfillIgPostId(rowId: string, formData: FormData) {
+  const igPostId = (formData.get("igPostId") as string | null)?.trim();
+  if (!igPostId) throw new Error("igPostId required");
+  const r = await store.update("CreativeVariants", rowId, { igPostId });
+  if (!r.ok) throw new Error(r.problems?.join("; ") ?? "backfill failed");
+  const runId = formData.get("runId") as string;
+  revalidatePath(`/posting-pack/organic/${runId}`);
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Create the page</strong></span></li>
+</ul>
+
+<p><code>apps/webapp/src/app/posting-pack/[runId]/page.tsx</code> (server component; Tailwind; one section per adset, ads as rows, EN/BM blocks, asset link, backfill form binding <code>backfillAdId</code>):</p>
+
+<pre><code>import { getMetaPostingPack } from "../../lib/posting-pack";
+import { backfillAdId } from "../../lib/actions";
+
+export default async function PostingPackPage({ params }: { params: Promise&lt;{ runId: string }&gt; }) {
+  const { runId } = await params;
+  const pack = await getMetaPostingPack(runId);
+  return (
+    &lt;main className="p-6 max-w-5xl"&gt;
+      &lt;h1 className="text-xl font-bold mb-1"&gt;Meta-paid posting pack&lt;/h1&gt;
+      &lt;p className="text-sm text-slate-500 mb-4"&gt;Run {runId} · create these in Ads Manager (leave PAUSED), then backfill the ad IDs.&lt;/p&gt;
+
+      &lt;section className="mb-6 border rounded p-4 bg-slate-50"&gt;
+        &lt;h2 className="font-semibold"&gt;Campaign&lt;/h2&gt;
+        &lt;p className="text-sm"&gt;Name: &lt;code&gt;{pack.campaign.name}&lt;/code&gt; · Objective: &lt;code&gt;{pack.campaign.objective}&lt;/code&gt; · Special ad categories: none&lt;/p&gt;
+      &lt;/section&gt;
+
+      {pack.adsets.map((a) =&gt; (
+        &lt;section key={a.cellId} className="mb-6 border rounded p-4"&gt;
+          &lt;h2 className="font-semibold"&gt;Ad set · {a.name}&lt;/h2&gt;
+          &lt;p className="text-sm text-slate-600"&gt;
+            Budget: RM {a.dailyBudgetMyr.toFixed(2)}/day ({a.dailyBudgetCents} cents) · Optimize: {a.optimizationGoal} · Billing: {a.billingEvent} · Bid: {a.bidStrategy}
+          &lt;/p&gt;
+          &lt;p className="text-sm text-slate-600"&gt;
+            Targeting: {a.targeting.countries.join(", ")} · age {a.targeting.ageMin}–{a.targeting.ageMax} · locales {a.targeting.locales.join(", ")}
+          &lt;/p&gt;
+          {pack.ads.filter((ad) =&gt; ad.cellId === a.cellId).map((ad) =&gt; (
+            &lt;div key={ad.rowId} className="mt-4 border-t pt-3"&gt;
+              &lt;h3 className="font-medium"&gt;{ad.title} &lt;span className="text-xs text-slate-400"&gt;({ad.asset.format} {ad.asset.aspect})&lt;/span&gt;&lt;/h3&gt;
+              &lt;div className="text-xs mb-2"&gt;
+                {ad.asset.urls.map((u, i) =&gt; (
+                  &lt;a key={i} href={u} target="_blank" rel="noreferrer" className="text-blue-600 underline mr-2"&gt;asset {i + 1}&lt;/a&gt;
+                ))}
+                · CTA: &lt;code&gt;{ad.ctaType}&lt;/code&gt;
+              &lt;/div&gt;
+              &lt;div className="grid grid-cols-2 gap-3 text-sm"&gt;
+                &lt;div&gt;&lt;strong&gt;EN&lt;/strong&gt;&lt;br /&gt;{ad.en.headline}&lt;br /&gt;&lt;span className="text-slate-600"&gt;{ad.en.primaryText}&lt;/span&gt;&lt;br /&gt;&lt;em&gt;{ad.en.description}&lt;/em&gt;&lt;/div&gt;
+                &lt;div&gt;&lt;strong&gt;BM&lt;/strong&gt;&lt;br /&gt;{ad.bm.headline}&lt;br /&gt;&lt;span className="text-slate-600"&gt;{ad.bm.primaryText}&lt;/span&gt;&lt;br /&gt;&lt;em&gt;{ad.bm.description}&lt;/em&gt;&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;form action={backfillAdId.bind(null, ad.rowId)} className="mt-2 flex gap-2 items-center text-sm"&gt;
+                &lt;input type="hidden" name="runId" value={runId} /&gt;
+                &lt;input name="adIdEn" defaultValue={ad.backfill.adIdEn ?? ""} placeholder="EN ad ID" className="border rounded px-2 py-1" /&gt;
+                &lt;input name="adIdMs" defaultValue={ad.backfill.adIdMs ?? ""} placeholder="BM ad ID" className="border rounded px-2 py-1" /&gt;
+                &lt;button className="border rounded px-3 py-1 bg-slate-800 text-white"&gt;Save&lt;/button&gt;
+                {ad.backfill.done &amp;&amp; &lt;span className="text-green-600"&gt;✓ backfilled&lt;/span&gt;}
+              &lt;/form&gt;
+            &lt;/div&gt;
+          ))}
+        &lt;/section&gt;
+      ))}
+      {pack.ads.length === 0 &amp;&amp; &lt;p className="text-slate-500"&gt;No approved Meta-paid variants for this run.&lt;/p&gt;}
+    &lt;/main&gt;
+  );
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Add LeftNav entry</strong></span></li>
+</ul>
+
+<p>In <code>LeftNav.tsx</code>, add below the Dashboard link:</p>
+
+<pre><code>&lt;Link href="/runs" className="block py-1 px-2 rounded hover:bg-slate-100 mb-1"&gt;Runs&lt;/Link&gt;</code></pre>
+
+<p>Actually add a dedicated link (keep existing Runs section intact). Insert after the Dashboard <code>&lt;Link&gt;</code>:</p>
+
+<pre><code>&lt;Link href="/posting-pack/organic/latest" className="block py-1 px-2 rounded hover:bg-slate-100 mb-1"&gt;Posting Packs&lt;/Link&gt;</code></pre>
+
+<blockquote>
+  <p>Posting packs are run-scoped, so there's no global index; the nav link points users to the runs list. Simpler: change the label to link <code>/runs</code> with text "Posting Packs (per run)". Pick whichever reads best; the e2e test navigates by direct URL, not the nav.</p>
+</blockquote>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Write the e2e test</strong></span></li>
+</ul>
+
+<p><code>apps/webapp/tests/e2e/posting-pack.spec.ts</code> — seed a run with one approved Meta-paid variant + an experiment (reuse <code>tests/e2e/fixtures.ts</code> helpers), then:</p>
+
+<pre><code>import { test, expect } from "@playwright/test";
+import { seedMetaPaidRun } from "./fixtures"; // add this helper mirroring existing seeders
+
+test("renders pack and backfills ad id", async ({ page }) =&gt; {
+  const runId = await seedMetaPaidRun();
+  await page.goto(`/posting-pack/${runId}`);
+  await expect(page.getByText("Meta-paid posting pack")).toBeVisible();
+  await expect(page.getByText("Ad set ·")).toBeVisible();
+  await page.getByPlaceholder("EN ad ID").first().fill("111");
+  await page.getByPlaceholder("BM ad ID").first().fill("222");
+  await page.getByRole("button", { name: "Save" }).first().click();
+  await expect(page.getByText("✓ backfilled")).toBeVisible();
+});</code></pre>
+
+<blockquote>
+  <p>Add <code>seedMetaPaidRun</code> to <code>fixtures.ts</code> following the existing seed pattern (insert a CreativeVariants row with <code>approvalStatus:"Approved"</code>, <code>channels:["Meta-paid"]</code>, <code>metaPrimaryTextEn/Bm</code>, <code>metaHeadlineEn/Bm</code>, <code>assetFiles</code>, and an Experiments row whose <code>cells[0].variantPageIds</code> includes the variant id).</p>
+</blockquote>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 6: Run e2e + commit</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm --filter @engineerdad/webapp test:e2e -- posting-pack</code> (match the repo's e2e script name; check <code>apps/webapp/package.json</code>).<br>
+Expected: PASS.</p>
+
+<pre><code>git add apps/webapp/src/app/lib/posting-pack.ts apps/webapp/src/app/lib/actions.ts apps/webapp/src/app/posting-pack/\[runId\]/page.tsx apps/webapp/src/app/components/LeftNav.tsx apps/webapp/tests/e2e/posting-pack.spec.ts apps/webapp/tests/e2e/fixtures.ts
+git commit -m "feat(webapp): Meta-paid posting-pack page + ad-id backfill"</code></pre>
+
+<hr>
+
+<h2>Task 8: Webapp — organic posting-pack migration (per-run) + retire script</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Create: <code>apps/webapp/src/app/posting-pack/organic/[runId]/page.tsx</code></li>
+  <li>Test: <code>apps/webapp/tests/e2e/posting-pack-organic.spec.ts</code></li>
+  <li>Delete: <code>scripts/build-posting-pack.mjs</code></li>
+  <li>Modify: <code>.claude/commands/posting-pack.md</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: Create the organic page</strong></span></li>
+</ul>
+
+<p><code>apps/webapp/src/app/posting-pack/organic/[runId]/page.tsx</code> — query the run's IG queue and render caption/hashtags/scene-ordered images + igPostId backfill:</p>
+
+<pre><code>import "server-only";
+import { store } from "@engineerdad/store";
+import { backfillIgPostId } from "../../../lib/actions";
+
+const sceneNum = (url: string) =&gt; { const m = url.match(/\/(\d+)\.\w+(?:\?|$)/); return m ? Number(m[1]) : 0; };
+
+export default async function OrganicPackPage({ params }: { params: Promise&lt;{ runId: string }&gt; }) {
+  const { runId } = await params;
+  const ids = await store.query("CreativeVariants", { runId, organicStatus: "Approved", igPostId: { isNull: true } }, { fields: ["title", "format", "aspect", "assetFiles", "organicLanguage", "organicCaptionEn", "organicCaptionBm", "organicHashtagsIg", "organicScheduledFor"] });
+  const rows = (await Promise.all(ids.map((r) =&gt; store.get("CreativeVariants", r.id)))).filter(Boolean) as Record&lt;string, unknown&gt;[];
+  const posts = rows
+    .filter((r) =&gt; !(r.format === "Carousel" &amp;&amp; r.aspect === "1:1"))
+    .map((r) =&gt; {
+      const lang = String(r.organicLanguage ?? "en").toLowerCase() === "ms" ? "BM" : "EN";
+      const caption = lang === "BM" ? (r.organicCaptionBm as string) : (r.organicCaptionEn as string);
+      const images = (Array.isArray(r.assetFiles) ? (r.assetFiles as { url: string }[]) : []).map((f) =&gt; f.url).sort((a, b) =&gt; sceneNum(a) - sceneNum(b));
+      return { id: r.id as string, title: r.title as string, lang, caption: caption ?? "", hashtags: Array.isArray(r.organicHashtagsIg) ? (r.organicHashtagsIg as string[]) : [], images, scheduledFor: r.organicScheduledFor ? new Date(r.organicScheduledFor as string).toISOString() : null };
+    });
+  return (
+    &lt;main className="p-6 max-w-3xl"&gt;
+      &lt;h1 className="text-xl font-bold mb-1"&gt;IG organic posting pack&lt;/h1&gt;
+      &lt;p className="text-sm text-slate-500 mb-4"&gt;Run {runId} · post each by hand on IG, then paste the post ID to clear it from the queue.&lt;/p&gt;
+      {posts.map((p) =&gt; (
+        &lt;article key={p.id} className="mb-6 border rounded p-4"&gt;
+          &lt;h2 className="font-semibold"&gt;{p.title} &lt;span className="text-xs text-slate-400"&gt;{p.lang}{p.scheduledFor ? ` · ${p.scheduledFor.slice(0, 10)}` : ""}&lt;/span&gt;&lt;/h2&gt;
+          &lt;div className="flex gap-2 my-2 flex-wrap"&gt;
+            {p.images.map((u, i) =&gt; &lt;a key={i} href={u} target="_blank" rel="noreferrer"&gt;&lt;img src={u} alt="" className="h-28 rounded border" /&gt;&lt;/a&gt;)}
+          &lt;/div&gt;
+          &lt;pre className="whitespace-pre-wrap text-sm"&gt;{p.caption}&lt;/pre&gt;
+          &lt;p className="text-xs text-blue-600"&gt;{p.hashtags.join(" ")}&lt;/p&gt;
+          &lt;form action={backfillIgPostId.bind(null, p.id)} className="mt-2 flex gap-2 text-sm"&gt;
+            &lt;input type="hidden" name="runId" value={runId} /&gt;
+            &lt;input name="igPostId" placeholder="IG post ID / URL" className="border rounded px-2 py-1" /&gt;
+            &lt;button className="border rounded px-3 py-1 bg-slate-800 text-white"&gt;Mark posted&lt;/button&gt;
+          &lt;/form&gt;
+        &lt;/article&gt;
+      ))}
+      {posts.length === 0 &amp;&amp; &lt;p className="text-slate-500"&gt;IG queue empty for this run.&lt;/p&gt;}
+    &lt;/main&gt;
+  );
+}</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: Write the e2e test</strong></span></li>
+</ul>
+
+<p><code>apps/webapp/tests/e2e/posting-pack-organic.spec.ts</code>:</p>
+
+<pre><code>import { test, expect } from "@playwright/test";
+import { seedOrganicRun } from "./fixtures"; // insert a CreativeVariants row: organicStatus "Approved", igPostId null, organicCaptionEn, assetFiles, format "Feed"
+
+test("renders organic queue and marks posted", async ({ page }) =&gt; {
+  const runId = await seedOrganicRun();
+  await page.goto(`/posting-pack/organic/${runId}`);
+  await expect(page.getByText("IG organic posting pack")).toBeVisible();
+  await page.getByPlaceholder("IG post ID / URL").first().fill("ig_123");
+  await page.getByRole("button", { name: "Mark posted" }).first().click();
+  await expect(page.getByText("IG queue empty for this run.")).toBeVisible();
+});</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Run e2e</strong></span></li>
+</ul>
+
+<p>Run: <code>pnpm --filter @engineerdad/webapp test:e2e -- posting-pack-organic</code><br>
+Expected: PASS.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: Retire the script + command</strong></span></li>
+</ul>
+
+<pre><code>git rm scripts/build-posting-pack.mjs</code></pre>
+
+<p>Replace <code>.claude/commands/posting-pack.md</code> body with a pointer:</p>
+
+<pre><code>---
+description: The IG organic posting pack moved into the webapp (per-run). Open http://localhost:3030/posting-pack/organic/&lt;runId&gt; to view the queue and mark posts done. The old R2-HTML script (scripts/build-posting-pack.mjs) is retired.
+allowed-tools:
+---
+
+The posting pack is now a webapp page. Tell the user to open
+`http://localhost:3030/posting-pack/organic/&lt;runId&gt;` for IG organic, and
+`http://localhost:3030/posting-pack/&lt;runId&gt;` for the Meta-paid manual pack.</code></pre>
+
+<blockquote>
+  <p>The R2 object <code>posting/pack-4e8a1f6b2d9c.html</code> can be deleted from the bucket manually; it is now orphaned. (No code references it after this task.)</p>
+</blockquote>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: Commit</strong></span></li>
+</ul>
+
+<pre><code>git add apps/webapp/src/app/posting-pack/organic/\[runId\]/page.tsx apps/webapp/tests/e2e/posting-pack-organic.spec.ts apps/webapp/tests/e2e/fixtures.ts .claude/commands/posting-pack.md
+git commit -m "feat(webapp): migrate IG organic posting pack to per-run page; retire R2-HTML script"</code></pre>
+
+<hr>
+
+<h2>Task 9: Docs, doctrine, and HG4 amendment</h2>
+
+<p><strong>Files:</strong></p>
+<ul>
+  <li>Modify: <code>ARCHITECTURE.md</code>, <code>CLAUDE.md</code></li>
+  <li>Modify: <code>.claude/commands/loop.md</code>, <code>distribute.md</code>, <code>experiment.md</code></li>
+  <li>Modify: <code>docs/decisions/015-write-api-safety.md</code></li>
+  <li>Modify: <code>TASKS.md</code>, <code>DONE.md</code>, <code>.env.example</code></li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 1: ARCHITECTURE.md</strong></span></li>
+</ul>
+
+<ul>
+  <li>Update the loop diagram: change <code>distribute →[HG4]</code> to <code>distribute</code> (no HG4); update the human-gate count from four to three (HG1–HG3).</li>
+  <li>In the stage table, change the distribute row's gate cell from <code>HG4</code> to <code>—</code> and add a note: "Meta-paid: manual posting pack (webapp) when <code>META_PAID_MODE=manual</code>."</li>
+  <li>Add <code>distribute</code> to the MCP server list (now N servers).</li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 2: CLAUDE.md</strong></span></li>
+</ul>
+
+<p>Update the loop line to drop <code>[HG4]</code>:</p>
+
+<pre><code>... produce → [HG3] → schedule → experiment → distribute. /reflect closes the loop afterward.</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 3: Command docs</strong></span></li>
+</ul>
+
+<p>In <code>loop.md</code>, <code>distribute.md</code>, <code>experiment.md</code>: remove "Stops at HUMAN GATE 4" wording; state that distribute completes without a gate and that Meta-paid produces a manual posting pack at <code>/posting-pack/&lt;runId&gt;</code>.</p>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 4: ADR-015 amendment</strong></span></li>
+</ul>
+
+<p>Append an "Amendment (2026-05-30)" section to <code>docs/decisions/015-write-api-safety.md</code>:</p>
+
+<pre><code>## Amendment — 2026-05-30: spend gate under manual mode (META_PAID_MODE)
+
+Meta business-entity verification blocks API ad creation. Until it clears, the
+default `META_PAID_MODE=manual` makes distribute render a **manual posting pack**
+(webapp `/posting-pack/&lt;runId&gt;`) instead of creating ads via API. In manual mode
+there is no API spend to gate, so HG4 is removed from the distribute stage. The
+spend gate's intent is preserved: ads are created — and later activated — by the
+human in Ads Manager. The no-auto-activate invariant is unchanged (the OS never
+sets ACTIVE). When verification clears, set `META_PAID_MODE=api`; the create path
+still hard-wires PAUSED. Note: removing HG4 also un-gates YouTube (unlisted) and
+Meta-organic (scheduled publish) dispatch — both remain safe, non-public states.</code></pre>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 5: TASKS/DONE + env</strong></span></li>
+</ul>
+
+<ul>
+  <li><code>DONE.md</code>: record this feature; close B-005 (organic pack migrated to webapp).</li>
+  <li><code>TASKS.md</code>: remove/refresh any B-005 open entry; refresh the Status header.</li>
+  <li><code>.env.example</code>: add <code>META_PAID_MODE=manual   # api|manual — manual renders the webapp posting pack instead of creating Meta ads via API</code>.</li>
+</ul>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><strong>Step 6: Commit</strong></span></li>
+</ul>
+
+<pre><code>git add ARCHITECTURE.md CLAUDE.md .claude/commands/loop.md .claude/commands/distribute.md .claude/commands/experiment.md docs/decisions/015-write-api-safety.md TASKS.md DONE.md .env.example
+git commit -m "docs: HG4 removal + manual Meta-paid mode (ADR-015 amendment, loop/architecture sync)"</code></pre>
+
+<hr>
+
+<h2>Final verification</h2>
+
+<ul class="tasklist">
+  <li class="task"><span class="cb"></span><span><code>pnpm -r build</code> (sequential) succeeds with no type errors.</span></li>
+  <li class="task"><span class="cb"></span><span><code>pnpm vitest run</code> — all package unit tests green.</span></li>
+  <li class="task"><span class="cb"></span><span><code>pnpm --filter @engineerdad/webapp test:e2e</code> — posting-pack + organic specs green.</span></li>
+  <li class="task"><span class="cb"></span><span><code>pnpm sync:agents:check</code> passes (no agent-prompt drift).</span></li>
+  <li class="task"><span class="cb"></span><span>Manual smoke: with <code>META_PAID_MODE=manual</code>, drive a run to distribute; confirm it completes with no HG4, Meta-paid Distributions rows are <code>skipped</code> ("manual posting pack"), and <code>/posting-pack/&lt;runId&gt;</code> renders the table; backfill an ad ID and confirm ✓.</span></li>
+  <li class="task"><span class="cb"></span><span><strong>Restart Claude Code</strong> (new <code>distribute</code> MCP) before any agent-driven walk.</span></li>
+</ul>
+
+</div>
+</body>
+</html>

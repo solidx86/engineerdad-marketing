@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Static-4x5 exemplar catalogue + shared chart-rules partial — design</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 880px; margin: 40px auto; padding: 0 24px; color: #1a1a2e; line-height: 1.55; }
+  h1 { font-size: 30px; border-bottom: 3px solid #1B2B6B; padding-bottom: 10px; }
+  h2 { font-size: 22px; color: #1B2B6B; margin-top: 36px; }
+  h3 { font-size: 17px; color: #111c45; }
+  code { background: #f3f4f8; padding: 1px 6px; border-radius: 4px; font-size: 90%; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #e5e7f0; padding: 8px 12px; text-align: left; font-size: 14px; }
+  th { background: #1B2B6B; color: #fff; }
+  .note { background: #fdeee3; border-left: 5px solid #F07621; padding: 12px 18px; border-radius: 6px; margin: 16px 0; }
+  .scope-out { color: #6b7280; }
+</style>
+</head>
+<body>
+<h1>Static-4×5 exemplar catalogue + shared chart-rules partial</h1>
+<p><strong>Date:</strong> 2026-05-31 · <strong>Branch:</strong> feat/reel-visual-scenes · <strong>Status:</strong> approved (brainstorming)</p>
+
+<h2>1 · Problem & goal</h2>
+<p>The reel render path now has a 9-exemplar catalogue (<code>reel-9x16-*</code>) that the reel-render-worker patterns off, built via a render→iterate→promote loop. The <strong>static</strong> path (Feed + Carousel, served by <code>render-worker.md</code>) has only 3 stale exemplars (<code>feed-1x1-celebratory-001</code>, <code>feed-1x1-authoritative-chart-001</code>, <code>feed-4x5-alert-001</code>) dated May 11–12, predating both the current chart doctrine and the as-built format matrix.</p>
+<p><strong>Goal:</strong> mirror the reel catalogue for static at 4:5, and in the process extract the chart doctrine duplicated across both worker prompts into one shared partial both Read.</p>
+
+<h2>2 · As-built facts that shape the design</h2>
+<ul>
+  <li><strong>Format → aspect matrix</strong> (<code>packages/shared/src/derive/specs.ts:287</code>): <code>Feed → 4:5 only</code>; <code>Carousel → 4:5 + 1:1</code>; <code>YT-Long → 16:9</code>. <strong>1:1 appears only as the Facebook layout of a Carousel</strong> — Feed is never 1:1. The 3 <code>feed-1x1-*</code> exemplars are therefore from a retired matrix.</li>
+  <li><strong>Two independent prompts, forked not shared.</strong> <code>reel-render-worker.md</code> was "carried forward verbatim from the media-production-era static-asset worker prompt." Both <code>Read corpus/templates/brand-contract.md</code>; chart doctrine is duplicated as prose in each.</li>
+  <li><strong>Static renders <code>caption_en</code>; reels do not</strong> (the reel VO carries the explanation). This is the load-bearing format difference and stays prompt-specific.</li>
+  <li>Canvas: 4:5 = 1080×1350. No reel safe-area overlay constraint on static.</li>
+</ul>
+
+<h2>3 · Decisions (locked in brainstorming)</h2>
+<table>
+<tr><th>Fork</th><th>Decision</th></tr>
+<tr><td>Feed-vs-Carousel furniture</td><td>Aspect-only single-card exemplars. Carousel set-furniture (<code>2/N</code>, locked grid) stays as prose in the static prompt.</td></tr>
+<tr><td>Aspect coverage</td><td>4:5 only this pass. 1:1 / carousel-FB deferred.</td></tr>
+<tr><td>Variation set</td><td>Mirror the reel set (9 primitives) + add Feed-specific <code>hero-number</code> = 10. Retire the 3 stale exemplars.</td></tr>
+<tr><td>Prompt reuse</td><td>Extract a new shared partial file both workers Read.</td></tr>
+<tr><td>Order</td><td>Partial extraction (refactor, touches reel prompt) <strong>first</strong>; then build the static catalogue against unified doctrine.</td></tr>
+</table>
+
+<h2>4 · The shared partial — <code>corpus/templates/worker-prompts/_chart-rules.md</code> (new)</h2>
+<p>Format-agnostic chart doctrine, lifted out of both prompts (currently reel §95–106 / static §4 step + §5):</p>
+<ul>
+  <li>HTML legend block <strong>above</strong> the canvas; built-in Chart.js legend is OFF (<code>legend.display=false</code>). Never the in-canvas legend.</li>
+  <li><strong>Line charts → line-style legend swatches</strong> (thin rounded bars whose heights mirror the line weights, not squares) + <strong>hero-line point markers</strong> (white-ringed); volatile comparison lines stay marker-less. <em>(The rule shipped for reel-data-line in b3f63fa, now promoted to shared doctrine.)</em></li>
+  <li>Callout/badge: rendered <strong>verbatim</strong> from the YAML <code>callout_en</code> (figure OR framing line), as its own HTML row <strong>outside</strong> the plot rectangle — never floated over canvas/axis/curve. No <code>callout_en</code> → no badge.</li>
+  <li>Numbers + <code>source_citation</code> come verbatim from the YAML — never invented or recomputed.</li>
+  <li><code>buildChartConfig(yaml, tokens, {lang})</code> from <code>corpus/templates/partials/chartjs-config.js</code>; <code>window.__chartsReady</code> signal. Pie/donut hand-authored in the same spirit (not yet in buildChartConfig).</li>
+  <li>Tables / stat-grids: pure HTML, no Chart.js, contrast carried by the layout; the chart rules above do not apply.</li>
+</ul>
+<div class="note"><strong>Stays prompt-specific (not in the partial):</strong> caption rendering (static: render <code>caption_en</code> below chart / reel: never), aspect &amp; scene model, carousel multi-card furniture, the safe-area constraint (reel-only).</div>
+<p>Both prompts get a one-line pointer: <em>"If any scene has a <code>chartRef</code>, also <code>Read corpus/templates/worker-prompts/_chart-rules.md</code> before composing."</em></p>
+
+<h2>5 · The variation set (10) — reusing existing chart YAMLs</h2>
+<table>
+<tr><th>Exemplar</th><th>Source data</th><th>Presentation</th></tr>
+<tr><td><code>static-4x5-hero-number-001</code></td><td>a single vetted proof figure</td><td>Feed signature: one giant figure + label (no chart)</td></tr>
+<tr><td><code>static-4x5-data-bar-001</code></td><td><code>start-age-penalty</code></td><td>vertical bar</td></tr>
+<tr><td><code>static-4x5-data-bar-horizontal-001</code></td><td><code>fee-drag-30y</code></td><td>horizontal bar</td></tr>
+<tr><td><code>static-4x5-data-bar-stacked-001</code></td><td><code>glide-path-allocation</code></td><td>100%-stacked bar</td></tr>
+<tr><td><code>static-4x5-data-bar-grouped-001</code></td><td><code>single-country-vs-global</code></td><td>grouped bar</td></tr>
+<tr><td><code>static-4x5-data-line-001</code></td><td><code>dca-20y-line</code></td><td>two-series line (line-swatch + hero markers)</td></tr>
+<tr><td><code>static-4x5-data-pie-001</code></td><td>(hand-authored donut)</td><td>donut, HTML legend</td></tr>
+<tr><td><code>static-4x5-data-table-001</code></td><td><code>epf-baseline-tiers</code></td><td>comparison table</td></tr>
+<tr><td><code>static-4x5-data-statgrid-001</code></td><td><code>lifestyle-bloat-leaks</code></td><td>stat-callout cards</td></tr>
+<tr><td><code>static-4x5-concept-visual-001</code></td><td>freeform, no chart</td><td>concept visual, no numbers</td></tr>
+</table>
+<p>Naming: <code>static-4x5-&lt;variation&gt;-NNN.{html,png}</code> at the <code>reference-designs/</code> root (siblings of the reel set's parent). <code>x</code> not <code>:</code>.</p>
+
+<h2>6 · The loop (matches how reels were actually iterated)</h2>
+<ol>
+  <li>Main session authors each 4:5 HTML — adapting the established frame CSS to 1080×1350, <strong>with a rendered <code>caption_en</code> row</strong> below the chart (the static difference).</li>
+  <li><code>render_html_to_png</code> → <code>data/assets/test-static-&lt;variation&gt;/&lt;variantId&gt;/1.png</code> (Chart.js scenes use <code>wait_for_charts:true</code>).</li>
+  <li>User reviews / flags each render.</li>
+  <li>Approved → <code>cp</code> html+png into <code>reference-designs/static-4x5-&lt;variation&gt;-001.{html,png}</code> + a README row.</li>
+</ol>
+<p>Direct main-session authoring, not the <code>pnpm test:worker</code> harness. No new fixtures unless the harness path is wanted later.</p>
+
+<h2>7 · Retire the stale exemplars</h2>
+<p>Move <code>feed-1x1-celebratory-001</code>, <code>feed-1x1-authoritative-chart-001</code>, <code>feed-4x5-alert-001</code> (all three <code>.html/.png</code>) to <code>reference-designs/retired/</code>. Update the render-worker prompt's "Reference designs" section (currently lines 226–229) to point at the new <code>static-4x5-*</code> set instead of the dead names.</p>
+
+<h2>8 · Out of scope (this pass)</h2>
+<p class="scope-out">1:1 / carousel-FB exemplars · multi-card carousel exemplars · YT-Long 16:9 · full prompt unification · new test-harness fixtures.</p>
+
+<h2>9 · Success criteria</h2>
+<ul>
+  <li><code>_chart-rules.md</code> exists; both worker prompts point at it and no longer duplicate the legend/marker/callout doctrine inline.</li>
+  <li>Reel pipeline doctrine unchanged in substance (the partial is a faithful lift, not a rewrite).</li>
+  <li>10 approved <code>static-4x5-*</code> exemplars promoted, each html+png + README row, caption rendered.</li>
+  <li>3 stale exemplars retired; render-worker prompt references refreshed.</li>
+</ul>
+</body>
+</html>

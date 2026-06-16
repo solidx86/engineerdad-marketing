@@ -1,0 +1,27 @@
+# DCA vs Lump Sum — same RM amount, different timing
+# Illustrative 12-month sim showing how DCA achieves a lower average cost per unit
+# when prices fluctuate. Numbers chosen to make the mechanic visible, not to predict
+# a real market.
+# Used by media-production when scene argues "DCA removes timing risk",
+# "constant monthly buying is mathematically advantageous", or "just DCA the index"
+# (objection myth d2-just-dca-the-index).
+
+id: dca-vs-lump
+title_en: "RM12,000 invested: monthly DCA vs lump sum on day 1"
+title_ms: "RM12,000 dilaburkan: DCA bulanan vs sekaligus pada hari pertama"
+chart_type: bar
+x_label_en: "Outcome at end of year 1"
+x_label_ms: "Hasil pada akhir tahun 1"
+y_label_en: "Units acquired"
+y_label_ms: "Unit diperoleh"
+labels:
+  - "Lump sum (day 1, price RM1.00)"
+  - "DCA (RM1,000/month × 12, average price RM0.92)"
+series:
+  - name_en: "Units owned"
+    name_ms: "Unit dimiliki"
+    semantic_role: hero
+    values: [12000, 13043]
+caption_en: "Same RM12,000. DCA bought 13,043 units (avg cost RM0.92/unit) by buying more units when prices dipped. Lump sum bought 12,000 units at the day-1 price. Difference comes from price volatility, not market direction."
+caption_ms: "RM12,000 yang sama. DCA membeli 13,043 unit (kos purata RM0.92/unit) dengan membeli lebih banyak unit semasa harga turun. Sekaligus membeli 12,000 unit pada harga hari pertama. Perbezaan datang dari turun-naik harga, bukan arah pasaran."
+source_citation: "Illustrative simulation — assumes a 12-month price path that dips in months 4–8. Real market outcomes vary. DCA's mathematical advantage holds when prices fluctuate; if prices rise monotonically, lump sum wins (rare scenario)."

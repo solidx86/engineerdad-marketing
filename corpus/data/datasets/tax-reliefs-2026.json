@@ -1,0 +1,93 @@
+{
+  "year": 2026,
+  "verified_at": "2026-05-21",
+  "verification_status": "needs_review",
+  "source": "LHDN (Lembaga Hasil Dalam Negeri) personal income tax relief schedule, hasil.gov.my. PRS relief extension confirmed via Private Pension Administrator Malaysia (ppa.my).",
+  "notes": "Personal income tax reliefs for Year of Assessment 2026 (filed in 2027). Amounts mirror the LHDN YA2025 schedule, which carries forward unless changed by Budget 2026. FLAG: re-verify each amount against the finalised Budget 2026 / LHDN YA2026 schedule before campaign use — Budget measures occasionally adjust caps or add/expire reliefs. Many reliefs are 'restricted' (capped and subject to conditions); max_relief_rm is the cap, not an automatic deduction.",
+  "reliefs": [
+    {
+      "code": "prs",
+      "label": "Private Retirement Scheme & Deferred Annuity",
+      "max_relief_rm": 3000,
+      "notes": "Up to RM3,000 per year of assessment for PRS contributions and deferred annuity premiums. Extended through YA2030. This is the relief most relevant to PRS content."
+    },
+    {
+      "code": "life_insurance_epf",
+      "label": "Life Insurance & EPF Contributions",
+      "max_relief_rm": 7000,
+      "notes": "Combined cap RM7,000: up to RM4,000 for EPF contributions (mandatory or voluntary) plus up to RM3,000 for life insurance / takaful premiums."
+    },
+    {
+      "code": "education_medical_insurance",
+      "label": "Education & Medical Insurance",
+      "max_relief_rm": 4000,
+      "notes": "Premiums for education or medical insurance/takaful."
+    },
+    {
+      "code": "individual_dependents",
+      "label": "Individual & Dependent Relatives",
+      "max_relief_rm": 9000,
+      "notes": "Automatic relief for the taxpayer."
+    },
+    {
+      "code": "lifestyle",
+      "label": "Lifestyle — books, computer, internet, skills courses",
+      "max_relief_rm": 2500,
+      "notes": "Restricted. Books/journals, personal computer/smartphone/tablet, internet subscription, and self-improvement course fees."
+    },
+    {
+      "code": "lifestyle_sports",
+      "label": "Sports Equipment & Activity",
+      "max_relief_rm": 1000,
+      "notes": "Restricted. Sports equipment, facility rental/entry fees, competition registration, gym membership."
+    },
+    {
+      "code": "ev_charging",
+      "label": "EV Charging Facilities",
+      "max_relief_rm": 2500,
+      "notes": "Restricted. Installation, rental, purchase, or subscription of EV charging equipment for the home."
+    },
+    {
+      "code": "sspn",
+      "label": "SSPN Education Savings (net deposit)",
+      "max_relief_rm": 8000,
+      "notes": "Restricted. Net deposit into a child's SSPN (Skim Simpanan Pendidikan Nasional) account."
+    },
+    {
+      "code": "childcare",
+      "label": "Childcare Fees (child aged 6 and below)",
+      "max_relief_rm": 3000,
+      "notes": "Restricted. Fees to a registered childcare centre or kindergarten."
+    },
+    {
+      "code": "self_education",
+      "label": "Self-Education Fees",
+      "max_relief_rm": 7000,
+      "notes": "Restricted. Tertiary fees for approved fields; upskilling/self-enhancement courses are sub-capped within this."
+    },
+    {
+      "code": "medical_serious_disease",
+      "label": "Medical — serious disease, fertility, exams, vaccination",
+      "max_relief_rm": 10000,
+      "notes": "Restricted bundle. Includes serious-disease treatment, fertility treatment, a sub-cap for full medical examination / COVID-19 test / mental health, and vaccination."
+    },
+    {
+      "code": "parents_medical",
+      "label": "Parents — medical, care, dental",
+      "max_relief_rm": 8000,
+      "notes": "Restricted. Medical treatment, special needs and carer expenses for parents."
+    },
+    {
+      "code": "disability_support_equipment",
+      "label": "Disability Support Equipment",
+      "max_relief_rm": 6000,
+      "notes": "Restricted. Supporting equipment for a disabled self, spouse, child, or parent."
+    },
+    {
+      "code": "first_home_loan_interest",
+      "label": "Housing Loan Interest — first residential home",
+      "max_relief_rm": 7000,
+      "notes": "Restricted, time-limited. For a first home valued up to RM500,000; verify eligibility window against the current schedule."
+    }
+  ]
+}

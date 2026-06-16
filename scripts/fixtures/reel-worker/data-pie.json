@@ -1,0 +1,9 @@
+{
+  "scriptId": "test_pie",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 16, "faceFirstHook": false, "paletteEmphasis": "authoritative",
+  "scenes": [
+    { "scene": "1", "voiceover": "The load-balanced portfolio splits the same money across three regions whose risks aren't correlated, so when one drags the others can carry.", "onScreenText": "One pot, three regions", "chartRef": "single-country-vs-global", "sceneType": "visual", "estimatedSeconds": 9, "visualBrief": null, "explains": "show the load-balanced portfolio's regional split as proportions of a whole (the diversified target shape)" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UT Objection &amp; Myth Corpus — Implementation Plan (2026-06-07)</title>
+<style>
+  body{font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1c2330;background:#f4f6f9;margin:0;padding:0 0 6rem;}
+  .wrap{max-width:1000px;margin:0 auto;padding:2rem 1.25rem;}
+  h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .3rem;}
+  .sub{color:#5a6473;font-size:.9rem;margin-bottom:1.4rem;}
+  .card{background:#fff;border:1px solid #e1e6ec;border-radius:10px;padding:1rem 1.25rem;margin:1rem 0;box-shadow:0 1px 2px rgba(20,30,50,.04);}
+  .meta-grid{display:grid;grid-template-columns:130px 1fr;gap:.35rem .9rem;font-size:.92rem;}
+  .meta-grid dt{font-weight:600;color:#3a4555;}
+  .meta-grid dd{margin:0;}
+  .doctrine{background:#fff4e5;border:1px solid #f0c887;border-left:5px solid #e08a00;border-radius:8px;padding:.85rem 1.1rem;margin:1.2rem 0;font-size:.93rem;}
+  .doctrine strong{color:#9a5a00;}
+  h2.phase{font-size:1.15rem;margin:2.2rem 0 .2rem;padding:.5rem .9rem;border-radius:8px;color:#fff;}
+  .p1{background:#3257a8;} .p2{background:#1f7a4d;} .p3{background:#8a4ba0;} .p4{background:#9a1633;}
+  .phase-note{font-size:.88rem;color:#5a6473;margin:.3rem 0 .6rem;padding:0 .3rem;}
+  .task{background:#fff;border:1px solid #e1e6ec;border-radius:10px;margin:.85rem 0;overflow:hidden;}
+  .task > .head{padding:.7rem 1rem;background:#fafbfc;border-bottom:1px solid #eef1f5;font-weight:600;display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;}
+  .tnum{display:inline-flex;align-items:center;justify-content:center;min-width:1.7rem;height:1.7rem;border-radius:50%;background:#3257a8;color:#fff;font-size:.8rem;font-weight:700;}
+  .task.t2 .tnum{background:#1f7a4d;} .task.t3 .tnum{background:#8a4ba0;} .task.t4 .tnum{background:#9a1633;}
+  .body{padding:.6rem 1.1rem 1rem;}
+  .files{font-size:.84rem;margin:.4rem 0 .7rem;}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;padding:.1em .5em;border-radius:5px;margin-right:.35em;vertical-align:middle;}
+  .b-create{background:#e3f5ea;color:#0a7a3d;} .b-mod{background:#fdeede;color:#9a5a00;} .b-test{background:#e6eefb;color:#2a4f9e;}
+  ul.steps{margin:.4rem 0;padding-left:1.2rem;}
+  ul.steps li{margin:.28rem 0;}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.86em;background:#eef1f5;padding:.08em .35em;border-radius:4px;}
+  pre{background:#1e2530;color:#e6edf3;border-radius:8px;padding:.85rem 1rem;overflow-x:auto;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;}
+  pre code{background:none;padding:0;color:inherit;font-size:inherit;}
+  table{border-collapse:collapse;width:100%;margin:.6rem 0;font-size:.85rem;}
+  th,td{border:1px solid #dde2e8;padding:.4rem .55rem;text-align:left;vertical-align:top;}
+  th{background:#eef2f7;font-weight:600;}
+  tr:nth-child(even) td{background:#fafbfc;}
+  .run{font-size:.85rem;background:#f0f7f2;border-left:3px solid #1f7a4d;padding:.35rem .7rem;margin:.35rem 0;border-radius:4px;}
+  .run code{background:#e2efe7;}
+  .toc{columns:2;font-size:.88rem;}
+  .toc a{color:#2a4f9e;text-decoration:none;}
+  .pill{display:inline-block;font-size:.72rem;font-weight:700;padding:.12em .55em;border-radius:999px;}
+  .t0{background:#e8f0fe;color:#1a4d8f;} .t1p{background:#fff0e0;color:#9a5a00;} .t2p{background:#fde8ec;color:#9a1633;}
+  .commit{font-size:.82rem;color:#3a4555;font-style:italic;margin-top:.4rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>UT Objection &amp; Myth Corpus — Implementation Plan</h1>
+<p class="sub">2026-06-07 · 19 tasks across 4 phases · amended 2026-06-11 (review-gap fold-in) · canonical step-by-step tracking lives in the sibling <code>.md</code>. This page is the review view.</p>
+<p style="margin:12px 0;padding:12px 16px;background:#0f5132;color:#fff;border-radius:8px;font-weight:600;">✅ STATUS: COMPLETE (2026-06-15). All tasks shipped — Phase 1 schema, Phase 2 (5 dataset+chart pairs + CPI/regulatory/EPF-age/SPIVA), Phase 3 (24 entries: 5 Tier-0 + 11 Tier-1 + 8 Tier-2), Phase 4 (corpus-lint, proof-index, reindex + tier-filter smoke-test). Task 14 (optional owned-data charts) deliberately deferred. Verification: corpus-lint 0 FAIL; reindex 226 chunks; tier filter discriminates (necessity→d0, substitution→∅ for "afford").</p>
+
+<div class="card">
+<dl class="meta-grid">
+<dt>Goal</dt><dd>Ship a 24-entry, 3-tier objection/myth corpus (<code>d-*</code>, <code>cluster: objection</code>) + 5 grounded dataset+chart pairs, so content generation has every claim pre-bound to a cited fact.</dd>
+<dt>Architecture</dt><dd>New <code>funnel_tier</code> frontmatter field + <code>objection</code> cluster wired through parser/indexer/search. Flat <code>d0/d1/d2-*.md</code> entries lean on owned proof via <code>related:</code> and on charts via their <code>Used by</code> line. 5 new datasets/charts sourced in a grounding pass; 8 existing charts annotated for reuse.</dd>
+<dt>Tech stack</dt><dd>TypeScript (corpus package + MCP, vitest) · Markdown entries · JSON datasets · YAML charts.</dd>
+<dt>Spec</dt><dd><code>docs/superpowers/specs/2026-06-06-ut-objection-corpus-design.html</code></dd>
+<dt>Execution</dt><dd>superpowers:subagent-driven-development (recommended) or executing-plans.</dd>
+</dl>
+</div>
+
+<div class="doctrine">
+<strong>Grounding gate (non-negotiable).</strong> Any artifact depending on an external figure may only be written <em>after</em> that figure is fetched from its authoritative source (spec §7) and the citation recorded in the artifact. If a figure can't be sourced, leave it unwritten and note the blocker — <strong>never substitute a remembered or estimated number.</strong> Bilingual: entries draft EN first (<code>lang_status: en_only</code>); charts carry <code>*_en</code>/<code>*_ms</code>. One commit + push per task.
+<br><br><strong>EPF/ASB/FD guardrail (FIMM/SC):</strong> any entry/chart touching EPF/ASB/FD is a balanced <strong>category-error correction, never a returns bake-off</strong>; never imply UT "safer than"/"beats" EPF/ASB; <strong>always acknowledge EPF's guaranteed minimum dividend (EPF Act §27)</strong>. Affects d1-cant-beat-fd-asb-epf, d1-epf-already-invests, d2-just-use-epf-iinvest, risk-return-positioning.
+<br><br><strong>Comparison compliance — ALL product comparisons, not just EPF/ASB (SC App.1 §I1a–c, §H2):</strong> Tasks 3, 4, 5, 6, 7 are product comparisons. Every comparison chart caption must (a) state where the compared products differ in structure/features (this is a cost-only or positioning comparison, not a suitability ranking); (b) concede the compared product's genuine advantage; (c) date every figure ("as at &lt;date&gt;"); (d) never pick a time window to flatter UT — performance windows use the factsheet-published standard periods (1y/3y/5y/10y), the chosen window is named, and the caption notes that other windows differ (App.1 §H2 anti-cherry-picking).
+<br><br><strong>Volatile-figure dating:</strong> any third-party figure that can change without notice (robo fee tiers, i-Invest caps, broker FX spreads) carries a fetched-on date in the dataset <code>notes</code> plus a <code>volatility</code> field (<code>"variable"</code>); stable statutory facts (EPF §27 floor) use <code>"stable"</code>. A <code>volatility: "variable"</code> figure older than 12 months at content-generation time should be re-verified before reuse.
+<br><br><strong>Blocker handling (grounded-truth escalation):</strong> if a source is unreachable or the figure is not published, do NOT write the artifact and do NOT substitute an estimate. Note the blocker in the commit message (<code>[BLOCKED] Task N: &lt;fact&gt; — &lt;source&gt;: &lt;reason&gt;</code>) and <strong>escalate to the user for explicit help</strong> — per user instruction 2026-06-11: web-source autonomously, but ask when grounded truth cannot be reliably obtained.
+</div>
+
+<div class="card">
+<strong>Phases at a glance</strong>
+<div class="toc">
+<p><strong class="p1" style="padding:.1em .5em;border-radius:5px;color:#fff;">Phase 1 — Schema</strong><br>
+<a href="#t1">T1 · objection cluster + funnel_tier parser</a><br>
+<a href="#t2">T2 · propagate through chunk / search / MCP</a></p>
+<p><strong class="p2" style="padding:.1em .5em;border-radius:5px;color:#fff;">Phase 2 — Grounding</strong><br>
+<a href="#t8">T8 · CPI + regulatory facts + re-ground shipped entry — <strong>runs first</strong></a><br>
+<a href="#t3">T3 · ETF true-cost stack</a><br>
+<a href="#t4">T4 · USD vs MYR-adjusted returns</a><br>
+<a href="#t5">T5 · sales charge by channel</a><br>
+<a href="#t6">T6 · robo fee tiers</a><br>
+<a href="#t7">T7 · risk-matched returns vs FD/ASB/EPF</a><br>
+<a href="#t8c">T8c · SPIVA + behaviour-gap evidence</a></p>
+<p><strong class="p3" style="padding:.1em .5em;border-radius:5px;color:#fff;">Phase 3 — Author</strong><br>
+<a href="#t9">T9 · annotate 8 reuse charts</a><br>
+<a href="#t10">T10 · Tier-0 entries (5)</a><br>
+<a href="#t11">T11 · Tier-1 entries (11)</a><br>
+<a href="#t12">T12 · Tier-2 entries (8)</a></p>
+<p><strong class="p4" style="padding:.1em .5em;border-radius:5px;color:#fff;">Phase 4 — Wire &amp; verify</strong><br>
+<a href="#t13">T13 · proof-asset-index</a><br>
+<a href="#t14">T14 · optional owned-data charts</a><br>
+<a href="#t14b">T14b · corpus-lint script (before T11–12)</a><br>
+<a href="#t15">T15 · lint + verification scans</a><br>
+<a href="#t16">T16 · reindex + final build</a></p>
+</div>
+</div>
+
+<h2 class="phase p1">Phase 1 — Schema wiring (code, TDD)</h2>
+
+<div class="task" id="t1"><div class="head"><span class="tnum">1</span> Add <code>objection</code> cluster + <code>funnel_tier</code> to the frontmatter parser</div>
+<div class="body">
+<div class="files"><span class="badge b-mod">MODIFY</span><code>packages/corpus/src/frontmatter.ts</code> &nbsp; <span class="badge b-test">TEST</span><code>packages/corpus/src/frontmatter.test.ts</code></div>
+<ul class="steps">
+<li>Write failing test: parse <code>cluster: objection</code> + <code>funnel_tier: necessity</code>; reject <code>funnel_tier: bogus</code>.</li>
+<li>Run <code>pnpm vitest run packages/corpus/src/frontmatter.test.ts</code> → expect FAIL.</li>
+<li>Implement:</li>
+</ul>
+<pre><code>export type Cluster = "mechanics" | "tax" | "portfolio" | "primitive" | "objection";
+export type FunnelTier = "necessity" | "avoidance" | "substitution";
+
+// in CorpusFrontmatter (after cluster):
+funnel_tier?: FunnelTier;
+
+const CLUSTER_VALUES = new Set&lt;Cluster&gt;(["mechanics","tax","portfolio","primitive","objection"]);
+const FUNNEL_TIER_VALUES = new Set&lt;FunnelTier&gt;(["necessity","avoidance","substitution"]);
+
+// parse case (after the cluster case):
+case "funnel_tier":
+  if (FUNNEL_TIER_VALUES.has(value as FunnelTier)) out.funnel_tier = value as FunnelTier;
+  break;</code></pre>
+<ul class="steps"><li>Re-run test → expect PASS.</li></ul>
+<div class="commit">commit: <code>feat(corpus): add objection cluster + funnel_tier frontmatter field</code></div>
+</div></div>
+
+<div class="task" id="t2"><div class="head"><span class="tnum">2</span> Propagate <code>funnel_tier</code> through chunks, search filter, MCP schema</div>
+<div class="body">
+<div class="files"><span class="badge b-mod">MODIFY</span><code>chunk.ts</code> · <code>tools.ts</code> · <code>mcp-servers/corpus/src/index.ts</code> &nbsp; <span class="badge b-test">TEST</span><code>tools.test.ts</code></div>
+<ul class="steps">
+<li>Failing test: index an <code>objection</code> entry, <code>search({query:"afford", funnel_tier:"necessity"})</code> returns only necessity rows.</li>
+<li><strong>chunk.ts</strong>: add <code>funnel_tier?: CorpusFrontmatter["funnel_tier"]</code> to <code>Chunk</code> + <code>funnel_tier: frontmatter?.funnel_tier</code> to the chunk object.</li>
+<li><strong>tools.ts</strong>: add <code>funnel_tier?</code> to search-input + result interfaces; predicate <code>if (input.funnel_tier &amp;&amp; c.funnel_tier !== input.funnel_tier) return false;</code>; map <code>funnel_tier: c.funnel_tier</code> into results.</li>
+<li><strong>MCP index.ts</strong>: extend zod <code>cluster</code> enum with <code>"objection"</code>; add <code>funnel_tier: z.enum(["necessity","avoidance","substitution"]).optional()</code>; update the tool description string.</li>
+<li>Re-run test → PASS. Build sequential:</li>
+</ul>
+<div class="run"><code>pnpm -r --filter='!@engineerdad/webapp' build</code></div>
+<div class="doctrine" style="margin:.7rem 0 0;"><strong>After this lands, restart Claude Code</strong> so the corpus MCP reloads the new <code>funnel_tier</code> filter (in-memory registry freezes at session start).</div>
+<div class="commit">commit: <code>feat(corpus): wire funnel_tier through chunks, search filter, MCP schema</code></div>
+</div></div>
+
+<h2 class="phase p2">Phase 2 — Grounding pass: 5 dataset + chart pairs</h2>
+<p class="phase-note">Each task = <strong>WebFetch the fact → write dataset JSON (with citation) → write chart YAML</strong> (Playwright MCP browser when plain fetch is bot-blocked — the KWSP precedent). If a source is unreachable or the figure is not published, <strong>stop, record the blocker, and escalate to the user</strong> rather than inventing a value. Dataset shape mirrors <code>epf-dividend-history.json</code> (<code>verified_at</code>, <code>source</code>, <code>notes</code>, <code>data[]</code>). Chart shape mirrors <code>inflation-vs-savings-real-value.yaml</code> (header <code>Source:</code> + <code>Used by …</code>, then <code>id</code>/titles/<code>series</code> with <code>semantic_role</code>/bilingual <code>caption</code>/<code>source_citation</code>).<br><strong>Execution order: Task 8 (DOSM CPI) runs FIRST</strong> — the shipped entry <code>d0-saving-is-enough</code> depends on it (SC §5.01(b) current-and-accurate). Then Tasks 3–7, then 8c.</p>
+
+<div class="task t2" id="t3"><div class="head"><span class="tnum">3</span> ETF true-cost stack <span class="pill t2p">T2-1, T2-7</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>corpus/data/etf-cost-comparison.json</code> · <code>corpus/data/charts/true-cost-stack-ut-vs-etf.yaml</code></div>
+<ul class="steps">
+<li><strong>Source</strong>: QQQ &amp; SPY TER (Invesco / State Street factsheets); US dividend withholding for MY residents + confirm no US–MY treaty relief (IRS Pub 515 / treaty table); MYR→USD conversion cost stated as <strong>BNM published reference rate + a named broker's retail markup above it</strong> (cite both; never present the BNM mid-rate as the investor-facing cost). Record URLs.</li>
+<li><strong>Source the US estate-tax exposure fact</strong> (spec §7, T2-7): the USD 60,000 US-situs estate threshold for non-resident aliens (IRC §2102(b) / IRS instructions for Form 706-NA). Record the statute/section + URL; note there is no US–Malaysia estate-tax treaty relief.</li>
+<li>Write dataset: cost-component rows (TER, UT sales charge from owned <code>a-fee-schedule.md</code>, withholding drag, FX spread, estate-tax exposure as a non-annualised risk row) for both routes, each row cited. <code>verification_status: "verified"</code> only if every external figure was fetched this task.</li>
+<li>Write chart: <code>chart_type: bar</code> stacked; hero "UT all-in cost" vs comparison "DIY ETF all-in cost"; <code>Used by … "fees are minimal", "ETF TER is basically free", "the real cost of going direct"</code>. <strong>Caption mandate (comparison compliance):</strong> disclose that UT and DIY ETF differ in structure (custody, advice/service, Shariah option, estate handling), that this is a cost-only comparison not a suitability ranking, concede the ETF's genuine TER advantage, and date every figure.</li>
+<li>Verify every numeric row has a citation trail.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): ETF true-cost-stack dataset + chart (sourced)</code></div>
+</div></div>
+
+<div class="task t2" id="t4"><div class="head"><span class="tnum">4</span> USD return vs MYR-adjusted return <span class="pill t2p">T2-3</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>us-vs-my-returns.json</code> · <code>charts/usd-return-vs-myr-adjusted.yaml</code></div>
+<ul class="steps">
+<li><strong>Source</strong>: QQQ/SPY trailing CAGR using <strong>only the factsheet-published standard periods (5y AND 10y — never a custom window; SC App.1 §H2)</strong> (factsheet); FBM KLCI total-return over the same standard periods (Bursa); MYR/USD at each window's start &amp; end (BNM published rates). Record URLs + exact periods and as-at dates.</li>
+<li>Dataset: USD return, MYR/USD change, MYR-adjusted return, KLCI comparator — <strong>for both the 5y and 10y standard periods</strong> — each cited; windows and as-at dates explicit.</li>
+<li>Chart: <code>chart_type: bar</code>; hero "MYR-adjusted return (what a Malaysian keeps)" vs "Headline USD return" vs floor "KLCI"; <code>Used by … "QQQ/SPY crushes Malaysian funds", "forex doesn't matter"</code>. <strong>Caption mandate:</strong> name the period shown, state that the alternative standard period is also in the dataset and that different windows give different results, concede the US market's genuine long-run strength, and never imply the MYR adjustment makes UT "win" — the point is the ignored forex variable, not a ranking.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): US-vs-MY returns + forex dataset + chart (sourced)</code></div>
+</div></div>
+
+<div class="task t2" id="t5"><div class="head"><span class="tnum">5</span> Sales charge by channel <span class="pill t2p">T2-4, T2-6</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>sales-charge-by-channel.json</code> · <code>charts/sales-charge-by-channel.yaml</code></div>
+<ul class="steps">
+<li><strong>Source</strong>: EPF i-Invest charge cap + eligibility/withdrawal caps (KWSP). Agent/online charges from owned <code>a-sales-charge-math.md</code> — cite, don't refetch.</li>
+<li>Dataset: rows for agent/OTC, online/PMO, i-Invest — charge + source each.</li>
+<li>Chart: <code>chart_type: bar</code>; hero i-Invest (lowest) vs agent; <code>Used by … "5% sales charge is robbery", "just use EPF i-Invest", "the charge depends on the channel"</code>. <strong>Caption mandate:</strong> the channels differ in what they include (agent service/advice vs self-serve; i-Invest's eligibility + withdrawal caps) — disclose this so the chart reads as "the charge buys different things", not "agents overcharge"; date the figures and flag i-Invest caps <code>volatility: "variable"</code>.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): sales-charge-by-channel dataset + chart (sourced)</code></div>
+</div></div>
+
+<div class="task t2" id="t6"><div class="head"><span class="tnum">6</span> Robo-advisor fee/feature comparison <span class="pill t2p">T2-5</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>robo-fee-tiers.json</code> · <code>charts/robo-vs-ut-cost-feature.yaml</code></div>
+<ul class="steps">
+<li><strong>Source</strong>: StashAway &amp; Versa published management-fee tiers (pricing pages). Note the date fetched and set <code>volatility: "variable"</code> (robo fees change without notice).</li>
+<li>Dataset: fee tiers per provider + note on engine (global ETF portfolios) and no PRS relief wrapper (cite owned <code>b-relief-stacking.md</code>).</li>
+<li>Chart: <code>chart_type: bar</code> annual fee; <code>Used by … "robo-advisors do it cheaper", "StashAway/Versa is the same thing"</code>. Caption concedes fee, pivots to relief/Shariah/engine.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): robo fee tiers dataset + chart (sourced)</code></div>
+</div></div>
+
+<div class="task t2" id="t7"><div class="head"><span class="tnum">7</span> Risk–return positioning vs FD/ASB/EPF <span class="pill t1p">T1-5</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>asb-asnb-returns.json</code> · <code>charts/risk-return-positioning.yaml</code></div>
+<div class="doctrine" style="margin:.2rem 0 .6rem;"><strong>Compliance (FIMM/SC).</strong> Positioning chart, <strong>not</strong> a returns bake-off. ASB is principal-stable/near-guaranteed — a bar where equity towers over ASB/EPF breaches SC App.1 §I1a (similar features) + §I1b (undue prominence). Plot <strong>risk × return</strong>; caption must <strong>acknowledge EPF's guaranteed minimum (EPF Act §27)</strong> + ASB principal stability. Never imply UT "safer than" / "beats" EPF/ASB.</div>
+<ul class="steps">
+<li><strong>Source</strong>: ASB/ASNB historical declared returns (ASNB). EPF from owned <code>epf-dividend-history.json</code>; qualified-fund alpha from owned <code>fund-universe-stats-snapshot.md</code> — cite both, don't refetch.</li>
+<li>Dataset: ASB declared returns by year, cited.</li>
+<li>Chart: <strong>risk (x) × return (y)</strong> placing FD/ASB/EPF (capital-stable tier) and a risk-matched equity band in distinct tiers; caption = category-error correction + EPF §27 + ASB stability; <code>Used by … "UT can't even beat FD/ASB/EPF" (as a category-error correction, never a 'UT wins' claim)</code>.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): risk-return positioning dataset + chart (sourced, compliance-framed)</code></div>
+</div></div>
+
+<div class="task t2" id="t8"><div class="head"><span class="tnum">8</span> Re-ground inflation chart + capture regulatory facts — <strong>RUNS FIRST in Phase 2</strong> <span class="pill t0">T0-13</span> <span class="pill t1p">T1-2, T1-3</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>my-cpi-inflation.json</code> · <code>regulatory-facts.json</code> &nbsp; <span class="badge b-mod">MODIFY</span><code>charts/inflation-vs-savings-real-value.yaml</code> · <code>corpus/knowledge/d0-saving-is-enough.md</code> (shipped entry — same commit)</div>
+<ul class="steps">
+<li><strong>Source</strong>: MY CPI/inflation series (DOSM); FIMM/SC licensing + trustee custody (FIMM/SC); confirm <strong>PIDM does not cover unit trusts</strong> (PIDM). Record URLs.</li>
+<li>Write <code>my-cpi-inflation.json</code> (DOSM series, cited). Include a long-run average over a <strong>named window</strong> (e.g. trailing 10y/15y) computed from the sourced series — state the window and the arithmetic in <code>notes</code>.</li>
+<li><strong>Re-ground the inflation chart</strong> against the sourced CPI average. If the sourced long-run CPI differs from the current 5% assumption (it will — DOSM headline CPI runs lower), <strong>recompute the real-value series from the sourced figure</strong> and update values + captions; name the CPI window in the caption. Keeping 5% is only allowed if the caption reframes it as an explicitly-labelled stress assumption alongside the sourced base case. The data-driven brand survives a weaker story; it does not survive an invented one.</li>
+<li><strong>Update the shipped <code>d0-saving-is-enough.md</code> in the same commit</strong> — <code>source_ref</code> cites <code>my-cpi-inflation.json</code>; add <code>my-cpi-inflation</code> to <code>related:</code>; update every quoted RM/percentage figure in the body to match the re-grounded chart. The corpus must never hold two conflicting versions of the same figure (SC §5.01(b)).</li>
+<li>Write <code>regulatory-facts.json</code>: SC regulator, FIMM SRO, trustee custody model, PIDM-not-covered — each cited. No chart (backs T1-2/T1-3 as prose).</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): MY CPI + regulatory facts; re-ground inflation chart + d0-saving-is-enough</code></div>
+</div></div>
+
+<div class="task t2" id="t8b"><div class="head"><span class="tnum">8b</span> EPF age-banded RIA schedule <span class="pill t0">T0-15</span> &nbsp;✅ DONE 2026-06-07</div>
+<div class="body">
+<div class="files"><span class="badge b-mod">MODIFY</span><code>kwsp-ria-benchmarks.json</code> &nbsp; <span class="badge b-create">CREATE</span><code>charts/epf-savings-by-age.yaml</code></div>
+<div class="doctrine" style="margin:.2rem 0 .6rem;"><strong>Sourced:</strong> KWSP Table 1 "New Basic, Adequate and Enhanced Savings Levels" (kwsp.gov.my RIA framework page), full age 18-60 — extracted via headless browser (WebFetch/curl 403'd; Playwright loaded it). Age-60 anchors RM390k / 650k / 1.3m. No screenshot transcription.</div>
+<ul class="steps">
+<li>✅ Added <code>savings_schedule_by_age</code> (age 18-60, basic/adequate/enhanced); <code>verified_at</code>→2026-06-07, <code>verification_status</code>→verified, phase-in corrected to official 5-step (RM240k→+30k/yr→RM390k by 2030). <strong>Legacy <code>tiers</code> left unchanged</strong> (harvester dependency).</li>
+<li>✅ Wrote <code>epf-savings-by-age.yaml</code> — line, x=age, hero=Adequate / comparison=Enhanced / floor=Basic; caption carries today's-ringgit + inflation caveat.</li>
+<li>At entry-authoring: add <code>epf-savings-by-age</code> to <code>d0-epf-will-cover-me</code> <code>related:</code>.</li>
+</ul>
+<div class="commit">committed: <code>data(corpus): EPF RIA age-banded schedule from KWSP Table 1; resolve needs_review</code></div>
+</div></div>
+
+<div class="task t2" id="t8c"><div class="head"><span class="tnum">8c</span> SPIVA + behaviour-gap evidence <span class="pill t2p">T2-2 steelman, T2-8</span></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>corpus/data/spiva-behaviour-gap.json</code></div>
+<div class="doctrine" style="margin:.2rem 0 .6rem;">Spec §7 requires "SPIVA active-vs-index (MY / regional)" for T2-2/T2-8 and "behaviour / return-gap evidence" (cite-with-caveat) — neither was assigned to a Phase-2 task. Without SPIVA, <code>d2-just-dca-the-index</code>'s steelman concession ("most active funds do lag the index") would be an unsourced claim.</div>
+<ul class="steps">
+<li><strong>Source</strong>: the latest S&amp;P SPIVA scorecard — regional (if a Malaysia/Asia ex-Japan cut is published) else global, with the regional caveat noted; plus one named behaviour-gap study (e.g. Morningstar "Mind the Gap" or DALBAR QAIB) for the investor-return-vs-fund-return gap, cited with its methodology caveat. Record URLs + report editions.</li>
+<li>Write <code>spiva-behaviour-gap.json</code> — SPIVA underperformance percentages by horizon (named edition) + the behaviour-gap figure (named study + period). Both flagged <code>volatility: "stable"</code> but edition-dated. No chart in v1 — these back entry prose.</li>
+</ul>
+<div class="commit">commit: <code>data(corpus): SPIVA + behaviour-gap evidence (sourced)</code></div>
+</div></div>
+
+<h2 class="phase p3">Phase 3 — Annotate reuse charts + author entries</h2>
+
+<div class="task t3" id="t9"><div class="head"><span class="tnum">9</span> Annotate the 8 existing reuse charts</div>
+<div class="body">
+<div class="files"><span class="badge b-mod">MODIFY</span> <code>Used by</code> comment only — coffee-to-compound, compounding-30y, start-age-penalty, inflation-vs-savings-real-value, target-by-budget, epf-baseline-tiers, dca-vs-lump, panic-sell-vs-hold, single-country-vs-global, alpha-vs-return</div>
+<p style="font-size:.9rem;margin:.3rem 0;">Append the matching objection hook(s) to each chart's <code>Used by</code> line (spec §8 reuse table). E.g. <code>start-age-penalty.yaml</code> → append <code>…, "I'll start later", "when I'm more settled" (objection myth d0-start-later)</code>.</p>
+<div class="commit">commit: <code>docs(corpus): annotate reuse charts with objection-myth hooks</code></div>
+</div></div>
+
+<div class="card" style="border-left:5px solid #8a4ba0;">
+<strong>Entry template</strong> (Tasks 10–12, every <code>d-*</code> entry):
+<pre><code>---
+cluster: objection
+funnel_tier: &lt;necessity|avoidance|substitution&gt;
+granularity: concept
+source_type: &lt;public|synthesized&gt;
+source_ref: "&lt;citation(s) for every figure; name the dataset/chart/owned entry&gt;"
+verified_at: 2026-06-07
+lang_status: en_only
+related: [&lt;owned-proof-entry&gt;, &lt;chart-id-or-dataset&gt;, ...]
+---
+
+# &lt;Myth, in the saver's own words&gt;
+
+&gt; &lt;compliance framing: mechanics/trade-offs not advice; figures dated; not personalised advice&gt;
+
+## English
+### The myth          &lt;the objection verbatim&gt;
+### The true part     &lt;the steelman concession&gt;
+### The variable it ignores   &lt;the turn; every figure cited&gt;
+### Who it changes the answer for   &lt;the saver-segment&gt;</code></pre>
+</div>
+
+<div class="task t3" id="t10"><div class="head"><span class="tnum">10</span> <span class="pill t0">Tier-0 Necessity</span> entries — 5</div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span> d0-cant-afford-to-start · d0-start-later · d0-saving-is-enough · d0-investing-is-for-the-rich · d0-epf-will-cover-me</div>
+<table>
+<tr><th>File</th><th>Myth</th><th><code>related:</code></th><th>Key cited source</th></tr>
+<tr><td>d0-cant-afford-to-start</td><td>"I don't earn enough to invest"</td><td>fund-public-regularsavings, coffee-to-compound, compounding-30y</td><td>RM100 min, compounding-table.json</td></tr>
+<tr><td>d0-start-later</td><td>"I'll start later, when I'm settled"</td><td>epf-shortfall-cases, start-age-penalty</td><td>start-age-penalty chart</td></tr>
+<tr><td>d0-saving-is-enough</td><td>"Saving / FD is enough — investing is optional"</td><td>inflation-vs-savings-real-value, my-cpi-inflation</td><td>my-cpi-inflation.json</td></tr>
+<tr><td>d0-investing-is-for-the-rich</td><td>"Investing is for rich people, not me"</td><td>epf-shortfall-cases, coffee-to-compound, target-by-budget</td><td>RM100 min, epf-shortfall-cases</td></tr>
+<tr><td>d0-epf-will-cover-me</td><td>"EPF / government will take care of me"</td><td>epf-shortfall-cases, epf-savings-by-age, epf-baseline-tiers</td><td>epf-savings-by-age (age-banded RIA schedule, sourced) — <strong>today's-ringgit; 20-yr horizon needs inflation-adjustment up (caveat in chart caption)</strong></td></tr>
+</table>
+<div class="commit">commit: <code>content(corpus): Tier-0 necessity objection entries (5)</code></div>
+</div></div>
+
+<div class="task t3" id="t11"><div class="head"><span class="tnum">11</span> <span class="pill t1p">Tier-1 Avoidance</span> entries — 11</div>
+<div class="body">
+<table>
+<tr><th>File</th><th>Myth</th><th><code>related:</code></th><th>Key cited source</th></tr>
+<tr><td>d1-agents-just-churn</td><td>"Agents just churn you for commission"</td><td>a-switching-matrix, a-scenario-double-charged</td><td>owned switching entries</td></tr>
+<tr><td>d1-ut-is-a-scam</td><td>"UT is a scam like forex-MLM"</td><td>regulatory-facts</td><td>regulatory-facts.json (FIMM/SC/trustee)</td></tr>
+<tr><td>d1-can-lose-everything</td><td>"You can lose everything — it's gambling"</td><td>c-risk-metric-glossary, regulatory-facts</td><td>FVC tiers, PIDM-not-covered</td></tr>
+<tr><td>d1-sales-charge-instant-loss</td><td>"Sales charge = down 5% on day one"</td><td>a-sales-charge-math, sales-charge-by-channel, d2-sales-charge-robbery</td><td>sales-charge-by-channel chart — <strong>overlap rule: this entry's turn is amortization over holding period ONLY (one-off charge spread across years held); leave the channel comparison entirely to d2-sales-charge-robbery</strong></td></tr>
+<tr><td>d1-cant-beat-fd-asb-epf</td><td>"UT can't even beat FD/ASB/EPF"</td><td>fund-universe-stats-snapshot, epf-dividend-history, risk-return-positioning</td><td>risk-return-positioning — <strong>category-error correction; ack EPF §27; never "safer/beats"</strong></td></tr>
+<tr><td>d1-money-locked-in</td><td>"Money gets locked in / hard to withdraw"</td><td>a-nav-cutoff-settlement</td><td>owned settlement entry</td></tr>
+<tr><td>d1-need-a-lot-to-start</td><td>"You need a lot of money to start"</td><td>fund-public-regularsavings, coffee-to-compound, d0-cant-afford-to-start, d0-investing-is-for-the-rich</td><td>RM100 min — <strong>overlap rule: the d0 siblings argue "investing is a necessity even on a small budget" (TOFU); this entry's turn is the concrete entry mechanics — RM100 e-Series minimum, lump-sum perception vs monthly commitment (MOFU). Cross-link, don't repeat their compounding math</strong></td></tr>
+<tr><td>d1-past-performance-meaningless</td><td>"Past performance means nothing"</td><td>c-reading-a-factsheet, fund-universe-stats-snapshot</td><td>framing only (no number)</td></tr>
+<tr><td>d1-epf-already-invests</td><td>"EPF already invests for me"</td><td>epf-shortfall-cases, b-relief-stacking</td><td>epf-shortfall-cases, PRS relief — <strong>ack EPF §27; UT/PRS is a top-up, never "safer/beats"</strong></td></tr>
+<tr><td>d1-too-complicated</td><td>"Too complicated, I won't understand it"</td><td>c-reading-a-factsheet</td><td>owned factsheet entry</td></tr>
+<tr><td>d1-shariah-just-marketing</td><td>"Shariah funds are just marketing"</td><td>c-shariah-vs-conventional</td><td>owned Shariah entry</td></tr>
+</table>
+<div class="commit">commit: <code>content(corpus): Tier-1 avoidance objection entries (11)</code></div>
+</div></div>
+
+<div class="task t3" id="t12"><div class="head"><span class="tnum">12</span> <span class="pill t2p">Tier-2 Substitution</span> entries — 8</div>
+<div class="body">
+<p style="font-size:.88rem;margin:.2rem 0 .5rem;color:#9a1633;"><strong>Each depends on a Phase-2 dataset — do not author before the dataset exists.</strong></p>
+<table>
+<tr><th>File</th><th>Myth</th><th><code>related:</code></th><th>Key cited source</th></tr>
+<tr><td>d2-fees-vs-etf-ter</td><td>"UT fees are high, ETF TER ~0%"</td><td>a-fee-schedule, etf-cost-comparison, true-cost-stack-ut-vs-etf</td><td>etf-cost-comparison.json</td></tr>
+<tr><td>d2-just-dca-the-index</td><td>"Just DCA the index"</td><td>dca-vs-lump, panic-sell-vs-hold, spiva-behaviour-gap</td><td>dca-vs-lump, panic-sell-vs-hold charts; <strong>steelman concession sourced from spiva-behaviour-gap.json (Task 8c) — the "most active funds lag" concession must cite SPIVA, and the turn (the behaviour gap: plans don't fail, people abandon them) must cite the named behaviour study</strong></td></tr>
+<tr><td>d2-qqq-spy-crush-my-funds</td><td>"QQQ/SPY crush Malaysian funds"</td><td>us-vs-my-returns, usd-return-vs-myr-adjusted, single-country-vs-global</td><td>us-vs-my-returns.json</td></tr>
+<tr><td>d2-sales-charge-robbery</td><td>"5–5.5% sales charge is robbery"</td><td>a-sales-charge-math, sales-charge-by-channel, d1-sales-charge-instant-loss</td><td>sales-charge-by-channel.json — <strong>overlap rule: lead with the channel comparison (agent vs online vs i-Invest — the charge is a chosen variable, not a fixed tax); the amortization math lives in d1-sales-charge-instant-loss, cross-link it</strong></td></tr>
+<tr><td>d2-robo-does-it-cheaper</td><td>"Robo-advisors do it cheaper"</td><td>robo-fee-tiers, b-relief-stacking, robo-vs-ut-cost-feature</td><td>robo-fee-tiers.json</td></tr>
+<tr><td>d2-just-use-epf-iinvest</td><td>"Just use EPF i-Invest, cheaper"</td><td>sales-charge-by-channel, epf-dividend-history</td><td>sales-charge-by-channel.json (caps) — <strong>ack EPF §27; never "safer/beats" EPF</strong></td></tr>
+<tr><td>d2-buy-us-stocks-direct</td><td>"Buy US stocks/ETFs direct for nearly free"</td><td>etf-cost-comparison, true-cost-stack-ut-vs-etf</td><td>etf-cost-comparison.json (withholding, estate)</td></tr>
+<tr><td>d2-active-underperforms</td><td>"Managers underperform, why pay active"</td><td>fund-universe-stats-snapshot, alpha-vs-return, spiva-behaviour-gap</td><td>fund-universe-stats-snapshot, alpha-vs-return, SPIVA (concession) — <strong>compliance guardrail (FIMM CoE ¶4.6a, SC §8.09/§8.14): the weighted-alpha screen is a backward-looking selection signal, NEVER a forecast; include the past-performance caveat verbatim; no scheme-specific performance promise</strong></td></tr>
+</table>
+<div class="commit">commit: <code>content(corpus): Tier-2 substitution objection entries (8)</code></div>
+</div></div>
+
+<h2 class="phase p4">Phase 4 — Wiring &amp; verification</h2>
+
+<div class="task t4" id="t13"><div class="head"><span class="tnum">13</span> Update <code>proof-asset-index.md</code></div>
+<div class="body">
+<div class="files"><span class="badge b-mod">MODIFY</span><code>corpus/knowledge/proof-asset-index.md</code></div>
+<p style="font-size:.9rem;margin:.3rem 0;">Add an <code>### objection-cluster entries + datasets/charts</code> subsection — one row per new asset (asset, type, location, claims it backs), matching the file's table style. Include the 6 new datasets (incl. <code>spiva-behaviour-gap.json</code>), the 5 new charts, <code>regulatory-facts.json</code> / <code>my-cpi-inflation.json</code>, <strong>and the 7 reuse charts the d-entries cite (coffee-to-compound, compounding-30y, start-age-penalty, inflation-vs-savings-real-value, target-by-budget, epf-savings-by-age, epf-baseline-tiers)</strong> so proof-selection can discover them from the index, not only from <code>related:</code> lines.</p>
+<div class="commit">commit: <code>docs(corpus): index objection datasets, charts, entries in proof-asset-index</code></div>
+</div></div>
+
+<div class="task t4" id="t14"><div class="head"><span class="tnum">14</span> (Optional, deferred) owned-data charts</div>
+<div class="body">
+<p style="font-size:.9rem;margin:.3rem 0;">Skip unless requested in v1: <code>shariah-vs-conventional-alpha.yaml</code> (from funds-apr2026.json), <code>risk-tier-ladder.yaml</code> (FVC levels), <code>switching-cost.yaml</code> (from a-switching-matrix.md). If built, follow the chart shape + add proof-index rows.</p>
+</div></div>
+
+<div class="task t4" id="t14b"><div class="head"><span class="tnum">14b</span> corpus-lint script — <strong>run BEFORE Tasks 11–12 author the remaining 19 entries</strong></div>
+<div class="body">
+<div class="files"><span class="badge b-create">CREATE</span><code>scripts/corpus-lint.mjs</code></div>
+<div class="doctrine" style="margin:.2rem 0 .6rem;">Partially delivers TASKS.md <strong>E-026</strong> (corpus-additions validator), scoped to what this plan needs. The grounding gate is doctrine only until a machine enforces it — 19 more entries arrive via subagents.</div>
+<ul class="steps">
+<li><strong>Write the linter.</strong> For every <code>corpus/knowledge/d*.md</code> (and tolerantly for all <code>corpus/knowledge/*.md</code> where fields exist), assert:
+<ol style="margin:.3rem 0;padding-left:1.2rem;">
+<li><strong>Slug resolution</strong> — every <code>related:</code> slug resolves to <code>corpus/knowledge/&lt;slug&gt;.md</code>, <code>corpus/proof/&lt;slug&gt;.md</code>, <code>corpus/data/&lt;slug&gt;.json</code>, or <code>corpus/data/charts/&lt;slug&gt;.yaml</code>. Fail with file + slug on a dangling ref.</li>
+<li><strong>source_ref paths exist</strong> — every <code>corpus/...</code> path mentioned inside <code>source_ref</code> resolves to a real file.</li>
+<li><strong>Frontmatter completeness</strong> — d-entries carry <code>cluster: objection</code>, a valid <code>funnel_tier</code>, <code>verified_at</code>, <code>lang_status</code>.</li>
+<li><strong>Compliance framing line</strong> — the first non-heading line after the H1 of a d-entry is a <code>&gt;</code> blockquote (the framing disclaimer).</li>
+<li><strong>Figure drift (best-effort)</strong> — every <code>RM&lt;number&gt;</code> ≥ 1,000 quoted in a d-entry body appears in at least one artifact named in its <code>related:</code>/<code>source_ref</code> (compare digits-only). Report as WARN, not FAIL (derived figures like monthly gaps are legitimate), but list every unmatched figure for human eyes.</li>
+</ol></li>
+<li><strong>Run it on the shipped d0 entries</strong> — expected: clean (hand-verified 2026-06-11); fix anything it surfaces.</li>
+</ul>
+<div class="commit">commit: <code>feat(scripts): corpus-lint — related-slug, source_ref, frontmatter, figure-drift checks</code></div>
+</div></div>
+
+<div class="task t4" id="t15"><div class="head"><span class="tnum">15</span> Verification — lint + placeholder scan + counts</div>
+<div class="body">
+<div class="run"><code>node scripts/corpus-lint.mjs</code> → expect zero FAILs; review WARNs</div>
+<div class="run"><code>grep -rnE "TODO|TBD|FIXME|&lt;sourced|XXX" corpus/knowledge/d*.md corpus/data/*.json corpus/data/charts/*.yaml</code> → expect no matches</div>
+<div class="run"><code>ls corpus/knowledge/d0-*.md | wc -l &amp;&amp; ls corpus/knowledge/d1-*.md | wc -l &amp;&amp; ls corpus/knowledge/d2-*.md | wc -l</code> → expect <code>5 11 8</code></div>
+<div class="run"><code>grep -L "funnel_tier:" corpus/knowledge/d*.md</code> → expect no output</div>
+</div></div>
+
+<div class="task t4" id="t16"><div class="head"><span class="tnum">16</span> Reindex + final build</div>
+<div class="body">
+<ul class="steps">
+<li>Reindex via <code>/ingest-corpus</code> (or corpus MCP <code>reindex</code>) → all <code>d-*.md</code> indexed under scope <code>knowledge</code>, no skips. <strong>Hard check: fail this step if the index is empty or the <code>d-*</code> chunk count is zero</strong> — a silently-empty index would pass a naive smoke test by returning plausible-looking zero-result responses.</li>
+<li>Smoke-test the tier filter <strong>end-to-end</strong>: corpus search <code>cluster: objection, funnel_tier: necessity</code>, query "afford" → returns <code>d0-cant-afford-to-start</code>. Also run the same query with <code>funnel_tier: substitution</code> → does NOT return d0 entries (proves the filter discriminates, not just decorates). Record both results in the commit message.</li>
+<li>Final commit + push. <code>corpus/.index/</code> is gitignored — fresh checkouts regenerate via <code>/ingest-corpus</code>.</li>
+</ul>
+<div class="commit">commit: <code>chore(corpus): reindex objection corpus; verification pass</code></div>
+</div></div>
+
+<div class="card">
+<strong>Self-review</strong>
+<ul style="font-size:.9rem;margin:.4rem 0;">
+<li><strong>Spec coverage:</strong> §3 tiers → T10–12; §4 myths → param tables; §5 layout/cluster → T1, T10–12; §6 template → T10–12; §7 facts → Phase 2 (each row → a task); §8 propagation + EPF/ASB guardrail → T3–9, T13; §9 consumption flow → validates the field design in T1–2; §10 out-of-scope respected; §11 deliverable → all phases.</li>
+<li><strong>Grounding gate</strong> restated per Phase-2 task; enforced by the T15 placeholder scan.</li>
+<li><strong>Type consistency:</strong> <code>necessity|avoidance|substitution</code> + <code>objection</code> identical across frontmatter type, value set, chunk field, search filter, MCP zod enum.</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>

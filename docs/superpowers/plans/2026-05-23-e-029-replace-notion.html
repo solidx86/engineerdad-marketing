@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>E-029 Plan — Replace Notion with containerised Postgres + review UI</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+    --changed-bg: #fff6e9;
+    --changed-line: #f0c478;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 36px;
+  }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 15.5px; color: var(--muted); margin: 0 0 18px; }
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 13.5px;
+  }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 {
+    font-size: 20px;
+    margin: 44px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  h2 .phase { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 13px; }
+  h3 {
+    font-size: 15.5px;
+    margin: 24px 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h3 .num {
+    display: inline-block;
+    min-width: 32px;
+    text-align: center;
+    background: var(--accent);
+    color: white;
+    border-radius: 5px;
+    padding: 1px 8px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  h3.new .num { background: #7c5af0; }
+  h3.changed .num { background: #c97f1a; }
+  p { margin: 8px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.6px;
+    background: var(--code-bg);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px 16px;
+    overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.3px;
+    line-height: 1.5;
+  }
+  pre.flow { background: #fcfcfd; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.new {
+    background: var(--new-bg);
+    border: 1px solid var(--new-line);
+    color: #4a2e98;
+  }
+  .badge.changed {
+    background: var(--changed-bg);
+    border: 1px solid var(--changed-line);
+    color: #7c5613;
+  }
+  .badge.unchanged {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .callout {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 13.4px;
+  }
+  .callout.new { background: var(--new-bg); border: 1px solid var(--new-line); }
+  .callout.changed { background: var(--changed-bg); border: 1px solid var(--changed-line); }
+  .callout.ok { background: var(--ok-bg); border: 1px solid var(--ok-line); }
+  .callout .tag { font-weight: 700; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 13.2px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.n { text-align: center; font-weight: 700; color: var(--accent); width: 32px; }
+  .delta-summary {
+    background: white;
+    border: 1px solid var(--new-line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 20px 0 28px;
+  }
+  .delta-summary h2 { border: none; margin: 0 0 10px; padding: 0; font-size: 17px; }
+  .files {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 4px 0 10px;
+    padding-left: 14px;
+  }
+  .files li::before { content: "📄 "; opacity: 0.6; }
+  .steps { font-size: 13.2px; }
+  .steps li { margin: 3px 0; }
+  footer.doc {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>E-029 Implementation Plan — for review (Postgres pivot)</h1>
+  <p class="subtitle">Replace Notion with containerised Postgres (Docker compose) + Next.js review UI · Updated 2026-05-23 with the Postgres + data-outside-git decision</p>
+  <dl class="meta">
+    <dt>Plan</dt><dd><code>docs/superpowers/plans/2026-05-23-e-029-replace-notion.md</code></dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-23-e-029-replace-notion-design.html</code> (updated for Postgres)</dd>
+    <dt>ADR</dt><dd><code>docs/decisions/021-local-store-supersedes-notion.md</code> (updated for Postgres)</dd>
+    <dt>Status</dt><dd>Updated — awaiting re-approval before execution resumes</dd>
+    <dt>Tasks</dt><dd>19 — Task 2 + 3 swapped &amp; rewritten for Postgres, others minor edits</dd>
+  </dl>
+</header>
+
+<div class="delta-summary">
+  <h2>Changes since last review</h2>
+  <p>The substrate moves from SQLite (committed-to-git) to <strong>Postgres 16-alpine in Docker compose</strong>, with the volume bind-mounted to <code>./data/postgres/</code> (gitignored). Three cascading effects:</p>
+  <ol>
+    <li><strong>Task 2 ↔ Task 3 swapped &amp; rewritten.</strong> Task 2 is now <em>"Switch foundation to Postgres + Docker compose"</em> — it amends Task 1's SQLite scaffold (deps, <code>db.ts</code>, <code>drizzle.config.ts</code>), brings up the container, and adds <code>store:up/down/wipe/push/logs</code> root scripts. Task 3 is now <em>"Port 8 entity schemas to Drizzle (<code>pgTable</code>)"</em> — uses Postgres-native types (<code>uuid</code>, <code>jsonb</code>, <code>timestamptz</code>, <code>boolean</code>).</li>
+    <li><strong>Test DB pattern reshaped.</strong> Unit tests (Task 5, Task 8) run against the live <code>engineerdad_test</code> database with <code>TRUNCATE ... CASCADE</code> between cases. Playwright (Task 14) uses <code>DROP SCHEMA public CASCADE; CREATE SCHEMA public; drizzle-kit push</code> as the per-spec reset.</li>
+    <li><strong>Setup gains Docker.</strong> First-time setup: install Docker → <code>pnpm install</code> → <code>pnpm -r build</code> → <code>pnpm store:up &amp;&amp; pnpm store:push</code> → <code>pnpm review</code>. <code>data/postgres/</code> is gitignored — clone has no data; cold-start is the only way in.</li>
+  </ol>
+  <p>ADR-021 + the spec HTML both updated. Tasks 4 (filters), 6 (compliance), 7 (barrel), 9, 10, 11, 13, 15, 17, 19 are unchanged. Tasks 12 + 16 + 18 have small adjustments (Next config drops <code>serverExternalPackages</code>; README setup adds Docker; cold-start walk adds <code>pnpm store:up</code>).</p>
+</div>
+
+<h2>Goal &amp; architecture</h2>
+<p><strong>Goal:</strong> Retire Notion as the OS's data + human-gate substrate. Ship a typed Postgres store running in a Docker container, a cap-honouring MCP wrapper, and a single-user Next.js review UI so a fresh <code>/loop-once</code> walks cold-start to HG3 without any tool result approaching the MCP wire cap.</p>
+<p><strong>Architecture:</strong> Drizzle ORM (<code>pgTable</code>) over <code>postgres.js</code> against a Postgres 16-alpine container; bind-mount data volume to <code>./data/postgres/</code> (gitignored). Five-tool MCP surface (<code>query</code> returns IDs only, <code>get</code> per row, <code>create</code>/<code>update</code>/<code>set_status</code>) so bulk content never crosses the conductor boundary. Next.js 15 App Router with server actions over the same <code>packages/store</code> library. Compliance scanner moves from the Notion MCP handler into <code>packages/store/src/crud.ts</code>. Orchestrator run-state (<code>runs</code>/<code>run_steps</code>) stays in <code>data/engineerdad.sqlite</code> — two stores side-by-side, each fit for purpose.</p>
+
+<h2>Pinned forks</h2>
+<table>
+  <tr><th>Question</th><th>Decision</th></tr>
+  <tr><td>Substrate</td><td><strong>Postgres 16-alpine in Docker compose</strong></td></tr>
+  <tr><td>Data location</td><td><code>./data/postgres/</code> bind mount, <strong>gitignored</strong> (clone starts empty)</td></tr>
+  <tr><td>Postgres host:port</td><td><code>127.0.0.1:5432</code> (localhost-only)</td></tr>
+  <tr><td>Review-app port</td><td><code>3030</code> (localhost-only)</td></tr>
+  <tr><td>Markdown editor</td><td>Plain textarea + react-markdown preview</td></tr>
+  <tr><td>Postgres client</td><td><code>postgres.js</code> (pure JS, zero native deps)</td></tr>
+  <tr><td>ORM</td><td>Drizzle + Drizzle Kit (<strong>push</strong>, no migration files at v1)</td></tr>
+  <tr><td>UIUX tests</td><td>Vitest + Playwright (against <code>engineerdad_test</code> DB)</td></tr>
+  <tr><td>Schema setup</td><td><code>pnpm store:up &amp;&amp; pnpm store:push</code></td></tr>
+  <tr><td>Orchestrator state DB</td><td><strong>Stays on SQLite</strong> (<code>data/engineerdad.sqlite</code>) — ephemeral plumbing</td></tr>
+</table>
+
+<h2><span class="phase">PHASE A</span> &nbsp;<code>packages/store</code> — the data layer</h2>
+
+<h3><span class="num">1</span> Scaffold <code>packages/store</code> <span class="badge unchanged">unchanged (shipped)</span></h3>
+<ul class="files">
+  <li><code>packages/store/{package.json, tsconfig.json, drizzle.config.ts, src/db.ts}</code></li>
+  <li><code>pnpm-workspace.yaml</code> (add <code>apps/*</code>)</li>
+</ul>
+<p>8 steps. <strong>Shipped at commit <code>380f70e</code></strong> with SQLite-shaped deps (<code>better-sqlite3</code>, <code>drizzle-orm/better-sqlite3</code>, <code>dialect: "sqlite"</code>). Task 2 amends the substrate to Postgres — the <code>package.json</code> structure, <code>tsconfig.json</code>, and workspace registration carry over unchanged.</p>
+
+<h3 class="changed"><span class="num">2</span> Switch foundation to Postgres + Docker compose <span class="badge changed">rewritten</span></h3>
+<ul class="files">
+  <li>Modify <code>packages/store/package.json</code> (swap <code>better-sqlite3</code> → <code>postgres</code>)</li>
+  <li>Rewrite <code>packages/store/src/db.ts</code> (<code>postgres.js</code> client)</li>
+  <li>Rewrite <code>packages/store/drizzle.config.ts</code> (<code>dialect: "postgresql"</code>)</li>
+  <li>Create <code>docker-compose.yml</code> at repo root</li>
+  <li>Create <code>scripts/postgres-init/01-create-test-db.sql</code></li>
+  <li>Update <code>.env.example</code> + create <code>.env</code></li>
+  <li>Update <code>.gitignore</code> (add <code>data/postgres/</code>); create <code>data/postgres/.gitkeep</code></li>
+  <li>Add root scripts: <code>store:up/down/wipe/push/logs</code></li>
+</ul>
+<div class="callout changed">
+  <span class="tag">Was previously.</span>
+  Task 2 was "Port 8 entity schemas to Drizzle (sqliteTable)". That work is now Task 3 with <code>pgTable</code>. The new Task 2 is the substrate switch — it must land before the schema port so <code>db.ts</code>'s adapter matches the schema's dialect.
+</div>
+<p>11 steps. Bringing up the container at the end emits both <code>engineerdad</code> and <code>engineerdad_test</code> databases (the init SQL script creates the test DB on first container start). Smoke-build at the end fails on the missing <code>./schema.js</code> import — same expected-fail shape as Task 1, confirming the Postgres adapter is wired.</p>
+
+<h3 class="changed"><span class="num">3</span> Port 8 entity schemas to Drizzle (<code>pgTable</code>) <span class="badge changed">repositioned + retyped</span></h3>
+<ul class="files">
+  <li>Create <code>packages/store/src/schema.ts</code></li>
+</ul>
+<div class="callout changed">
+  <span class="tag">Was previously.</span>
+  Task 3 was "Wipe DB + drizzle-kit push (no migrations)" against SQLite. That work is folded into Task 2's bring-up flow (the container's first <code>pnpm store:push</code> creates the schema from empty). The new Task 3 is the schema port — same 8 tables, Postgres-native column types.
+</div>
+<p>5 steps. Notion → Postgres shape changes:</p>
+<ul>
+  <li><code>{ select: { options } }</code> → <code>text</code> + const enum list (validated in CRUD)</li>
+  <li><code>{ multi_select }</code> → <code>jsonb</code> array column (indexable via <code>?</code> / <code>?|</code>)</li>
+  <li><code>{ rich_text }</code> → <code>text</code> (no length cap; ADR-012 dies)</li>
+  <li><code>{ files }</code> → <code>jsonb</code> array of <code>{ url, sha256 }</code></li>
+  <li><code>{ date }</code> → <code>timestamp({ withTimezone: true })</code></li>
+  <li>id → <code>uuid("id").primaryKey().default(sql`gen_random_uuid()`)</code></li>
+  <li><code>{ relation }</code> (single-target) → text FK; multi-target → <code>jsonb</code> array of ids</li>
+</ul>
+<p>After Step 1, Step 3 runs <code>pnpm store:push</code> against the live container; Step 4 verifies all 8 tables via <code>psql</code> <code>\dt</code> + spot-checks one table's column types with <code>\d briefs</code> (expect <code>uuid</code>, <code>jsonb</code>, <code>timestamp with time zone</code>, <code>boolean</code>).</p>
+
+<h3><span class="num">4</span> Filter DSL → SQL builder <span class="badge unchanged">unchanged (PgTable type swap)</span></h3>
+<p>5 steps, TDD. Flat filter shape <code>{ runId: "...", approvalStatus: "Approved" }</code>. Scalar eq, <code>{ in }</code>, <code>{ gte/gt/lte/lt }</code>, <code>{ isNull/isNotNull }</code>. AND implicit, no OR at v1. Import flipped from <code>SQLiteTable</code> to <code>PgTable</code>.</p>
+
+<h3 class="changed"><span class="num">5</span> CRUD module <span class="badge changed">test fixture changed</span></h3>
+<ul class="files">
+  <li><code>packages/store/src/crud.ts</code> + <code>crud.test.ts</code></li>
+</ul>
+<div class="callout changed">
+  <span class="tag">Test DB pattern.</span>
+  Tests now run against the live <code>engineerdad_test</code> Postgres database (the <code>test</code> script in <code>package.json</code> sets <code>DATABASE_URL</code> to it). Each test wraps in a <code>beforeEach</code> that runs <code>TRUNCATE ... CASCADE</code> over all 8 entity tables. Postgres container must be up (<code>pnpm store:up</code>) before tests run.
+</div>
+<p>5 steps, TDD. <code>query</code> returns IDs + opt-in small fields only; <code>get</code> full row; <code>create</code> runs compliance scan; <code>update</code> has <code>fillOnlyIfEmpty</code> mode.</p>
+
+<h3><span class="num">6</span> Compliance scanner integration <span class="badge unchanged">unchanged</span></h3>
+<p>6 steps, TDD. <code>scanProps</code> walks string fields, calls <code>packages/shared/complianceScan</code> with EN/MS lang detection. Pure function — no DB needed for tests.</p>
+
+<h3><span class="num">7</span> Public barrel + singleton <span class="badge unchanged">unchanged</span></h3>
+<p>3 steps. Exports <code>{ store }</code> singleton wired via <code>makeCrud(db, { complianceScan: scanProps })</code>, plus schema re-exports.</p>
+
+<h2><span class="phase">PHASE B</span> &nbsp;<code>mcp-servers/store</code> — the thin wrapper</h2>
+
+<h3><span class="num">8</span> Scaffold MCP server + 5 tool handlers <span class="badge unchanged">unchanged</span></h3>
+<p>8 steps. Thin stdio wrapper via <code>@modelcontextprotocol/sdk</code>. Five tools — <code>query</code>, <code>get</code>, <code>create</code>, <code>update</code>, <code>set_status</code>. Zod validation. 6 handler tests (also TRUNCATE-between against test DB).</p>
+
+<h3><span class="num">9</span> Register store MCP in <code>.mcp.json</code> <span class="badge unchanged">unchanged</span></h3>
+<p>3 steps. Add <code>store</code> entry; Notion stays alongside until Task 15. <strong>Requires Claude Code restart</strong>.</p>
+
+<h2><span class="phase">PHASE C</span> &nbsp;Orchestrator stage call-site flips</h2>
+
+<h3><span class="num">10</span> Flip every stage to <code>mcp__store__*</code> <span class="badge unchanged">unchanged</span></h3>
+<p>8 steps. Tool name flips; filter shape flips (Notion DSL → flat); <code>stepResult</code> readers change shape; fanout units carry <code>id</code> only, worker prompts say "first action: <code>mcp__store__get</code>". <code>projectVariant</code> reads flat store rows.</p>
+
+<h2><span class="phase">PHASE D</span> &nbsp;Agent prompts</h2>
+
+<h3><span class="num">11</span> Update agent tool allowlists + first-action lines <span class="badge unchanged">unchanged</span></h3>
+<p>5 steps. <code>mcp__notion__*</code> → <code>mcp__store__*</code> across all 4 cells. <code>pnpm sync:agents:check</code> green.</p>
+
+<h2><span class="phase">PHASE E</span> &nbsp;<code>apps/review-ui</code></h2>
+
+<h3 class="changed"><span class="num">12</span> Scaffold Next.js 15 review app <span class="badge changed">minor</span></h3>
+<p>8 steps. Same shape as before. <strong>Change:</strong> drops <code>serverExternalPackages: ["better-sqlite3"]</code> from <code>next.config.ts</code> — <code>postgres.js</code> is pure JS and needs no special bundler config. <code>predev</code> hook checks the Postgres container is up before starting Next.</p>
+
+<h3><span class="num">13</span> List + detail views with edit + status flip <span class="badge unchanged">unchanged</span></h3>
+<p>7 steps. Generic table-driven detail page renders every column by type. Functional verification deferred to Task 14 (Playwright).</p>
+
+<h3 class="changed"><span class="num">14</span> Playwright E2E tests for the review UI <span class="badge changed">Postgres test DB</span></h3>
+<ul class="files">
+  <li><code>apps/review-ui/playwright.config.ts</code></li>
+  <li><code>apps/review-ui/tests/e2e/{list,detail-edit,status-flip,markdown-preview}.spec.ts</code></li>
+  <li><code>apps/review-ui/tests/e2e/fixtures.ts</code></li>
+</ul>
+<div class="callout changed">
+  <span class="tag">Test DB pattern (changed from prior plan).</span>
+  Fixtures now point at <code>postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test</code>. The <code>seed</code> fixture runs <code>DROP SCHEMA public CASCADE; CREATE SCHEMA public; pnpm store:push</code> before each spec — same fresh-DB property as before, just via Postgres primitives instead of a separate SQLite file. <code>data/engineerdad.sqlite</code> never touched.
+</div>
+<p>7 steps. Five specs: list (seeded + empty), detail-edit-persist, status-flip-persists-in-list, markdown side-by-side live preview.</p>
+
+<h2><span class="phase">PHASE F</span> &nbsp;Retirements</h2>
+
+<h3><span class="num">15</span> Delete the Notion stack <span class="badge unchanged">unchanged</span></h3>
+<p>7 steps. Grep for live references; delete <code>mcp-servers/notion/</code> + <code>packages/notion-bootstrap/</code>; remove from <code>.mcp.json</code>; drop <code>migrate:*</code> root scripts; mark ADR-012 superseded.</p>
+
+<h3 class="changed"><span class="num">16</span> Update docs <span class="badge changed">Docker prereq</span></h3>
+<p>4 steps. <strong>Change:</strong> README setup adds "Install Docker Desktop" as step 1; lists <code>pnpm store:up &amp;&amp; pnpm store:push</code> before <code>pnpm review</code>. ARCHITECTURE describes two stores side-by-side (SQLite for run state, Postgres for entities).</p>
+
+<h3><span class="num">17</span> Close E-029 in <code>TASKS.md</code> + <code>DONE.md</code> <span class="badge unchanged">unchanged</span></h3>
+
+<h2><span class="phase">PHASE G</span> &nbsp;End-to-end validation</h2>
+
+<h3 class="changed"><span class="num">18</span> Cold-start <code>/loop-once</code> to HG3 <span class="badge changed">adds store:up</span></h3>
+<p>8 steps. Live walk on the new infra. <strong>Change:</strong> Step 1 brings up Postgres (<code>pnpm store:up</code>) alongside the review UI. Acceptance bar unchanged — no tool result exceeds ~10% of the MCP wire cap.</p>
+
+<h3><span class="num">19</span> Final build + test sweep <span class="badge unchanged">unchanged</span></h3>
+<ol class="steps">
+  <li><code>pnpm -r build</code></li>
+  <li><code>pnpm test</code> — unit tests (~492) against <code>engineerdad_test</code> DB</li>
+  <li><code>pnpm test:e2e</code> — Playwright 5/5 green</li>
+  <li><code>pnpm sync:agents:check</code></li>
+  <li><code>pnpm -r typecheck</code></li>
+</ol>
+
+<h2>Self-review checklist</h2>
+<ul>
+  <li>Spec §2 goal — fresh cold-start <code>/loop-once</code> walks to HG3 without exceeding ~10% wire cap → Task <strong>18</strong></li>
+  <li>Spec §5 target shape — <code>packages/store</code>, <code>mcp-servers/store</code>, <code>apps/review-ui</code> all created (Tasks 1–13). Postgres in <code>docker-compose.yml</code>, bind-mounted to <code>./data/postgres/</code> (gitignored). Task 2 swaps the SQLite-shaped Task 1 scaffold to Postgres; Task 3 ports schemas as <code>pgTable</code>.</li>
+  <li>Spec §6 MCP surface — 5 tools (Task 8). <code>query</code> returns IDs only.</li>
+  <li>Spec §7 container shape — <code>docker-compose.yml</code> + <code>scripts/postgres-init/</code> (Task 2).</li>
+  <li>Spec §8 stage touch-ups — Task 10.</li>
+  <li>Spec §9 compliance boundary — Task 6 + Task 5.</li>
+  <li>Spec §10 review app — Tasks 12–13; <strong>Task 14 Playwright</strong> against <code>engineerdad_test</code> DB.</li>
+  <li>Spec §11 Postgres-native wins — schema uses <code>jsonb</code>, <code>uuid</code>, <code>timestamptz</code>, <code>boolean</code> (Task 3).</li>
+  <li>Spec §12 files touched — every entry has a task.</li>
+  <li>Spec §13 test plan — TRUNCATE-between unit tests (4–6, 8), Playwright (14), e2e walk (18).</li>
+  <li>Spec §15 open questions — pinned in plan header; clean-slate + data-outside-git recorded.</li>
+  <li>No placeholders — every code block complete.</li>
+  <li>Type consistency — <code>EntityName</code>, <code>Filter</code>, <code>Crud</code>, <code>store</code> singleton names match across tasks. Playwright fixtures (Task 14) point at the same store via <code>DATABASE_URL</code>.</li>
+</ul>
+
+<footer class="doc">
+  E-029 plan — updated 2026-05-23 with Postgres + Docker substrate · Tasks 2 ↔ 3 swapped &amp; rewritten · Tasks 5, 12, 14, 16, 18 small adjustments · pairs with the spec HTML + ADR-021 (both also updated) · the .md plan file is the executable source of truth.
+</footer>
+
+</div>
+</body>
+</html>

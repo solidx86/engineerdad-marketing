@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distribute ADR-compliance — Implementation Plan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fafafa; padding: 2rem; }
+  .page { max-width: 900px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 3rem; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .meta { font-size: 0.85rem; color: #666; margin-bottom: 2.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  h2 { font-size: 1.15rem; font-weight: 700; margin: 2.5rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 2px solid #e8e8e8; }
+  h3 { font-size: 0.95rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #333; }
+  h4 { font-size: 0.85rem; font-weight: 700; margin: 0.9rem 0 0.4rem; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+  p { margin-bottom: 0.9rem; }
+  ul, ol { margin: 0.5rem 0 0.9rem 1.4rem; }
+  li { margin-bottom: 0.35rem; }
+  code { font-family: "SF Mono", "Fira Code", monospace; font-size: 0.85em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 3px; }
+  pre { background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem 1.2rem; margin: 0.75rem 0 1rem; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 0.83em; line-height: 1.55; }
+  .step { border: 1px solid #e0e0e0; border-radius: 6px; padding: 1.2rem 1.4rem; margin: 1rem 0; background: #fcfcfc; }
+  .step-num { display: inline-block; background: #07a; color: #fff; font-weight: 700; padding: 0.15em 0.65em; border-radius: 3px; font-size: 0.82rem; margin-right: 0.5rem; }
+  .step h3 { margin-top: 0; }
+  .accept { background: #f0f8f0; border-left: 4px solid #2a8; padding: 0.7rem 1rem; margin: 0.6rem 0 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .accept strong { color: #2a8; }
+  .callout { border-left: 4px solid #e05; background: #fff5f5; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 4px 4px 0; font-size: 0.9rem; }
+  .callout.info { border-color: #07a; background: #f0f8ff; }
+  .callout.warn { border-color: #f90; background: #fffaf0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0 1rem; font-size: 0.88rem; }
+  th { text-align: left; background: #f4f4f4; padding: 0.45rem 0.7rem; border: 1px solid #ddd; font-weight: 600; }
+  td { padding: 0.4rem 0.7rem; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .tag { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 0.1em 0.5em; border-radius: 3px; margin-right: 0.3rem; }
+  .tag.tdd { background: #e7d9ff; color: #4a2a8a; }
+  .tag.bug { background: #ffdfdf; color: #a02020; }
+  .tag.data { background: #ffe8c4; color: #7a4a00; }
+  .tag.engine { background: #cfe8ff; color: #1a4a7a; }
+  .tag.ui { background: #ffd1ec; color: #8a1a5a; }
+  .tag.ops { background: #d4edda; color: #155724; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Distribute ADR-compliance — Implementation Plan</h1>
+<div class="meta">
+  <span><strong>Date:</strong> 2026-05-27</span>
+  <span><strong>Branch:</strong> feat/brain-experiment-params</span>
+  <span><strong>Spec:</strong> <code>2026-05-27-distribute-adr-compliance-design.html</code></span>
+</div>
+
+<h2>0. Preconditions</h2>
+<ul>
+  <li>Branch DB sandbox set up (today's earlier work: <code>pnpm db:sandbox</code> writes <code>.env.local</code>; MCPs read it).</li>
+  <li>Live snapshot loaded into branch sandbox (<code>data/snapshots/hg3-assets-backfilled-run_1779779169/engineerdad.sql</code> already restored this session).</li>
+  <li>Uncommitted edits exist on <code>distribute.ts</code> + <code>distribute.test.ts</code> (the D1-field-projection bug fix from earlier this session, 4 new tests passing). These get committed in Step 1.</li>
+  <li><code>engineerdad-postgres</code> container running.</li>
+</ul>
+
+<h2>1. Implementation sequence</h2>
+
+<div class="step">
+  <h3><span class="step-num">1</span> Commit the bug-fix (D1 field projection) <span class="tag bug">bug</span></h3>
+
+  <h4>What</h4>
+  <p>The D1 fields list, <code>projectVariant</code>/<code>projectArticle</code> helpers, and the 4 new tests for them are already in the working tree. Commit them as their own commit so the bug fix has a clean history independent of the larger refactor.</p>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/stages/distribute.ts</code> — already edited</li>
+    <li><code>packages/orchestrator/src/stages/distribute.test.ts</code> — already edited</li>
+  </ul>
+
+  <h4>Commit message</h4>
+  <pre><code>fix(distribute): D1-query field projection + row → DistVariant assembly
+
+D1-query returned {id, title} only because no fields: list was passed,
+crashing planDistribution at v.channels.includes(META). Add explicit
+VARIANT_FIELDS / ARTICLE_FIELDS lists; add idempotent projectVariant
+and projectArticle helpers that assemble metaSpec/ytSpec composites and
+reverse-look up cellId from allocated cells. Existing test fixtures
+(pre-projected) pass through unchanged.
+
+12 distribute tests green (8 original + 4 new).</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> commit lands on <code>feat/brain-experiment-params</code>; <code>git diff HEAD~1 -- packages/orchestrator/src/stages/distribute.ts</code> shows only the projection layer + fields lists.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">2</span> Distributions schema + zod + types <span class="tag data">data</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/store/src/schema.ts</code> — add <code>distributions</code> pgTable + <code>Distributions</code> in <code>ENTITIES</code></li>
+    <li><code>packages/shared/src/types.ts</code> — add <code>DistributionRow</code></li>
+    <li><code>packages/shared/src/zod.ts</code> — add <code>DistributionRowSchema</code></li>
+    <li><code>packages/shared/src/zod.test.ts</code> — round-trip test for the new schema</li>
+    <li><code>packages/store/src/crud.test.ts</code> — round-trip + append-only test</li>
+    <li><code>packages/store/drizzle/000X_distributions.sql</code> — generated</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>Define the table per §6 of the spec. <code>baseColumns()</code> already provides <code>id, runId, title, approvalStatus, createdBy, complianceCheck, createdAt, updatedAt</code>. Add the entity-specific columns: <code>targetEntity, targetId, channel, status, tool, attemptedAt, completedAt, outputJson, errorMessage, skipReason, attempt, dryRun, authorStep</code>.</p>
+
+  <p>Indexes: <code>(runId, createdAt desc)</code>, <code>(runId, channel)</code>, <code>(targetId)</code>.</p>
+
+  <p><strong>TDD order:</strong></p>
+  <ol>
+    <li>Write zod-schema test: a valid DistributionRow parses; missing required fields throw; enum values rejected outside the closed set.</li>
+    <li>Watch fail.</li>
+    <li>Implement <code>DistributionRowSchema</code>.</li>
+    <li>Write crud round-trip test: create → query returns the row; create twice → query returns 2 rows.</li>
+    <li>Watch fail (entity doesn't exist).</li>
+    <li>Add the pgTable + ENTITIES registration. Run <code>pnpm db:sandbox</code> to push schema to branch DB.</li>
+    <li>Watch pass.</li>
+    <li>Generate migration: <code>pnpm db:generate</code>. Commit the generated SQL alongside <code>schema.ts</code>.</li>
+  </ol>
+
+  <h4>Compliance exemption</h4>
+  <p>Add <code>"Distributions"</code> to the compliance-scan exemption list (look in <code>packages/store/src/crud.ts</code> for where <code>PerformanceReports</code> is exempted; mirror that). Test: a Distributions row with the literal string <code>"buy our flagship fund"</code> in <code>errorMessage</code> creates successfully (a banned phrase in a non-exempt entity would fail).</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>pnpm --filter @engineerdad/shared test zod</code> + <code>pnpm --filter @engineerdad/store test crud</code> green; <code>pnpm lint:migrations</code> passes; <code>docker exec engineerdad-postgres psql -U engineerdad -d $BRANCH_DB -c "\d distributions"</code> shows the expected schema.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">3</span> Decompose <code>planMetaPaid</code> <span class="tag engine">engine</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></li>
+    <li><code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code> — <strong>new</strong></li>
+  </ul>
+
+  <h4>What</h4>
+  <p>Split <code>planMetaPaid</code> into:</p>
+  <ul>
+    <li><code>planMetaPaidSetup(runId, variants, cells, dailyBudgetMyr) → PlanPart</code> — campaign + adsets only. Skipped/empty when no routable Meta variants.</li>
+    <li><code>planMetaPaidRows(variants, cells) → PlanPart</code> — rowPlans + backfills only. Skip-handling identical to today's planMetaPaid.</li>
+  </ul>
+
+  <p>Existing <code>planDistribution()</code> stays as a thin composer that calls <code>planMetaPaidSetup</code>, <code>planMetaPaidRows</code>, <code>planYouTube</code>, <code>planArticles</code>, <code>planOrganic</code> in order and merges with <code>mergeParts</code>. Behavior-preserving.</p>
+
+  <h4>TDD order</h4>
+  <ol>
+    <li>Write tests for the two new functions in isolation: setup with 0/1/3 cells, rows with 0/1/N variants, all skip cases.</li>
+    <li>Watch fail.</li>
+    <li>Extract the two functions from <code>planMetaPaid</code> body.</li>
+    <li>Update <code>planDistribution</code> to call the new pair.</li>
+    <li>Watch pass.</li>
+    <li>Add one composition test: <code>planDistribution()</code> output matches the merged output of the decomposed functions (regression guard).</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>plan-distribution.test.ts</code> green; existing <code>distribute.test.ts</code> green (it still calls the composed entry point); orchestrator-package build clean.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">4</span> D2a-setup step <span class="tag engine">engine</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/stages/distribute.ts</code> — add <code>d2aSetup: StepSpec</code></li>
+    <li><code>packages/orchestrator/src/stages/distribute.test.ts</code> — add D2a tests</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>New <code>StepSpec</code> with <code>kind: "spawn"</code>, <code>build: async (run, ctx) =&gt; …</code>. Calls <code>planMetaPaidSetup</code>, stages <code>{setupSteps, dryRun}</code> via <code>ctx.stageInput(null, …)</code>, returns a spawn step with <code>setupPromptFor(ref)</code>.</p>
+
+  <p>Verifier: rejects null/non-object; otherwise pass. (Trust-of-record is D3-confirm via Meta entity ground truth.)</p>
+
+  <h4>TDD order</h4>
+  <ol>
+    <li>Test: D2a build with N cells produces a spawn step; mockCtx receives one stageInput call with payload <code>{setupSteps: [...campaign + N adsets], dryRun: false}</code>; the spawnPrompt contains the returned <code>sr_…</code> ref.</li>
+    <li>Test: D2a build with 0 cells produces a spawn step with empty <code>setupSteps</code> and a worker prompt that still says "if empty, return null shape".</li>
+    <li>Test: D2a build honors <code>run.params.dryRun</code>.</li>
+    <li>Test: D2a verify accepts <code>{campaignId, adsetByCellId}</code>; rejects null.</li>
+    <li>Watch fail.</li>
+    <li>Implement <code>d2aSetup</code>, <code>setupPromptFor()</code>, the helper that reads cells + variants out of D1 result.</li>
+    <li>Watch pass.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> 4 new D2a tests pass; existing distribute tests still pass.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">5</span> D2b-route step <span class="tag engine">engine</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/stages/distribute.ts</code> — add <code>d2bRoute: StepSpec</code></li>
+    <li><code>packages/orchestrator/src/stages/distribute.test.ts</code> — add D2b tests</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>New <code>StepSpec</code> with <code>kind: "fanout"</code>, <code>build: async (run, ctx) =&gt; …</code>. Per spec §5.4. Helpers: <code>attachBackfills(planPart) → RouteUnit[]</code>, <code>resolveSetupRefs(unit, setup) → RouteUnit</code>, <code>routePromptFor(ref, channel)</code>.</p>
+
+  <h4>TDD order</h4>
+  <ol>
+    <li>Test: D2b build with 3 Meta-paid rowPlans + 1 organic rowPlan produces 4 fanout units; each unit's stageInput payload has the correct <code>{channel, rowPlan, backfill, dryRun, runId}</code> shape.</li>
+    <li>Test: Setup-IDs are substituted into row plans before staging — a rowPlan that needs <code>adset:cell-A</code> ends up with the actual adsetId from D2a's result.</li>
+    <li>Test: Dual-channel variant → 2 units (Meta-paid + Meta-organic), each with the appropriate rowPlan.</li>
+    <li>Test: Channel filter <code>["Meta-organic"]</code> in run.params emits only Meta-organic units.</li>
+    <li>Test: Dry-run flag propagates to every unit's stageInput payload.</li>
+    <li>Test: 0 rowPlans → 0 units (fanout returns empty).</li>
+    <li>Test: D2b verify accepts array result; rejects non-array.</li>
+    <li>Watch fail.</li>
+    <li>Implement <code>d2bRoute</code>.</li>
+    <li>Watch pass.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> 7 new D2b tests pass.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">6</span> D3-confirm summary writes <span class="tag engine">engine</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/stages/distribute.ts</code> — extend <code>d3Confirm</code></li>
+    <li><code>packages/orchestrator/src/stages/distribute.test.ts</code> — add summary-write tests</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>D3 currently is <code>kind: "write"</code> with two queries (variants + articles) and a verify. We add <strong>three more</strong> <code>mcp__store__create</code> calls per matched (variant×channel) and per article — one per outcome.</p>
+
+  <p>The calls are derived from the verifyDistribute diff: for each expected variant×channel, if the actual row carries the ground-truth field (adId / ytVideoId / fbPostId), status="routed"; else status="failed". Same for articles via deliveredAt.</p>
+
+  <p>Summary rows carry <code>authorStep: "D3-confirm"</code>, <code>attempt: &lt;count + 1&gt;</code>, <code>attemptedAt: &lt;now&gt;</code>, <code>completedAt: &lt;now&gt;</code>, <code>tool: null</code>.</p>
+
+  <h4>TDD order</h4>
+  <ol>
+    <li>Test: D3 build emits N+M store.create calls (N = variant×channel pairs, M = articles) in addition to the 2 queries.</li>
+    <li>Test: For a variant with channels=["Meta-paid","Meta-organic"] and adId set but fbPostId unset, the summary rows are: 1 routed Meta-paid + 1 failed Meta-organic.</li>
+    <li>Test: D3 verify still delegates to verifyDistribute on the queried rows (unchanged behavior; the summary writes are side effects).</li>
+    <li>Watch fail.</li>
+    <li>Implement the summary-write derivation inside <code>d3Confirm.build</code>.</li>
+    <li>Watch pass.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> 3 new D3 tests pass; existing verifyDistribute tests still pass.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">7</span> Registry wiring <span class="tag engine">engine</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>packages/orchestrator/src/stages/distribute.ts</code> — replace <code>d2Route</code> with <code>d2aSetup</code> + <code>d2bRoute</code> in the exported <code>distributeStage</code></li>
+    <li><code>packages/orchestrator/src/registry.test.ts</code> — assert distribute stage has 5 steps</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>Update the exported stage:</p>
+  <pre><code>export const distributeStage: StageDefinition = {
+  id: "distribute",
+  steps: [d1Query, d2aSetup, d2bRoute, d3Confirm, d4Gate],
+};</code></pre>
+
+  <p>Delete the old <code>d2Route</code> spec definition (no longer referenced).</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> registry test asserts <code>distribute.steps.map(s =&gt; s.id) === ["D1-query","D2a-setup","D2b-route","D3-confirm","D4-gate"]</code>; full orchestrator test suite green.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">8</span> Webapp review page <span class="tag ui">ui</span> <span class="tag tdd">TDD</span></h3>
+
+  <h4>Files</h4>
+  <ul>
+    <li><code>apps/webapp/src/app/api/review/distributions/route.ts</code> — <strong>new</strong></li>
+    <li><code>apps/webapp/src/app/review/distributions/page.tsx</code> — <strong>new</strong></li>
+    <li><code>apps/webapp/src/app/runs/[runId]/page.tsx</code> (or equivalent) — add nav link</li>
+    <li><code>apps/webapp/e2e/distributions-review.spec.ts</code> — <strong>new</strong> Playwright test</li>
+  </ul>
+
+  <h4>What</h4>
+  <p>API route: read <code>runId</code> from query params; call <code>mcp__store__query</code> with the Distributions field projection; return rows as JSON.</p>
+
+  <p>Page: client component that fetches the API route, renders the table per spec §7. Status pill component, mismatch detection between D2b/D3 pairs, channel/status/authorStep filter dropdowns.</p>
+
+  <p>Nav link: append <code>→ Distributions</code> next to the distribute stage chip on the run detail page.</p>
+
+  <h4>TDD order</h4>
+  <ol>
+    <li>Write Playwright test: seed 3 known Distributions rows via store API; visit the page; assert table rows + colors + filter behavior.</li>
+    <li>Watch fail (route doesn't exist).</li>
+    <li>Implement the API route.</li>
+    <li>Implement the page.</li>
+    <li>Watch pass.</li>
+    <li>Add mismatch-marker test: create a D2b "routed" + D3 "failed" pair for the same target; verify 🚩 appears on the D2b row.</li>
+    <li>Watch fail.</li>
+    <li>Implement the mismatch detector.</li>
+    <li>Watch pass.</li>
+  </ol>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> <code>pnpm --filter @engineerdad/webapp test:e2e -- distributions-review</code> green; manual visit to <code>/review/distributions?runId=run_1779779169</code> renders without error.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">9</span> Build everything <span class="tag ops">ops</span></h3>
+
+  <h4>What</h4>
+  <pre><code>pnpm -r --filter='!@engineerdad/webapp' build
+pnpm --filter @engineerdad/webapp build  # webapp built separately per CLAUDE.md
+pnpm --filter @engineerdad/shared test
+pnpm --filter @engineerdad/store test
+pnpm --filter @engineerdad/orchestrator test
+pnpm --filter @engineerdad/analytics test  # ensure no regression</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> all builds clean, all suites green.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">10</span> Reset in-flight run + restart Claude Code <span class="tag ops">ops</span></h3>
+
+  <h4>What</h4>
+  <p>The branch sandbox holds <code>run_1779779169</code> with completed <code>D1-query</code>, <code>D2-route</code> (or absence thereof — we previously deleted D1 to force replay), <code>D3-confirm</code>, <code>D4-gate</code> rows. Under the new schema (D2a/D2b instead of D2), those step rows would never be re-evaluated. Reset them.</p>
+
+  <pre><code>DB=engineerdad_sb_feat_brain_experiment_params
+docker exec engineerdad-postgres psql -U engineerdad -d "$DB" \
+  -c "DELETE FROM orchestrator.run_steps
+       WHERE run_id='run_1779779169'
+         AND step_id IN ('D1-query','D2-route','D2a-setup','D2b-route','D3-confirm','D4-gate');"
+docker exec engineerdad-postgres psql -U engineerdad -d "$DB" \
+  -c "UPDATE orchestrator.runs
+       SET stage='distribute', status='active'
+       WHERE id='run_1779779169';"</code></pre>
+
+  <p>Restart Claude Code so the orchestrator MCP picks up the rebuilt code.</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> after restart, <code>mcp__orchestrator__status</code> shows <code>run_1779779169</code> at <code>distribute / active</code>.</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">11</span> Manual end-to-end walk <span class="tag ops">ops</span></h3>
+
+  <h4>What</h4>
+  <p>From the new Claude Code session, resume <code>/loop run_1779779169</code>. Expected path:</p>
+  <ol>
+    <li><strong>D1-query</strong> runs eager; D1 result has full <code>channels</code>, <code>format</code>, <code>metaPrimaryTextEn</code>, etc.</li>
+    <li><strong>D2a-setup</strong> dispatches one general-purpose worker. Worker reads the ref, finds empty <code>setupSteps</code> (no Meta cells), returns <code>{campaignId: null, adsetByCellId: {}}</code>.</li>
+    <li><strong>D2b-route</strong> fans out:
+      <ul>
+        <li>3 Meta-paid units (one each for the 3 approved Meta-paid variants). Each worker pre-checks → no Meta cell assigned → writes Distributions row <code>{status: "skipped", skipReason: "not assigned to an experiment cell", authorStep: "D2b-route"}</code> → returns.</li>
+        <li>1 Meta-organic unit (for the Carousel 1:1). Worker checks fbPostId (null) → executes <code>publish_carousel_post</code> → writes Distributions row <code>{status: "routed", outputJson: {fbPostId: "..."}, authorStep: "D2b-route"}</code> → backfills <code>fbPostId</code> onto the variant.</li>
+      </ul>
+    </li>
+    <li><strong>D3-confirm</strong> re-queries; <code>verifyDistribute</code> sees: 3 Meta-paid variants without adId (FAIL) + 1 Meta-organic variant with fbPostId (PASS). Writes 4 summary Distributions rows (3 failed + 1 routed, all <code>authorStep: "D3-confirm"</code>). The verifier returns <code>ok: false</code> → the run pauses with the verify problems.</li>
+    <li>Alternative path: if we want the walk to reach D4-gate cleanly, mark the Meta-paid variants' approval status back to "Awaiting Approval" or change the test setup. <strong>For this verification walk, expect the loop to stop at D3-confirm verify failure</strong> — the run had no experiment cells, so Meta routing was always going to fail. That's the correct behavior: D3 is the ground-truth check.</li>
+  </ol>
+
+  <p>Visit <code>http://localhost:3030/review/distributions?runId=run_1779779169</code>. Expect ~8 rows: 4 from D2b (3 skipped + 1 routed) and 4 from D3-confirm (3 failed + 1 routed).</p>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> loop walks D1 → D2a → D2b → D3-confirm without crashing; webapp shows ~8 Distributions rows with the expected channel/status mix; no rows appear in live <code>engineerdad</code> DB (sandbox-only routing verified).</div>
+</div>
+
+<div class="step">
+  <h3><span class="step-num">12</span> Update TASKS.md + commit <span class="tag ops">ops</span></h3>
+
+  <h4>What</h4>
+  <p>Add a closed entry referencing the design + plan; add a follow-up entry for E-024 (IG integration into D2b). Commit everything from Steps 2–11 as a single coherent commit (or 2–3 commits split by concern: schema/types, orchestrator stages, webapp).</p>
+
+  <h4>Commit message (single-commit option)</h4>
+  <pre><code>feat(distribute): split D2 into D2a/D2b; add Distributions entity + review page
+
+- plan-distribution.ts: extract planMetaPaidSetup / planMetaPaidRows
+- distribute.ts: D2-route → D2a-setup (spawn) + D2b-route (fanout)
+  per ADR-024 (ctx.stageInput, sr_ refs in spawnPrompts)
+- packages/store: new Distributions entity (append-only event log)
+- packages/shared: DistributionRow + zod schema
+- apps/webapp: /review/distributions list page + API route
+- D3-confirm: write Distributions summary rows alongside verify
+
+Spec: docs/superpowers/specs/2026-05-27-distribute-adr-compliance-design.html
+Plan: docs/superpowers/plans/2026-05-27-distribute-adr-compliance.html</code></pre>
+
+  <h4>Acceptance</h4>
+  <div class="accept"><strong>Done when:</strong> commit(s) on branch; <code>git status</code> clean; TASKS.md reflects the work.</div>
+</div>
+
+<h2>2. Verification matrix</h2>
+
+<table>
+  <thead><tr><th>Scenario</th><th>Expected</th><th>How to confirm</th></tr></thead>
+  <tbody>
+    <tr><td>D1 returns rows with channels populated</td><td>No "Cannot read properties of undefined" crash; D2a/D2b builds run cleanly</td><td>Step 1's existing 4 tests</td></tr>
+    <tr><td>D2a empty-cells case</td><td>Worker returns null shape; D2b proceeds</td><td>Step 4 test + Step 11 manual walk</td></tr>
+    <tr><td>D2b fans out per (channel × rowPlan)</td><td>N units for N rowPlans</td><td>Step 5 tests</td></tr>
+    <tr><td>Dual-channel variant produces 2 units</td><td>Meta-paid unit + Meta-organic unit, both staged</td><td>Step 5 dual-channel test</td></tr>
+    <tr><td>D3-confirm writes summary rows</td><td>1 row per (variant×channel) + 1 per article</td><td>Step 6 tests + DB inspect after Step 11</td></tr>
+    <tr><td>Distributions log surfaces in webapp</td><td>Rows visible at <code>/review/distributions?runId=…</code></td><td>Step 8 Playwright + Step 11 manual visit</td></tr>
+    <tr><td>Mismatch detector flags worker-vs-truth disagreement</td><td>🚩 on D2b row when D3 says different</td><td>Step 8 mismatch test</td></tr>
+    <tr><td>spawnPrompt size stays under cap</td><td>D2a + every D2b unit prompt &lt; 2 KB</td><td>Inspect via <code>SELECT length(payload::text) FROM orchestrator.step_results WHERE …</code> after Step 11</td></tr>
+    <tr><td>IG manual path unaffected</td><td><code>/posting-pack</code> still functions; no IG units in D2b</td><td>Run <code>/posting-pack</code> after Step 11; compare to a previous pack</td></tr>
+    <tr><td>Live DB untouched</td><td>0 Distributions rows in live <code>engineerdad</code></td><td><code>docker exec ... -d engineerdad -c "SELECT COUNT(*) FROM distributions"</code> = 0</td></tr>
+  </tbody>
+</table>
+
+<h2>3. Rollback</h2>
+
+<p>If something goes wrong post-merge:</p>
+<ol>
+  <li><strong>Revert the commit(s)</strong> on the branch. The Drizzle migration reverts via <code>pnpm db:generate</code> producing a down-diff against main's schema; manual SQL drop of the <code>distributions</code> table is acceptable as a quicker path on the sandbox.</li>
+  <li><strong>Branch DB</strong> is throwaway — re-run <code>pnpm db:sandbox</code> after revert and reload the snapshot.</li>
+  <li><strong>Live DB</strong> was never touched by this work (the safety guard from this morning's branch-DB routing work prevents the MCP from writing to <code>engineerdad</code> from this branch).</li>
+  <li>The pre-existing <code>D2-route</code> step name disappears under the new schema — runs created on the new schema can't be replayed on the old code without reverting their <code>run_steps</code> too. Document this in the revert PR if it ever happens.</li>
+</ol>
+
+<h2>4. Open questions deferred to implementation</h2>
+
+<ul>
+  <li><strong>Where exactly does the compliance exemption list live?</strong> Probably <code>packages/store/src/crud.ts</code> based on the <code>PerformanceReports</code> precedent, but verify on first read. If it's elsewhere (e.g. <code>complianceScan</code> module), edit there instead.</li>
+  <li><strong>RouteUnit type definition.</strong> Pick a place for it — <code>packages/orchestrator/src/distribute/types.ts</code> (new) or inline in <code>distribute.ts</code>. Inline is fine for now; extract if a third caller appears.</li>
+  <li><strong>Title synthesis for Distributions rows.</strong> Spec says <code>"&lt;channel&gt; · &lt;targetEntity&gt; &lt;short-id&gt;"</code> — make it a small helper, test that it produces stable strings for the same input.</li>
+  <li><strong>Backfill steps that today are part of <code>planDistribution</code>'s top-level backfills array.</strong> Under the new design they ride per-unit (each worker runs its own backfill). Confirm during Step 5 that no orphan backfills are left in the global backfills array; if any are truly cross-row, decide whether to keep them as a post-fanout D2c step or fold into D3-confirm.</li>
+  <li><strong>Webapp nav link insertion point.</strong> The exact file path for the run detail page may differ from <code>apps/webapp/src/app/runs/[runId]/page.tsx</code>; grep for the existing distribute-stage section and add the link nearby.</li>
+</ul>
+
+</div>
+</body>
+</html>

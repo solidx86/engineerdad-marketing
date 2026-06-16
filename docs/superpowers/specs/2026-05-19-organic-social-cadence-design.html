@@ -1,0 +1,871 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Organic Social Cadence — Design Spec v1 · EngineerDad Marketing OS</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --panel: #fffdf7;
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-mute: #777570;
+    --rule: #e0d9c8;
+    --accent: #2d5a3d;
+    --accent-soft: #4a7a5a;
+    --accent-bg: #e8f0e9;
+    --warn-bg: #fcefe0;
+    --warn-rule: #d8a96d;
+    --code-bg: #f0ede4;
+    --code-ink: #2a2a2a;
+    --serif: 'Iowan Old Style', 'Apple Garamond', Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'SF Mono', Menlo, Monaco, 'Cascadia Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 60px 40px 120px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    column-gap: 56px;
+  }
+  @media (max-width: 900px) {
+    .page { grid-template-columns: 1fr; padding: 32px 20px 80px; }
+    .sidebar { position: static !important; max-height: none !important; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--rule); }
+  }
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    font-size: 13px;
+  }
+  .sidebar h2 {
+    font-family: var(--serif);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-mute);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .sidebar ol { list-style: none; padding: 0; margin: 0 0 24px; }
+  .sidebar li { margin: 0; }
+  .sidebar a {
+    display: block;
+    padding: 4px 10px 4px 8px;
+    margin: 1px 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    line-height: 1.35;
+    font-size: 12.5px;
+    border-radius: 0 2px 2px 0;
+  }
+  .sidebar a:hover {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .content { min-width: 0; }
+  header.hero {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 28px;
+    margin-bottom: 44px;
+  }
+  .eyebrow {
+    font-family: var(--serif);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 42px;
+    line-height: 1.15;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 640px;
+    margin: 0 0 24px;
+  }
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 18px 32px;
+    font-size: 13px;
+    margin-top: 24px;
+  }
+  .meta dt {
+    font-family: var(--serif);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-mute);
+    margin: 0 0 4px;
+    font-weight: 600;
+  }
+  .meta dd {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    border-radius: 3px;
+    border: 1px solid #c8dccc;
+  }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.005em;
+  }
+  h2 .num {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-right: 10px;
+    letter-spacing: 0;
+    vertical-align: 2px;
+  }
+  h3 {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 28px 0 10px;
+    color: var(--ink);
+  }
+  h2 + p, h3 + p { margin-top: 12px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  li p { margin-bottom: 6px; }
+  a { color: var(--accent); }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; color: var(--ink-soft); }
+  hr {
+    border: 0;
+    border-top: 1px solid var(--rule);
+    margin: 40px 0;
+  }
+  code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #e3decf;
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    background: var(--panel);
+    color: var(--code-ink);
+    padding: 16px 18px;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent-soft);
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 16px 0 20px;
+  }
+  pre code { background: transparent; border: 0; padding: 0; font-size: inherit; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 22px;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--serif);
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 2px solid var(--ink);
+    font-size: 13px;
+    background: transparent;
+  }
+  tbody tr:hover { background: rgba(45, 90, 61, 0.025); }
+  td code { font-size: 12px; }
+  .callout {
+    background: var(--accent-bg);
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    margin: 20px 0 24px;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout-warn {
+    background: var(--warn-bg);
+    border-left-color: var(--warn-rule);
+  }
+  .callout .label {
+    font-family: var(--serif);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .callout-warn .label { color: #a55f10; }
+  .callout p:last-child { margin-bottom: 0; }
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 18px 0 24px;
+  }
+  @media (max-width: 700px) {
+    .week-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .day {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 12px 12px 14px;
+  }
+  .day .dow {
+    font-family: var(--serif);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .day .time {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .day .slot {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .day .fmt {
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    margin-top: 2px;
+  }
+  .day.reel { border-color: #c8dccc; }
+  .day.reel .slot::after {
+    content: ' · quota';
+    color: var(--ink-mute);
+    font-weight: 400;
+    font-size: 10.5px;
+  }
+  .toc-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13.5px;
+  }
+  .toc-row:last-child { border: 0; }
+  .toc-row .l { color: var(--ink); }
+  .toc-row .r { color: var(--ink-mute); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .pill {
+    display: inline-block;
+    padding: 1.5px 7px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: 2px;
+    border: 1px solid #c8dccc;
+  }
+  .pill.warn { background: var(--warn-bg); color: #a55f10; border-color: var(--warn-rule); }
+  .pill.mute { background: transparent; color: var(--ink-mute); border-color: var(--rule); }
+  .flow {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 16px 0 22px;
+    color: var(--code-ink);
+    white-space: pre;
+  }
+  .arch-band {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin: 18px 0;
+  }
+  @media (max-width: 700px) { .arch-band { grid-template-columns: 1fr; } }
+  .arch-band .cell {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 14px 14px;
+    font-size: 13px;
+  }
+  .arch-band .cell .h {
+    font-family: var(--serif);
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .arch-band .cell ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; }
+  .arch-band .cell li { color: var(--ink-soft); }
+  footer.colophon {
+    margin-top: 70px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 12.5px;
+    color: var(--ink-mute);
+    font-family: var(--serif);
+  }
+  footer .file {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-mute);
+    margin-top: 4px;
+  }
+  /* Scrollbar polish */
+  .sidebar::-webkit-scrollbar, pre::-webkit-scrollbar, .flow::-webkit-scrollbar { width: 6px; height: 6px; }
+  .sidebar::-webkit-scrollbar-thumb, pre::-webkit-scrollbar-thumb, .flow::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<nav class="sidebar" aria-label="Table of contents">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#sec-1">1 · Strategic premise</a></li>
+    <li><a href="#sec-2">2 · Cadence</a></li>
+    <li><a href="#sec-3">3 · Data model</a></li>
+    <li><a href="#sec-4">4 · Channel defaults</a></li>
+    <li><a href="#sec-5">5 · /post-week orchestration</a></li>
+    <li><a href="#sec-6">6 · media-production changes</a></li>
+    <li><a href="#sec-7">7 · distribution §4d</a></li>
+    <li><a href="#sec-8">8 · MCP servers</a></li>
+    <li><a href="#sec-9">9 · Hypothesis multi-channel</a></li>
+    <li><a href="#sec-10">10 · ADR-019 safety</a></li>
+    <li><a href="#sec-11">11 · Idempotency</a></li>
+    <li><a href="#sec-12">12 · Error envelope</a></li>
+    <li><a href="#sec-13">13 · Edge cases</a></li>
+    <li><a href="#sec-14">14 · Files changed</a></li>
+    <li><a href="#sec-15">15 · Risks</a></li>
+    <li><a href="#sec-16">16 · Acceptance criteria</a></li>
+    <li><a href="#sec-17">17 · v1.5 hooks</a></li>
+    <li><a href="#sec-18">18 · Decision log</a></li>
+  </ol>
+  <h2>Architecture</h2>
+  <ol>
+    <li><a href="#arch">Overview diagram</a></li>
+    <li><a href="#week">Weekly cadence</a></li>
+  </ol>
+</nav>
+
+<main class="content">
+
+<header class="hero">
+  <div class="eyebrow">EngineerDad Marketing OS · Design Spec</div>
+  <h1>Organic Social Cadence v1</h1>
+  <p class="subtitle">Automated weekly organic posting pipeline (Instagram Business + Facebook Page) layered on top of the existing paid Meta loop, with HeyGen-driven AI-avatar Reels and minimum-viable Meta-organic analytics.</p>
+  <dl class="meta">
+    <div><dt>Date</dt><dd>2026-05-19</dd></div>
+    <div><dt>Status</dt><dd><span class="badge">Awaiting user review</span></dd></div>
+    <div><dt>Scope</dt><dd>Slice A (v1)</dd></div>
+    <div><dt>Commit</dt><dd><code>1d508b2</code></dd></div>
+    <div><dt>Next step</dt><dd>writing-plans skill</dd></div>
+  </dl>
+</header>
+
+<section id="arch">
+<h2><span class="num">★</span>30-second architecture</h2>
+<div class="flow">/loop-once (paid loop, unchanged)
+   └─ CreativeVariants approved at HG3 with Channels = [Meta-paid, Meta-organic]
+                  │
+                  ▼
+/post-week (NEW, manual weekly trigger)
+   ├─ Pool query → 3 Image + 1 Carousel + (0|1) Reel
+   ├─ Reel branch → media-production phase: reel → HeyGen MCP → MP4
+   ├─ Drafts Organic Caption EN/BM + Organic Hashtags IG/FB
+   └─ Sets Organic Status = Drafted on 5 rows
+                  │
+                  ▼  HUMAN GATE — per-post approval in Notion
+                  │
+/distribute --channels=meta-organic
+   └─ mcp-servers/meta-organic
+        ├─ Publishes to IG Business (scheduled_publish_time)
+        ├─ Publishes to FB Page (scheduled_publish_time)
+        └─ Back-fills IG Post ID + FB Post ID + Organic Status = Published</div>
+<div class="arch-band">
+  <div class="cell"><div class="h">New surface</div><ul>
+    <li><code>mcp-servers/meta-organic/</code></li>
+    <li>HeyGen MCP (registered)</li>
+    <li><code>/post-week</code> command</li>
+    <li>media-production <code>phase: reel</code> + Step 5.8</li>
+    <li>ADR-019 safety doctrine</li>
+  </ul></div>
+  <div class="cell"><div class="h">Extended surface</div><ul>
+    <li><code>distribution.md</code> §4d</li>
+    <li><code>brain.md</code> dispatch + <code>/reflect</code> per-channel</li>
+    <li><code>analytics.md</code> multi-channel reads</li>
+    <li><code>CreativeVariants</code> +14 fields</li>
+    <li><code>Hypotheses</code> +<code>Channel</code></li>
+  </ul></div>
+  <div class="cell"><div class="h">Unchanged</div><ul>
+    <li>Paid loop end-to-end</li>
+    <li>YouTube + AuthorityArticles publish</li>
+    <li>ADR-014 / 015 / 016 / 018 doctrine</li>
+    <li>Compliance scanner</li>
+  </ul></div>
+</div>
+</section>
+
+<hr/>
+
+<section id="sec-1">
+<h2><span class="num">§1</span>Strategic premise</h2>
+<p>Organic IG/FB is positioned as <strong>trust infrastructure for the paid funnel</strong>, not a separate growth channel. The Malaysian parent considering a multi-year unit-trust + PRS decision typically clicks the paid ad → checks IG/FB to verify the consultant is real and active → decides whether to WhatsApp. An abandoned page silently drops 60–80% of high-trust purchase journeys.</p>
+<p>Measurement therefore grades organic by <em>paid funnel quality</em> (paid CTR/CPM trend, WhatsApp click-through from paid, direct DMs) and channel-native engagement signals (saves, shares, reach) — not by direct conversion attribution, which is intractable without cross-channel modeling.</p>
+<p>Existing audience context: the IG/FB accounts are not cold-starting (few-hundred followers, 30+ historical posts; manual paid running outside this OS). Building automation now is right-sequenced.</p>
+</section>
+
+<section id="sec-2">
+<h2><span class="num">§2</span>Cadence</h2>
+<p>Five posts per week (3 image + 1 carousel + ~0.75 Reel). Reel quota = 3 per rolling 30 days, derived stateless from <code>Organic Published At</code> counts. Most weeks fire 5; on the 4th week of each window, fires 4 when the Reel quota is met.</p>
+<div id="week" class="week-grid">
+  <div class="day"><div class="dow">Mon</div><div class="time">8:00 PM</div><div class="slot">Image #1</div><div class="fmt">Feed 1:1</div></div>
+  <div class="day"><div class="dow">Tue</div><div class="time">7:00 PM</div><div class="slot">Carousel</div><div class="fmt">Carousel 4:5</div></div>
+  <div class="day"><div class="dow">Wed</div><div class="time">8:00 PM</div><div class="slot">Image #2</div><div class="fmt">Feed 1:1</div></div>
+  <div class="day reel"><div class="dow">Thu</div><div class="time">7:00 PM</div><div class="slot">Reel</div><div class="fmt">Reel 9:16</div></div>
+  <div class="day"><div class="dow">Fri</div><div class="time">6:00 PM</div><div class="slot">Image #3</div><div class="fmt">Feed 1:1</div></div>
+</div>
+<p style="font-size:13px;color:var(--ink-mute);margin-top:-8px;">Times in Malaysia Time (UTC+8). Editable per row at the per-post approval gate before <code>/distribute</code> runs.</p>
+</section>
+
+<section id="sec-3">
+<h2><span class="num">§3</span>Data model — <code>CreativeVariants</code> additions</h2>
+<p>Fourteen new fields, no new Notion DB. One new migration: <code>pnpm migrate:organic-fields</code>.</p>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Filled by</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Organic Language</code> <span class="pill">new</span></td><td>select</td><td>Step 5.8</td><td><code>EN</code> · <code>BM</code> · default <strong>EN</strong>. Single source of truth for caption + asset + HeyGen language. v1 = one Variant publishes in one language only.</td></tr>
+    <tr><td><code>Organic Caption EN</code></td><td>rich_text</td><td>media-production Step 5.8</td><td>≤2,200 chars (IG limit, shared across IG+FB)</td></tr>
+    <tr><td><code>Organic Caption BM</code></td><td>rich_text</td><td>Step 5.8</td><td>≤2,200 chars</td></tr>
+    <tr><td><code>Organic Hashtags IG</code></td><td>multi_select</td><td>Step 5.8</td><td>8–15 typical, 30 max</td></tr>
+    <tr><td><code>Organic Hashtags FB</code></td><td>multi_select</td><td>Step 5.8</td><td>1–3 typical</td></tr>
+    <tr><td><code>Organic Status</code></td><td>select</td><td>system</td><td><code>Drafted</code> · <code>Approved</code> · <code>Rejected</code> · <code>Published</code> · <code>Failed</code></td></tr>
+    <tr><td><code>Organic Scheduled For</code></td><td>date</td><td>/post-week; human-editable</td><td>Required before /distribute. Load-bearing.</td></tr>
+    <tr><td><code>Organic Approval Notes</code></td><td>rich_text</td><td>human at gate</td><td>Human notes only</td></tr>
+    <tr><td><code>Pipeline Notes</code></td><td>rich_text</td><td>system</td><td>Structured error notes, separated from human notes</td></tr>
+    <tr><td><code>Reel HeyGen Job ID</code></td><td>rich_text</td><td>media-production phase reel</td><td>Async job handle</td></tr>
+    <tr><td><code>Reel MP4 URL</code></td><td>url</td><td>phase reel</td><td>asset-store URL (file:// or HTTPS)</td></tr>
+    <tr><td><code>IG Post ID</code></td><td>rich_text</td><td>distribution §4d</td><td>Back-fill</td></tr>
+    <tr><td><code>FB Post ID</code></td><td>rich_text</td><td>distribution §4d</td><td>Back-fill</td></tr>
+    <tr><td><code>Organic Published At</code></td><td>date</td><td>distribution §4d</td><td>Stamped when both IG+FB succeed</td></tr>
+  </tbody>
+</table>
+<p>Zod refines on <code>MediaProductionOutput</code> enforce caption length + hashtag counts at the schema boundary. Notion layout: no auto-provisioned views — user manually reorders and adds section dividers in the Variant page template once (one-time UI setup; persists).</p>
+</section>
+
+<section id="sec-4">
+<h2><span class="num">§4</span>Default <code>Channels</code> mapping (revised)</h2>
+<p><code>media-production</code> auto-populates <code>Channels</code> per Format × Funnel Stage at HG3 time. Humans override in Notion if a specific Variant feels wrong for a channel.</p>
+<table>
+  <thead><tr><th>Format</th><th>Funnel stage</th><th>Default <code>Channels</code></th></tr></thead>
+  <tbody>
+    <tr><td>Feed 1:1</td><td>any</td><td><code>[Meta-paid, Meta-organic]</code></td></tr>
+    <tr><td>Carousel 4:5</td><td>any (incl. BOFU)</td><td><code>[Meta-paid, Meta-organic]</code> <span class="pill">corrected</span></td></tr>
+    <tr><td>Reel 9:16</td><td>any</td><td><code>[Meta-paid, Meta-organic]</code></td></tr>
+    <tr><td>YT-Long 16:9</td><td>any</td><td><code>[YouTube]</code></td></tr>
+  </tbody>
+</table>
+<p>Carousel at all funnel stages defaults to both — IG/FB data shows carousels are the highest-engagement organic format (1.92% engagement, 3× single-image reach, re-serve mechanism). Compliance scanning is content-based, not channel-based, so BOFU restrictions still apply via the existing scanner.</p>
+</section>
+
+<section id="sec-5">
+<h2><span class="num">§5</span><code>/post-week</code> orchestration</h2>
+
+<h3>Command signature</h3>
+<pre><code>/post-week [--week-start=YYYY-MM-DD] [--reel=auto|force|skip] [--resume] [--reset=&lt;variant_id&gt;]</code></pre>
+
+<h3>Flow</h3>
+<div class="flow">brain dispatches → organic-planner step (inline in brain.md)
+  1. Pool query (§5.3)
+  2. Reel-week decision (§5.4)
+  3. Select 3 Image + 1 Carousel + (0|1) Reel
+  4. Assign Organic Scheduled For per slot per §2
+  5. If Reel selected → spawn media-production phase: reel
+  6. Set Organic Status = Drafted on all selected rows
+  7. Return summary: rows queued + pool_short / quota_exceeded warnings
+                ▼
+        HUMAN GATE — per-post approval in Notion
+                ▼
+  /distribute --channels=meta-organic
+        (see §7)</div>
+
+<h3>Variant selection rules</h3>
+<pre><code>SELECT FROM CreativeVariants
+WHERE  Channels ∋ "Meta-organic"
+  AND  "HG3 Status" = "Approved"
+  AND  "Organic Status" IS NULL
+  AND  "Asset Files" IS NOT EMPTY
+GROUP BY Format
+PICK:
+  3 × Format="Feed 1:1"      ORDER BY run_id DESC,
+                                       funnel_stage_priority(TOFU &gt; MOFU &gt; BOFU)
+  1 × Format="Carousel 4:5"  same ordering
+  1 × Format="Reel 9:16"     IFF reel_week_decision = TRUE</code></pre>
+<p>Funnel-stage tie-break favors TOFU/MOFU for organic: organic warms cold-audience trust; BOFU pricing-heavy content runs paid where intent is qualified.</p>
+
+<h3>"Is this a Reel week?" — stateless</h3>
+<pre><code>const reelsLast30Days = countVariants({
+  Format: "Reel 9:16",
+  "Organic Published At": { gte: now - 30d }
+});
+const reelThisWeek = reelsLast30Days &lt; 3;  // self-correcting, target 3/mo</code></pre>
+<p>User overrides via <code>--reel=force</code> (post even if quota met) or <code>--reel=skip</code> (suppress even if unmet).</p>
+</section>
+
+<section id="sec-6">
+<h2><span class="num">§6</span><code>media-production</code> changes</h2>
+
+<h3>Step 5.8 (new) — write Meta-organic spec at HG3 time</h3>
+<p>Invoked alongside existing Step 5.7 (Meta-paid spec) and Step 6 (YouTube spec). For Variants whose <code>Channels</code> includes <code>Meta-organic</code>:</p>
+<table>
+  <thead><tr><th>Field written</th><th>Constraints</th></tr></thead>
+  <tbody>
+    <tr><td><code>Organic Caption EN</code></td><td>≤2,200 chars; warm-audience storytelling; 1st person; CTA woven into prose; emoji-friendly; 2–3 inline hashtags allowed</td></tr>
+    <tr><td><code>Organic Caption BM</code></td><td>Same constraints, BM register</td></tr>
+    <tr><td><code>Organic Hashtags IG</code></td><td>8–15 tags; broad + niche + branded mix</td></tr>
+    <tr><td><code>Organic Hashtags FB</code></td><td>1–3 tags; brand + topic only</td></tr>
+  </tbody>
+</table>
+<div class="callout">
+  <p class="label">Why HG3 time, not /post-week time</p>
+  <p>Single review moment: human sees paid + organic + YouTube copy side-by-side at HG3. Voice coherence: caption written with Script + hook fresh in same prompt context. <code>/post-week</code> stays a fast selector — no LLM hot path. Trade-off accepted: cannot reference topical events (evergreen voice is correct for unit-trust authority content).</p>
+</div>
+
+<h3>Phase <code>reel</code> (new) — render Reel MP4 at <code>/post-week</code> selection time</h3>
+<p>Reels are rendered only on selection (not at HG3) so HeyGen credits are not burned on Variants that never post. Sync path inside <code>/post-week</code>:</p>
+<pre><code>1. Read Variant: Script (BM or EN), Funnel Stage, Hook
+2. Build HeyGen render spec:
+     avatar_id     = $HEYGEN_AVATAR_ID    // one global "Shoo" twin
+     voice_id      = $HEYGEN_VOICE_ID     // dual-trained EN+BM
+     input_text    = trim(Script.{EN|BM} per Organic Language, ~150 words ≈ 60s)
+     language      = Variant.Organic Language    // single source of truth
+     aspect_ratio  = "9:16"
+3. mcp__heygen__generate_video → returns job_id
+4. Stamp Reel HeyGen Job ID on Variant
+5. Poll mcp__heygen__get_video_status every 15s (max 5 min)
+6. On success: download MP4 → mcp__asset-store__upload → URL
+7. Stamp Reel MP4 URL on Variant
+8. Return; Reel Variant joins the 4 image/carousel queue</code></pre>
+<p>5-minute poll timeout → emit <code>reel_render_pending</code> to <code>Pipeline Notes</code>; <code>/post-week --resume</code> picks it up later. <strong>Cost guard:</strong> before any HeyGen call, planner counts Reels rendered this calendar month; if ≥4 (one over target), aborts with <code>quota_exceeded</code>.</p>
+<div class="callout">
+  <p class="label">Script-language guidance for Reels</p>
+  <p>HeyGen renders one TTS language per video — fluid Manglish (mid-sentence code-switching, particles like <code>lah</code>/<code>lor</code>/<code>ah</code>) sounds rough. Scripts pick one dominant language and sprinkle the other naturally as borrow-words. Matches authority-tone for a unit-trust consultant; Manglish stays reserved for human moments (DM replies, Stories) outside this pipeline.</p>
+</div>
+</section>
+
+<section id="sec-7">
+<h2><span class="num">§7</span><code>distribution</code> §4d Meta-organic branch</h2>
+<p>Becomes real (currently stubbed: <code>channel_not_implemented</code>). Pure router per ADR-018 — reads spec verbatim from Notion, never derives.</p>
+<pre><code>Filter:
+  Channels ∋ "Meta-organic"
+  AND Organic Status = "Approved"
+  AND Organic Scheduled For IS NOT NULL
+  AND (IG Post ID IS NULL OR FB Post ID IS NULL)
+
+For each row:
+  1. Read Organic Language (set at HG3, default EN, single source of truth).
+     Pick matching caption + matching asset PNG.
+     Reels already rendered in Organic Language during /post-week (§6.2).
+  2. Compose body per platform:
+     &lt;picked caption&gt; + "\n\n" + Organic Hashtags {IG|FB}.join(' ')
+     Hashtag arrays are language-agnostic.
+  3. IG: mcp__meta-organic__publish_(image|carousel|video)_post
+         with scheduled_publish_time = Organic Scheduled For
+  4. FB: same
+  5. Back-fill IG Post ID + FB Post ID
+  6. Both success → Organic Status = Published, stamp Organic Published At
+  7. Partial fail → Organic Status = Failed + Pipeline Notes naming the leg</code></pre>
+</section>
+
+<section id="sec-8">
+<h2><span class="num">§8</span>MCP servers</h2>
+
+<h3>§8.1 <code>mcp-servers/meta-organic/</code> (new)</h3>
+<table>
+  <thead><tr><th>Tool</th><th>Targets</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>publish_image_post</code></td><td>IG + FB Page</td><td>Requires <code>scheduled_publish_time</code> ≥ now+10min</td></tr>
+    <tr><td><code>publish_carousel_post</code></td><td>IG container + FB multi-photo</td><td>Same scheduling constraint</td></tr>
+    <tr><td><code>publish_video_post</code></td><td>IG Reels + FB Page video</td><td>MP4 ≤100MB IG / ≤1GB FB</td></tr>
+    <tr><td><code>get_post_status</code></td><td>both</td><td>scheduled / published / failed</td></tr>
+    <tr><td><code>get_post_insights</code></td><td>both</td><td>Reach, impressions, engagement, saves, shares</td></tr>
+    <tr><td><code>get_page_insights</code></td><td>both</td><td>Follower delta, page views</td></tr>
+    <tr><td><code>cancel_scheduled_post</code></td><td>both</td><td>Pre-publish escape hatch</td></tr>
+    <tr><td><code>delete_post</code></td><td>both</td><td>Post-publish escape hatch</td></tr>
+  </tbody>
+</table>
+<p>Auth env vars: <code>META_ORGANIC_PAGE_ID</code>, <code>META_ORGANIC_IG_USER_ID</code>, <code>META_ORGANIC_ACCESS_TOKEN</code>. Reuses long-lived token + refresh pattern from <code>mcp-servers/meta-ads</code>.</p>
+
+<h3>§8.2 HeyGen — register, don't rebuild</h3>
+<ol>
+  <li>Add HeyGen's official MCP to <code>.mcp.json</code> per <code>developers.heygen.com</code> docs.</li>
+  <li>Env: <code>HEYGEN_API_KEY</code>, <code>HEYGEN_AVATAR_ID</code>, <code>HEYGEN_VOICE_ID</code>.</li>
+  <li>media-production calls <code>mcp__heygen__generate_video</code> + <code>get_video_status</code> directly.</li>
+  <li><strong>Fallback:</strong> if HeyGen MCP tool shapes don't match, build minimal <code>mcp-servers/heygen-wrapper/</code> on REST. ~1 day if needed.</li>
+</ol>
+<div class="callout">
+  <p class="label">One-time HeyGen setup — manual, ~15 min, before first /post-week</p>
+  <p>Train avatar with <strong>mixed EN + BM source video</strong> (~2 min total, both languages) — preserves Malaysian-Malay phoneme lip-sync. Train voice clone with <strong>mixed EN + BM audio</strong> (~90s each) — preserves your personal BM accent vs the generic TTS default. Note resulting <code>avatar_id</code> + <code>voice_id</code>; populate env vars.</p>
+</div>
+
+<h3>§8.3 <code>mcp-servers/analytics/</code> extensions</h3>
+<p>New SQLite table for unified multi-channel signals:</p>
+<pre><code>CREATE TABLE creative_signals (
+  id INTEGER PRIMARY KEY,
+  variant_id TEXT NOT NULL,       -- CreativeVariants.id from Notion
+  channel TEXT NOT NULL,          -- 'meta-paid' | 'meta-organic' | 'youtube' | 'article'
+  platform TEXT,                  -- 'ig' | 'fb' | NULL
+  kpi_name TEXT NOT NULL,         -- 'reach', 'saves', 'cpm', etc.
+  kpi_value REAL NOT NULL,
+  ts INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  UNIQUE(variant_id, channel, platform, kpi_name, ts)
+);</code></pre>
+<table>
+  <thead><tr><th>Channel</th><th>KPI vocabulary (v1)</th></tr></thead>
+  <tbody>
+    <tr><td>Meta-paid</td><td><code>impressions, clicks, ctr, cpm, cpc, conversions, cpa</code></td></tr>
+    <tr><td>Meta-organic</td><td><code>reach, impressions, engagement_rate, saves, shares, profile_visits, follower_delta</code></td></tr>
+  </tbody>
+</table>
+<p>New tool: <code>mcp__analytics__ingest_meta_organic_insights(variantIds[]?, sinceTs?)</code>. Existing tools (<code>top_creatives</code>, <code>decay_curve</code>, <code>cost_per_angle</code>) gain optional <code>channel</code> parameter — defaults preserve paid back-compat. New tool <code>engagement_per_angle(channel, sinceTs)</code> for organic where "cost" is N/A. Migration: <code>pnpm migrate:creative-signals</code>.</p>
+</section>
+
+<section id="sec-9">
+<h2><span class="num">§9</span>Hypothesis + <code>/reflect</code> multi-channel scaffolding</h2>
+<p>One new <code>Hypotheses</code> field: <code>Channel</code> (multi_select). Options: <code>Meta-paid</code>, <code>Meta-organic</code>, <code>YouTube</code>, <code>AuthorityArticles</code>, <code>Cross-channel</code>. Legacy rows default to <code>Meta-paid</code> on migration.</p>
+<p><code>/reflect</code> grades each channel <strong>independently</strong> in v1 — no causal claims across channels (cross-channel attribution deferred to v2).</p>
+<table>
+  <thead><tr><th>Channel</th><th>Confirm rule (illustrative; tunable in prompt)</th></tr></thead>
+  <tbody>
+    <tr><td>Meta-paid</td><td>CPA ≤ benchmark × 0.8 over ≥7d with N ≥ 50 conversions</td></tr>
+    <tr><td>Meta-organic</td><td>Save rate ≥ benchmark × 1.3 over ≥3 posts on same hypothesis, OR engagement_rate ≥ benchmark × 1.5 over ≥5 posts</td></tr>
+    <tr><td>YouTube <span class="pill mute">v1.5</span></td><td>Placeholder: avg % viewed ≥ 40% AND CTR ≥ 5% over ≥2 videos. Stub returns <code>inconclusive</code> until v1.5 ingestion ships.</td></tr>
+    <tr><td>AuthorityArticles <span class="pill mute">v1.5</span></td><td>Placeholder: GSC avg position ≤ 5 for ≥1 target keyword over 14d. Stub returns <code>inconclusive</code>.</td></tr>
+    <tr><td>Cross-channel <span class="pill mute">v2</span></td><td>Deferred</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="sec-10">
+<h2><span class="num">§10</span>Safety doctrine — ADR-019 (new)</h2>
+<div class="callout callout-warn">
+  <p class="label">Decision: schedule-only, never immediate</p>
+  <p>Unlike paid (<code>status=PAUSED</code>) or YouTube (<code>privacyStatus=unlisted</code>), organic posts have no draft state — once published, they're public to followers and the algorithm. Therefore, four constraints are hard-wired at the <code>mcp-servers/meta-organic/</code> layer:</p>
+</div>
+<ol>
+  <li><strong>No immediate publish path.</strong> Every <code>publish_*</code> tool requires <code>scheduled_publish_time</code> ≥ now+10min. No <code>--allow-immediate</code> parameter exists in any tool schema. Refuses with <code>immediate_publish_disabled</code>.</li>
+  <li><strong>Validate window.</strong> <code>scheduled_publish_time</code> ≤ 75 days in future (Meta's hard cap). Refuses with <code>out_of_schedule_window</code>.</li>
+  <li><strong>Compliance pre-flight.</strong> The existing scanner (<code>packages/shared/src/compliance.ts</code>, citing <code>corpus/compliance/{sc-malaysia,fimm,public-mutual}.md</code>) runs on <code>Organic Caption EN/BM</code> before any publish call. Fails closed.</li>
+  <li><strong>Idempotency key.</strong> Each publish call carries <code>(Variant ID, platform)</code> as idem key; double-fires return existing post ID rather than duplicating.</li>
+</ol>
+<p>Consequence: a post only lands instantly if the user manually edits <code>Organic Scheduled For</code> to exactly now+10min — and even then Meta queues it server-side. The human always has a 10-minute window to cancel via Meta's UI before it goes live.</p>
+</section>
+
+<section id="sec-11">
+<h2><span class="num">§11</span>Idempotency</h2>
+<table>
+  <thead><tr><th>Surface</th><th>Idem key</th><th>Behavior on re-run</th></tr></thead>
+  <tbody>
+    <tr><td><code>/post-week</code></td><td><code>(week_start, planner_run_id)</code></td><td>Pool filter excludes rows with <code>Organic Status IS NOT NULL</code> — already-drafted rows silently skipped</td></tr>
+    <tr><td>media-production <code>phase: reel</code></td><td>Variant ID</td><td>If <code>Reel HeyGen Job ID</code> exists + <code>processing</code>, polls instead of re-rendering. If <code>Reel MP4 URL</code> populated, no-op.</td></tr>
+    <tr><td>meta-organic <code>publish_*</code></td><td>(Variant ID, platform)</td><td>If back-fill IDs populated, no-op. Else dedup via Meta's <code>client_token</code>.</td></tr>
+    <tr><td>analytics <code>ingest_meta_organic_insights</code></td><td>UNIQUE on (variant_id, channel, platform, kpi_name, ts)</td><td>INSERT conflict-on-unique → safe re-ingest</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="sec-12">
+<h2><span class="num">§12</span>Error envelope</h2>
+<table>
+  <thead><tr><th>Code</th><th>Meaning</th><th>Recovery</th></tr></thead>
+  <tbody>
+    <tr><td><code>reel_render_pending</code></td><td>HeyGen 5-min poll timeout</td><td><code>/post-week --resume</code></td></tr>
+    <tr><td><code>reel_render_failed</code></td><td>HeyGen returned error</td><td>Manual check; sets <code>Organic Status = Failed</code></td></tr>
+    <tr><td><code>compliance_block</code></td><td>Caption hit banned-phrase scanner</td><td>Edit + re-approve in Notion</td></tr>
+    <tr><td><code>pool_short</code></td><td>Fewer than required eligible Variants</td><td>Run <code>/loop-once</code> first</td></tr>
+    <tr><td><code>immediate_publish_disabled</code></td><td>distribute called without <code>Organic Scheduled For</code></td><td>Fill the date, re-run</td></tr>
+    <tr><td><code>out_of_schedule_window</code></td><td><code>Organic Scheduled For</code> &gt; 75 days out</td><td>Edit, re-run</td></tr>
+    <tr><td><code>quota_exceeded</code></td><td>Already posted 3 Reels in past 30d</td><td><code>--reel=skip</code> or wait</td></tr>
+    <tr><td><code>partial_publish_failure</code></td><td>IG succeeded, FB failed (or vice versa)</td><td>Manual verify; <code>Organic Status = Failed</code>; user re-runs after fix</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="sec-13">
+<h2><span class="num">§13</span>Edge cases handled in v1</h2>
+<table>
+  <thead><tr><th>Case</th><th>Behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Fewer than 3 image Variants available</td><td>Warning; queue what's available</td></tr>
+    <tr><td>No carousel Variant available</td><td>Skip carousel slot; queue 3 images only</td></tr>
+    <tr><td>HeyGen render fails permanently</td><td>Variant → <code>Organic Status = Failed</code> + notes</td></tr>
+    <tr><td>Variant already organic-published</td><td>Excluded from pool by base filter</td></tr>
+    <tr><td><code>/post-week</code> run twice same day</td><td>Idempotent (see §11)</td></tr>
+    <tr><td>First run when <code>/loop-once</code> pool empty</td><td>Clear error: "no organic-eligible Variants — run /loop-once first"</td></tr>
+    <tr><td>BM-language Reel with EN-only HeyGen training</td><td>Mitigated by mandatory dual-language setup (§8.2)</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="sec-14">
+<h2><span class="num">§14</span>Files changed</h2>
+<h3>New</h3>
+<ul>
+  <li><code>mcp-servers/meta-organic/</code> — full new MCP (write + read)</li>
+  <li><code>.claude/commands/post-week.md</code> — slash command</li>
+  <li><code>docs/decisions/019-organic-publish-safety-doctrine.md</code> — ADR</li>
+  <li><code>packages/notion-bootstrap/src/migrate-organic-fields.ts</code></li>
+  <li><code>packages/notion-bootstrap/src/migrate-hypothesis-channel.ts</code></li>
+  <li><code>packages/notion-bootstrap/src/migrate-creative-signals.ts</code></li>
+</ul>
+<h3>Changed</h3>
+<ul>
+  <li><code>.mcp.json</code> — register HeyGen MCP</li>
+  <li><code>.claude/agents/media-production.md</code> — Step 5.8 + phase: reel</li>
+  <li><code>.claude/agents/distribution.md</code> — §4d becomes real router</li>
+  <li><code>.claude/agents/brain.md</code> — <code>/post-week</code> dispatch + organic-planner + per-channel <code>/reflect</code> + <code>/analyze --channel</code></li>
+  <li><code>.claude/agents/analytics.md</code> — multi-channel reads</li>
+  <li><code>packages/notion-bootstrap/src/schemas.ts</code> — 13 new <code>CreativeVariants</code> fields + <code>Hypotheses.Channel</code></li>
+  <li><code>packages/shared/src/zod.ts</code> — <code>OrganicStatus</code> enum + refines on <code>MediaProductionOutput</code></li>
+  <li><code>mcp-servers/analytics/src/index.ts</code> — <code>ingest_meta_organic_insights</code> + <code>engagement_per_angle</code> + <code>channel</code> param</li>
+  <li><code>corpus/compliance/banned-phrases.yaml</code> — organic-specific allowlist patches</li>
+  <li><code>TASKS.md</code> — queue v1.5 specs (YouTube analytics, Articles analytics, experiment-os multi-channel, cross-channel attribution)</li>
+</ul>
+</section>
+
+<section id="sec-15">
+<h2><span class="num">§15</span>Risks &amp; mitigations</h2>
+<table>
+  <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>HeyGen MCP undocumented / brittle</td><td>Fall back to thin REST wrapper (~1 day)</td></tr>
+    <tr><td>Meta IG Business Graph auth drift</td><td>Reuse meta-ads MCP long-lived token + refresh pattern</td></tr>
+    <tr><td>Compliance false-positives on organic style (emojis, "DM me")</td><td>Allowlist patches to <code>banned-phrases.yaml</code>; test 5 real captions before merge</td></tr>
+    <tr><td>Variant pool dries up if <code>/loop-once</code> cadence slows</td><td>Surface <code>pool_short</code> in summary; user-driven recovery</td></tr>
+    <tr><td>Meta Graph rate limits during peak scheduling</td><td>Retry-with-jitter; 5 posts/week well under limits</td></tr>
+    <tr><td>BM voice quality from cross-lingual clone</td><td>Mandatory dual-language HeyGen training in §8.2 setup</td></tr>
+    <tr><td>Partial publish (IG ok, FB fails)</td><td><code>partial_publish_failure</code> surfaces; v1 doesn't auto-retry failing leg</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="sec-16">
+<h2><span class="num">§16</span>Acceptance criteria</h2>
+<ol>
+  <li>All three migrations apply cleanly to live Notion + SQLite.</li>
+  <li>After a <code>/loop-once</code> run, Variants with <code>Channels ∋ Meta-organic</code> have populated <code>Organic Caption EN/BM</code> + <code>Organic Hashtags IG/FB</code> from Step 5.8.</li>
+  <li><code>/post-week</code> against a non-empty pool selects 3 images + 1 carousel + (0|1) Reel per §5; Reel renders within 5 min and stamps <code>Reel MP4 URL</code>; all rows flip to <code>Organic Status = Drafted</code>.</li>
+  <li>After approval, <code>/distribute --channels=meta-organic</code> schedules via Meta native API; back-fills <code>IG Post ID</code> + <code>FB Post ID</code>; sets <code>Organic Status = Published</code>.</li>
+  <li><code>ingest_meta_organic_insights</code> populates <code>creative_signals</code>; <code>top_creatives(channel="meta-organic")</code> returns ranked Variants.</li>
+  <li>A <code>Channel = Meta-organic</code> hypothesis graded by <code>/reflect</code> returns Confirm/Refute/Inconclusive per §9.</li>
+  <li>Repo-wide <code>pnpm typecheck</code> clean; existing tests pass; new tests cover meta-organic MCP scheduling validation, <code>/post-week</code> selection rules, Reel quota counting, Zod refines.</li>
+  <li><code>pnpm sync:agents:check</code> clean.</li>
+  <li>ADR-019 committed.</li>
+</ol>
+</section>
+
+<section id="sec-17">
+<h2><span class="num">§17</span>v1.5 hooks left by this spec</h2>
+<ul>
+  <li><code>creative_signals.channel</code> accepts <code>youtube</code> and <code>article</code> values — v1.5 adds ingestion without schema change</li>
+  <li><code>Hypotheses.Channel</code> already accepts <code>YouTube</code>, <code>AuthorityArticles</code>, <code>Cross-channel</code> — v1.5 adds grader implementations</li>
+  <li><code>/reflect</code> channel-routing stub returns <code>inconclusive</code> for YT/Articles until graders ship</li>
+  <li><code>/analyze --channel=youtube|article|all</code> accepted but no-op until ingestion ships</li>
+  <li><code>analytics.top_creatives(channel=...)</code> works for any channel that has rows in <code>creative_signals</code> — no code change needed</li>
+</ul>
+</section>
+
+<section id="sec-18">
+<h2><span class="num">§18</span>Decisions made during brainstorming</h2>
+<ol>
+  <li><strong>Reframe accepted:</strong> organic = trust infrastructure for paid funnel, not separate growth channel.</li>
+  <li><strong>Build now,</strong> not gated on signal test: user has few-hundred followers + 30+ posts + manual paid history; not cold-starting.</li>
+  <li><strong>Platforms:</strong> IG Business + FB Page only (both via Meta Graph). TikTok / LinkedIn out of scope.</li>
+  <li><strong>Content source:</strong> reuse paid loop's CreativeVariants (no parallel engine).</li>
+  <li><strong>AI avatar pipeline:</strong> HeyGen Creator ($29/mo) + Pay-As-You-Go API (~$10–20/mo). Register HeyGen's official MCP.</li>
+  <li><strong>Trigger:</strong> manual <code>/post-week</code> (not scheduled / not cron).</li>
+  <li><strong>Approval:</strong> per-post (Notion filter on <code>Organic Status = Drafted</code>).</li>
+  <li><strong>Data model:</strong> Option A — extend <code>CreativeVariants</code> (no new DB).</li>
+  <li><strong>Captions:</strong> shared caption + per-platform hashtags (Option Y).</li>
+  <li><strong>Carousel BOFU channel:</strong> corrected to <code>[Meta-paid, Meta-organic]</code>.</li>
+  <li><strong>Scheduling mechanism:</strong> Meta native <code>scheduled_publish_time</code>.</li>
+  <li><strong>Organic copy generation:</strong> at HG3 time in media-production Step 5.8.</li>
+  <li><strong>Notion views:</strong> no auto-provisioned filtered views; manual one-time UI grouping.</li>
+  <li><code>Pipeline Notes</code> <strong>separated from</strong> <code>Organic Approval Notes</code> — system vs human.</li>
+  <li><strong>HeyGen IDs:</strong> global env vars (one "Shoo" twin), not per-Variant.</li>
+  <li><strong>One Reel per Variant</strong> in Script's language; mandatory dual-language HeyGen training.</li>
+  <li><strong>Slice scope:</strong> v1 = posting + Meta-organic analytics + multi-channel Hypothesis field. YouTube + Articles + experiment-os multi-channel + cross-channel attribution → separate v1.5/v2 specs.</li>
+  <li><strong>Cross-channel hypothesis grading:</strong> v1 grades each channel independently.</li>
+  <li><strong>Organic Status:</strong> shared state across IG+FB for v1.</li>
+  <li><strong>Manglish:</strong> not viable on current AI TTS — scripts pick one dominant language with sparse borrow-words from the other.</li>
+  <li><strong>One organic post per Variant in one language</strong> — every Script is bilingual but organic publishes in ONE language per Variant. New field <code>Organic Language</code> (single_select <code>EN</code> | <code>BM</code>, default <strong>EN</strong>) set at HG3; user overrides per Variant. Re-posting same Variant in the other language deferred to v1.5.</li>
+</ol>
+</section>
+
+<footer class="colophon">
+  <div>Companion to the markdown spec at the same path; both committed at <code>1d508b2</code>.</div>
+  <div class="file">docs/superpowers/specs/2026-05-19-organic-social-cadence-design.html</div>
+</footer>
+
+</main>
+</div>
+</body>
+</html>

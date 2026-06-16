@@ -1,0 +1,300 @@
+{
+  "id": "070b16c4-108e-47dd-8b3f-e5f25d25238f",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "orchestrator.run_steps": {
+      "name": "run_steps",
+      "schema": "orchestrator",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "problems": {
+          "name": "problems",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "run_steps_run_idx": {
+          "name": "run_steps_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "run_steps_run_id_runs_id_fk": {
+          "name": "run_steps_run_id_runs_id_fk",
+          "tableFrom": "run_steps",
+          "tableTo": "runs",
+          "schemaTo": "orchestrator",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "run_steps_run_id_step_id_pk": {
+          "name": "run_steps_run_id_step_id_pk",
+          "columns": [
+            "run_id",
+            "step_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "orchestrator.runs": {
+      "name": "runs",
+      "schema": "orchestrator",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "stage": {
+          "name": "stage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "params": {
+          "name": "params",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "orchestrator.step_results": {
+      "name": "step_results",
+      "schema": "orchestrator",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_index": {
+          "name": "unit_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload_kind": {
+          "name": "payload_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "step_results_run_step_idx": {
+          "name": "step_results_run_step_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "step_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "step_results_input_idempotency_idx": {
+          "name": "step_results_input_idempotency_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "step_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "unit_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "payload_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"orchestrator\".\"step_results\".\"payload_kind\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "orchestrator": "orchestrator"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

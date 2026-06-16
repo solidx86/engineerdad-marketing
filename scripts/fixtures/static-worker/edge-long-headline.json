@@ -1,0 +1,19 @@
+{
+  "scriptId": "test_script_005",
+  "format": "Feed",
+  "aspect": "1:1",
+  "width": 1080,
+  "height": 1080,
+  "language": "en",
+  "scenes": [
+    {
+      "scene": 1,
+      "headline": "Education inflation has run at 5-6% per year for two decades while bank savings paid less than 3%",
+      "headline_source": "hook",
+      "body": "The gap compounds. A RM50,000 degree today becomes RM120,000 by the time your newborn enrols.",
+      "shotNotes": "static, text-dense composition — headline must wrap cleanly",
+      "chartRef": null
+    }
+  ],
+  "thumbnailBrief": "Authoritative tone. Headline is unusually long (21 words) — must wrap to 4-5 lines without overflow. Navy text on offwhite background. Body copy below in muted secondary text. Stress-test layout: edge case for headline-fit logic."
+}

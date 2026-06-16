@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeyGen Reel Pipeline — End-to-End Design Spec</title>
+<style>
+  :root {
+    --ink: #1c2230;
+    --muted: #5b6577;
+    --line: #e2e6ee;
+    --accent: #4f46e5;
+    --accent-soft: #eef0fe;
+    --code-bg: #f5f6f9;
+    --warn-bg: #fff6e9;
+    --warn-line: #f0c478;
+    --ok-bg: #ecf7ef;
+    --ok-line: #9ed0ac;
+    --bad-bg: #fdecec;
+    --bad-line: #e9a4a4;
+    --new-bg: #f3edff;
+    --new-line: #b29df0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.62;
+    margin: 0;
+    background: #fafbfc;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.doc { border-bottom: 3px solid var(--accent); padding-bottom: 22px; margin-bottom: 36px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { font-size: 16px; color: var(--muted); margin: 0 0 18px; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 13.5px; }
+  .meta dt { color: var(--muted); font-weight: 600; }
+  .meta dd { margin: 0; }
+  h2 { font-size: 20px; margin: 44px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 28px 0 10px; color: var(--ink); }
+  h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  p, ul, ol { font-size: 15px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-x: auto;
+    margin: 14px 0;
+  }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  blockquote.callout {
+    margin: 14px 0;
+    padding: 12px 16px;
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 8px 8px 0;
+    font-size: 14.5px;
+  }
+  .callout.warn { border-left-color: var(--warn-line); background: var(--warn-bg); }
+  .callout.ok { border-left-color: var(--ok-line); background: var(--ok-bg); }
+  .callout.bad { border-left-color: var(--bad-line); background: var(--bad-bg); }
+  .callout.new { border-left-color: var(--new-line); background: var(--new-bg); }
+  .tag {
+    display: inline-block;
+    font-size: 11.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-right: 4px;
+  }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>HeyGen Reel Pipeline</h1>
+  <p class="subtitle">End-to-end design for producing data-driven Reels from approved Scripts to distribution-ready CreativeVariants</p>
+
+<div style="background:#fff3cd;border:2px solid #f0c040;border-radius:6px;padding:12px 16px;margin-top:12px;margin-bottom:4px;font-weight:bold;">
+  SUPERSEDED (2026-05-29) by ADR-028 and <code>docs/superpowers/plans/2026-05-29-heygen-native-scene-assembly.md</code>. The local-stitch architecture below is historical; the reel pipeline now uses HeyGen-native multi-scene assembly.
+</div>
+  <dl class="meta">
+    <dt>Date</dt><dd>2026-05-28</dd>
+    <dt>Status</dt><dd><span class="tag">Proposed</span></dd>
+    <dt>Author</dt><dd>Solid (with AI collaborator)</dd>
+    <dt>Base branch</dt><dd><code>main</code> — the distribute-stage refactor + Distributions entity (originally on <code>feat/brain-experiment-params</code>) merged to main 2026-05-29; this spec now reads directly against main</dd>
+    <dt>Integration branch</dt><dd><code>feat/heygen-reel-pipeline</code> — long-lived; the 5 implementation PRs target this branch; single merge to main once G2 sandbox smoke + manual HG3 approval pass</dd>
+    <dt>Related</dt><dd>ADR-014 (worker pattern), ADR-023 (orchestrator-resident execution), ADR-024 (per-unit stageInput), TASKS.md E-004 (rescoped)</dd>
+  </dl>
+</header>
+
+<h2>1. Context &amp; problem</h2>
+<p>
+The Marketing OS produces four creative formats per Script — Reel, Feed, YT-Long, Carousel — but only Feed and Carousel reach <code>assetFiles[0].url</code> today. Reels are emitted by <code>creative-director</code> at <code>P1-fanout</code> but skip <code>P2-render</code> entirely because <code>STATIC_FORMATS = {Feed, Carousel}</code>. The result: every run produces orphaned Reel variants that fail at HG3 because they have no playable asset.
+</p>
+<p>
+TASKS.md row <code>E-004</code> previously filed this as a kie.ai (Veo 3) + media-stitch + ElevenLabs + stock-footage problem. After auditing the brand corpus this spec rejects that scope:
+</p>
+<ul>
+  <li><code>corpus/courses/brand-voice.md</code> mandates "Show the math" and "Don't lean on emoji or hype" — generative B-roll is off-brand.</li>
+  <li>18 chart YAMLs in <code>corpus/data/charts/</code> are the actual visual register of the brand. <code>static-renderer</code> already turns them into PNG frames for Feed and Carousel.</li>
+  <li>The brand archetype is "Engineer-Sage with the Trader's Reality Check" — Shoo's face + Shoo's charts. Not cinematic generative footage.</li>
+</ul>
+<p>The right pipeline for EngineerDad Reels is <strong>HeyGen avatar (Shoo's likeness) + static-renderer chart frames stitched via ffmpeg</strong>. kie.ai is dropped from scope.</p>
+
+<h2>2. Goals &amp; non-goals</h2>
+<h4>Goals</h4>
+<ul>
+  <li>Every Reel CreativeUnit produces a playable MP4 in <code>assetFiles[0].url</code> before HG3.</li>
+  <li>Reel rendering is resumable — a worker crash mid-job never orphans a HeyGen invocation (the scar at <code>packages/orchestrator/src/exec.ts:92</code>).</li>
+  <li>The pipeline reuses the existing render-worker pattern (ADR-014); no new orchestrator concepts.</li>
+  <li>Reel <code>assetFiles[0].url</code> flows unchanged into the distribute stage (already video-aware on main).</li>
+  <li>EN-only for V1; EN subtitles burned in for sound-off mobile feeds.</li>
+</ul>
+<h4>Non-goals</h4>
+<ul>
+  <li>BM-language Reels. Filed as a follow-up once EN steady state holds.</li>
+  <li>kie.ai / Veo 3 / cinematic B-roll. Dropped from E-004 scope; revisit only if HG3 rejection data later argues for it.</li>
+  <li>YT-Long (16:9) and YT-Short (9:16-short) Reel variants. Same worker shape, different aspect — filed for after first 5 Reels ship.</li>
+  <li>HeyGen webhook ingestion. Polling-based for now; webhooks require a public inbound endpoint we don't have.</li>
+  <li>Instagram automated publishing. Stays out-of-band via <code>/posting-pack</code> per B-005 until E-024.</li>
+  <li>Cross-run RenderEvents analytics dashboard.</li>
+</ul>
+
+<h2>3. Established decisions (from brainstorm)</h2>
+<table>
+  <tr><th>Decision</th><th>Choice</th></tr>
+  <tr><td>Scope</td><td>HeyGen + chart stitcher in one delivery (Phases 1 + 2 together)</td></tr>
+  <tr><td>Avatar &amp; voice</td><td>Shoo's Instant Avatar (already trained); HeyGen voice ID for EN</td></tr>
+  <tr><td>Audio model</td><td>Single continuous HeyGen narration track; chart frames are silent visual overlays on top</td></tr>
+  <tr><td>Language</td><td>EN only + burned-in EN subtitles</td></tr>
+  <tr><td>Visual logic</td><td>Shotlist <code>chartRef</code> drives face↔chart cuts; creative-director shotlist generation must be Reel-aware</td></tr>
+  <tr><td>Duration cap</td><td>15–60s (creative-director picks per content type)</td></tr>
+  <tr><td>Stitcher dependency</td><td>ffmpeg via <code>docker run --rm jrottenberg/ffmpeg:6.1</code> per job</td></tr>
+  <tr><td>Distribution</td><td>Existing Meta-paid + Meta-organic FB + YouTube paths (already plumbed on base branch)</td></tr>
+</table>
+
+<h2>4. Architecture</h2>
+<p>A new render path for Reel CreativeUnits parallel to the existing Feed/Carousel static-renderer path. Same orchestrator stage (P2-render), same render-worker spawn pattern, same <code>assetFiles[0].url</code> hand-off to distribution. Different toolchain.</p>
+
+<pre><code>                        ┌─── P1-fanout (creative-director) ───┐
+                        │   emits 4 CreativeUnits per Script  │
+                        │   Reel unit carries Reel-aware       │
+                        │   shotlist (durations, chartRef)    │
+                        └─────────────┬───────────────────────┘
+                                      │
+                                      ▼
+                ┌─── P2-render (orchestrator) ─────────────────┐
+                │                                              │
+                │   format == Feed | Carousel                  │
+                │     → spawn static render-worker (today)     │
+                │                                              │
+                │   format == Reel                             │
+                │     → spawn reel render-worker (NEW)         │
+                └──────────────────┬───────────────────────────┘
+                                   │
+                                   ▼
+        ┌─── reel-render-worker (NEW) ────────────────────────┐
+        │                                                     │
+        │  1. mcp__heygen__generate_video      (full script)  │
+        │  2. mcp__heygen__get_video_status    (poll)         │
+        │  3. word-timing extraction (HeyGen SRT, else whisper)│
+        │  4. per-chart-scene: mcp__static-renderer__render   │
+        │  5. media-stitch: ffmpeg compose + subtitles burn-in │
+        │  6. mcp__asset-store__upload                         │
+        │  7. return { assetFiles: [{ url, kind: "video" }] } │
+        └──────────────────┬──────────────────────────────────┘
+                           │
+                           ▼
+         ┌─── HG3 variant approval (existing) ─────┐
+         │     webapp shows MP4 in player          │
+         │     human approves / rejects            │
+         └──────────────────┬──────────────────────┘
+                            │
+                            ▼
+              Existing distribute stage (unchanged contract)</code></pre>
+
+<blockquote class="callout ok">
+<strong>Invariants preserved.</strong> Reel rendering happens during <code>produce</code>, well before any external write. HG3 is the safety gate. Distribution is unchanged — already video-aware on the base branch. ADR-014 worker pattern unchanged. ADR-024 stageInput pattern preserved (spawn prompts carry only <code>sr_…</code> refs).
+</blockquote>
+
+<h3>New surface</h3>
+<ul>
+  <li><code>packages/media-stitch/</code> — ffmpeg orchestration library (pure function: spec → MP4 path)</li>
+  <li><code>corpus/templates/worker-prompts/reel-render-worker.md</code> — sibling to the existing <code>render-worker.md</code></li>
+  <li><code>.claude/agents/creative-director.md</code> — extended with Reel shotlist rules</li>
+  <li><code>mcp-servers/heygen-wrapper/</code> — additive: surface <code>subtitleUrl</code> + <code>durationSeconds</code> when HeyGen returns them</li>
+</ul>
+
+<h3>Unchanged</h3>
+<ul>
+  <li>All distribution code (already video-aware on main)</li>
+  <li><code>mcp-servers/static-renderer</code> — used as-is for 1080×1920 chart frames</li>
+  <li><code>mcp-servers/asset-store</code> — used as-is for MP4 upload</li>
+  <li>HG3 webapp surface — <code>&lt;video src={assetFiles[0].url}&gt;</code> already works for MP4 URLs</li>
+</ul>
+
+<h2>5. Component boundaries &amp; contracts</h2>
+
+<h3>5.1 creative-director agent (extended)</h3>
+<p>Decomposes approved Script → 4 CreativeUnits, including a Reel-aware shotlist. No new tools; prompt extension only.</p>
+
+<p><strong>New Reel shotlist contract</strong> (additive to existing <code>CreativeUnit</code>):</p>
+<pre><code>{
+  format: "Reel",
+  aspect: "9:16",
+  hook: { en: string, ms: string },              // existing
+  shotlistEn: Array&lt;{
+    scene: string,
+    voiceover: string,                            // ≤ 30 words/scene (pacing budget)
+    onScreenText: string,
+    chartRef: string | null,                      // existing: chart YAML path
+    shotNotes: string,
+    // NEW for Reel:
+    sceneType: "face" | "chart" | "face-over-chart",
+    estimatedSeconds: number,                     // planning hint; corrected by force-alignment
+  }&gt;,
+  // NEW Reel-level constraints:
+  targetSeconds: number,                          // 15–60, creative-director picks per content type
+  faceFirstHook: boolean,                         // first 3s must be face for stop-the-scroll
+}</code></pre>
+
+<p>Validation lives in <code>packages/shared/src/zod.ts</code> as <code>ReelShotlistSchema</code>. creative-director output is parsed and rejected if non-conforming.</p>
+
+<p><strong>Pacing guidance</strong> (lives in the creative-director prompt, not the schema):</p>
+<ul>
+  <li>Hook / origin / confessional / bilingual punch: <strong>15–25s</strong></li>
+  <li>Data reveal / single-stat unpack: <strong>25–35s</strong></li>
+  <li>Framework explainer / Bug Series / MFR: <strong>40–60s</strong></li>
+  <li>Rule: one idea per Reel. If it can't be told in 60s, it's a Carousel, not a Reel.</li>
+</ul>
+
+<h3>5.2 reel-render-worker prompt (new)</h3>
+<p>Sibling to <code>render-worker.md</code>. Spawned by orchestrator P2-render fanout when <code>unit.format === "Reel"</code>.</p>
+
+<p><strong>Worker input contract</strong> (staged via <code>ctx.stageInput</code>):</p>
+<pre><code>{
+  runId: string,
+  scriptId: string,
+  variantId: string,                              // variantId(scriptId, "Reel", "9:16")
+  format: "Reel",
+  aspect: "9:16",
+  width: 1080,
+  height: 1920,
+  language: "en",
+  targetSeconds: number,
+  faceFirstHook: boolean,
+  scenes: Array&lt;{                                // projected from shotlistEn
+    scene: string,
+    voiceover: string,
+    onScreenText: string,
+    chartRef: string | null,
+    sceneType: "face" | "chart" | "face-over-chart",
+    estimatedSeconds: number,
+  }&gt;,
+  heygen: {
+    avatarId: string,                             // env: HEYGEN_AVATAR_ID
+    voiceId: string,                              // env: HEYGEN_VOICE_ID
+  },
+}</code></pre>
+
+<p><strong>Worker output contract</strong> (folded into CreativeVariant row):</p>
+<pre><code>{
+  variantId: string,
+  scriptId: string,
+  format: "Reel",
+  aspect: "9:16",
+  assetFiles: [{ url: string, kind: "video", duration: number }],
+  durationSeconds: number,
+  reelHeygenJobId: string,
+  sceneCuts: Array&lt;{ atSeconds: number, sceneIndex: number, type: "face" | "chart" }&gt;,
+}</code></pre>
+
+<h3>5.3 packages/media-stitch (new)</h3>
+<p>Pure library. ffmpeg orchestration. No I/O outside its working dir + caller-supplied URLs. Sibling to <code>packages/static-renderer</code>.</p>
+
+<pre><code>export interface StitchSpec {
+  workDir: string;                                // tmpdir for downloads + intermediate frames
+  output: { width: number; height: number; durationSeconds: number };
+  audioTrack: { url: string };                    // single HeyGen mp4 — audio extracted by ffmpeg
+  cuts: Array&lt;                                    // sorted by start
+    | { type: "face",  startSec: number, endSec: number, source: { url: string } }
+    | { type: "chart", startSec: number, endSec: number, framePngPath: string }
+  &gt;;
+  subtitles?: { srtPath: string };                // burned-in EN subs
+  music?: { url: string, gainDb: number };        // optional bg music
+}
+
+export interface StitchResult {
+  mp4Path: string;                                // local file path; caller uploads via asset-store
+  durationSeconds: number;
+  warnings: string[];
+}
+
+export async function stitch(spec: StitchSpec): Promise&lt;StitchResult&gt;;</code></pre>
+
+<p><strong>Boundary discipline.</strong> No HeyGen client logic. No asset-store calls. No store writes. Deterministic: same <code>StitchSpec</code> → same MP4 bytes (modulo ffmpeg version pinned via Docker image tag).</p>
+
+<h3>5.4 mcp-servers/heygen-wrapper (lightly extended)</h3>
+<p>Already generates video + polls status. Extension: <code>getVideoStatus</code> surfaces <code>subtitleUrl</code> + <code>durationSeconds</code> when HeyGen returns them.</p>
+<pre><code>{ status: "completed", videoUrl: string, subtitleUrl?: string, durationSeconds?: number }</code></pre>
+<p>If HeyGen does not return SRT for the account tier, the worker falls back to whisper-based force-alignment (see §6 Data flow).</p>
+
+<h3>5.5 Unchanged components</h3>
+<ul>
+  <li><code>mcp-servers/static-renderer</code> — called once per <code>chartRef</code> scene with <code>{ width: 1080, height: 1920, chartRef, language: "en" }</code>; returns PNG path.</li>
+  <li><code>mcp-servers/asset-store</code> — final MP4 upload returns CDN URL → <code>assetFiles[0].url</code>.</li>
+</ul>
+
+<h2>6. Data flow &amp; sequencing</h2>
+
+<h3>Phase 0 — Plan (creative-director, P1-fanout)</h3>
+<p>Input: Script, Brief, hook bank. Output: <code>CreativeUnit</code> validated against <code>ReelShotlistSchema</code>. Bad output rejects at the orchestrator boundary. No external calls yet.</p>
+
+<h3>Phase 1 — Orchestrator stages worker input (P2-render, in process)</h3>
+<pre><code>const reels = plan.creatives.filter(c =&gt; c.format === "Reel");
+// existing static path handles Feed + Carousel unchanged
+const reelUnits = await Promise.all(reels.map(async (unit, i) =&gt; {
+  const inputRef = await ctx.stageInput(`reel-${i}`, reelWorkerInput(unit, run.runId));
+  return { spawnPrompt: reelSpawnPrompt(inputRef) };
+}));</code></pre>
+<p>ADR-024 compliance: spawnPrompt carries only the <code>sr_…</code> ref, never the inlined spec.</p>
+
+<h3>Phase 2 — Reel worker executes (the meat)</h3>
+<p>One worker invocation. Steps run in sequence with explicit retries.</p>
+
+<h4>Step 1 — Hydrate input</h4>
+<p><code>mcp__orchestrator__read_step_result</code> → <code>ReelWorkerInput</code>.</p>
+
+<h4>Step 2 — Compose HeyGen script</h4>
+<p>Concatenate <code>scenes[].voiceover</code> with sentence-boundary markers between scenes. Single HeyGen call → one continuous narration matching the chosen audio model.</p>
+
+<h4>Step 3 — Generate HeyGen video</h4>
+<p><code>mcp__heygen__generate_video({ avatar_id, voice_id, input_text: scriptText, language: "en", aspect_ratio: "9:16" })</code> → <code>{ jobId }</code>.</p>
+
+<blockquote class="callout warn">
+<strong>Step 3a — Persist jobId BEFORE polling.</strong> Fix for the orphaned-Reels scar at <code>exec.ts:92</code>. After HeyGen returns <code>{ jobId }</code>, immediately:
+<pre><code>mcp__store__update({
+  entity: "CreativeVariants",
+  id: variantId,
+  props: { reelHeygenJobId: jobId, renderState: "HeygenGenerating", renderStartedAt: now() }
+})</code></pre>
+THEN begin polling. If the worker dies mid-poll, a future <code>/produce --run=&lt;id&gt;</code> pass resumes from the persisted jobId.
+</blockquote>
+
+<p>Poll <code>mcp__heygen__get_video_status</code> every 10s, max 5 min, until <code>status: "completed"</code> → <code>{ videoUrl, subtitleUrl?, durationSeconds? }</code>.</p>
+
+<h4>Step 4 — Acquire word-level timings</h4>
+<ul>
+  <li>If <code>subtitleUrl</code> present: fetch + parse SRT → word/phrase timing array.</li>
+  <li>Else: download <code>videoUrl</code> → audio extract → whisper transcribe with <code>--word_timestamps</code> → word timing array.</li>
+</ul>
+<p>Result: <code>WordTimings = Array&lt;{ word, startSec, endSec }&gt;</code>.</p>
+
+<h4>Step 5 — Map scenes to time ranges</h4>
+<p>For each scene, string-match the first/last words of <code>scene.voiceover</code> against the WordTimings stream to derive <code>startSec</code> / <code>endSec</code>. If match fails for any scene, fall back to proportional allocation (<code>sceneIndex / sceneCount × duration</code>) and add a warning.</p>
+
+<blockquote class="callout">
+<strong>Correctness rule:</strong> the creative-director's <code>estimatedSeconds</code> is a planning hint, NOT a source of truth for cut placement. Real timing comes from word-aligned text.
+</blockquote>
+
+<h4>Step 6 — Render chart frames</h4>
+<p>For each scene where <code>sceneType ∈ {chart, face-over-chart}</code> AND <code>chartRef !== null</code>: one <code>mcp__static-renderer__render_html_to_png</code> call returning a framePngPath. Reuses existing chart YAMLs in <code>corpus/data/charts/</code>.</p>
+
+<h4>Step 7 — Build StitchSpec &amp; stitch</h4>
+<pre><code>cuts = sceneTimeline.map(s =&gt; {
+  if (s.sceneType === "face") return {
+    type: "face", startSec, endSec, source: { url: videoUrl }
+  };
+  if (s.sceneType === "chart") return {
+    type: "chart", startSec, endSec, framePngPath
+  };
+  // face-over-chart: emit two layered cuts (PiP via overlay filter)
+});
+
+stitch({
+  workDir: /tmp/run_{runId}/reel_{variantId},
+  output: { width: 1080, height: 1920, durationSeconds: total },
+  audioTrack: { url: videoUrl },                  // audio extracted from HeyGen mp4
+  cuts,
+  subtitles: { srtPath: writeSrtFromWordTimings(...) },
+}) → { mp4Path, durationSeconds, warnings[] }</code></pre>
+
+<blockquote class="callout">
+<strong>Correctness rule:</strong> HeyGen's mp4 carries both the face video AND the narration audio. Stitcher extracts audio from that one file (<code>ffmpeg -map 0:a</code>) and overlays new video frames during chart cuts. Never re-synthesize audio — that drifts lip-sync.
+</blockquote>
+
+<h4>Step 8 — Upload &amp; return</h4>
+<p><code>mcp__asset-store__upload({ filePath: mp4Path, kind: "video" })</code> → <code>{ url: cdnUrl }</code>. Return JSON with <code>assetFiles: [{ url: cdnUrl, kind: "video", duration }]</code>.</p>
+
+<h3>Phase 3 — Orchestrator writes CreativeVariant (P3-write, existing)</h3>
+<p>Existing P3-write step folds worker JSON into CreativeVariant rows. <code>assetFiles</code> is already a field; the orchestrator doesn't care that it's a video.</p>
+
+<h3>Phase 4 — HG3 gate (existing)</h3>
+<p>Webapp variant review page renders <code>&lt;video src={assetFiles[0].url} controls /&gt;</code>. Approve → schedule + distribute downstream.</p>
+
+<h3>Phase 5 — Distribute (unchanged, already on main)</h3>
+<p>Reel <code>assetFiles[0].url</code> flows into <code>mcp__meta-ads__upload_video</code>, <code>mcp__meta-organic__publish_video_post</code>, and the new Distributions audit log. Zero changes required in this spec.</p>
+
+<h2>7. Error handling &amp; failure modes</h2>
+
+<table>
+  <tr><th>#</th><th>Where</th><th>What goes wrong</th><th>Recovery</th></tr>
+  <tr><td>1</td><td>HeyGen API call</td><td>Network error, 5xx, rate-limit</td><td>Retry 3× with exp-backoff (2/4/8s); persist <code>reelHeygenJobId=null</code></td></tr>
+  <tr><td>2</td><td>HeyGen poll timeout</td><td>Still "processing" after 5 min</td><td>Persist jobId; mark <code>RenderInFlight</code>; exit non-fatally; next produce pass resumes polling</td></tr>
+  <tr><td>3</td><td>HeyGen poll → failed</td><td>API returns <code>status: failed</code></td><td>Mark <code>RenderFailed</code>; surface in HG3 review queue with regenerate action; <strong>no auto-retry</strong></td></tr>
+  <tr><td>4</td><td>Timing acquisition</td><td>No SRT, whisper unavailable</td><td>Fall back to proportional allocation; warning in HG3</td></tr>
+  <tr><td>5</td><td>Timing acquisition</td><td>String-match fails per scene</td><td>Proportional fallback per-scene; warnings list which scenes degraded</td></tr>
+  <tr><td>6</td><td>Chart frame render</td><td><code>static-renderer</code> rejects chartRef</td><td>Hard fail with corpus path; surfaced as creative-director output bug</td></tr>
+  <tr><td>7</td><td>Chart frame render</td><td>Returns blank/error PNG</td><td>Hard fail same as #6 — better loud than silently blank</td></tr>
+  <tr><td>8</td><td>media-stitch ffmpeg</td><td>Non-zero exit</td><td>Capture stderr (last 4KB) to <code>error_message</code>; mark <code>RenderFailed</code>; no auto-retry (deterministic)</td></tr>
+  <tr><td>9</td><td>media-stitch ffmpeg</td><td>Output mp4 corrupt (mediainfo probe fails)</td><td>Same as #8</td></tr>
+  <tr><td>10</td><td>asset-store upload</td><td>Upload fails</td><td>Retry 3× with backoff; on final fail, persist <code>mp4Path</code> to holding location</td></tr>
+  <tr><td>11</td><td>Worker process crash</td><td>Between Step 3 and Step 8</td><td><strong>See orphan recovery below — the explicit fix for exec.ts:92.</strong></td></tr>
+</table>
+
+<h3>Orphan recovery — explicit fix for exec.ts:92</h3>
+<p>Two new columns on <code>CreativeVariants</code>:</p>
+<ul>
+  <li><code>reelHeygenJobId: text</code> nullable</li>
+  <li><code>renderState: text</code> nullable; enum: <code>null | "HeygenGenerating" | "HeygenCompleted" | "Stitching" | "Uploaded" | "RenderFailed"</code></li>
+</ul>
+<p>(<code>null</code> means static-renderer path or not started — backward-compatible with existing Feed/Carousel rows.)</p>
+
+<p>Worker writes <code>reelHeygenJobId</code> immediately on Step 3a. If the worker dies mid-poll, a new <code>/produce --run=&lt;id&gt;</code> pass detects rows in <code>renderState="HeygenGenerating"</code> and resumes polling from the persisted jobId. The HeyGen result is never lost.</p>
+
+<h3>Idempotency</h3>
+<table>
+  <tr><th>Step</th><th>Idempotent?</th><th>How</th></tr>
+  <tr><td>HeyGen generate</td><td>Within a run</td><td>Check row <code>reelHeygenJobId</code>; if set, skip submit and poll instead</td></tr>
+  <tr><td>Chart frame render</td><td>Naturally</td><td><code>static-renderer</code> is pure; same chartRef + dims = same PNG</td></tr>
+  <tr><td>Stitch</td><td>Deterministic</td><td>Same StitchSpec = same MP4 bytes (modulo ffmpeg version)</td></tr>
+  <tr><td>Asset-store upload</td><td>Content-hashed</td><td>Duplicate uploads return existing URL</td></tr>
+</table>
+<p>Re-running <code>/produce --run=&lt;id&gt;</code> on a partially-failed run is safe.</p>
+
+<h3>Things that intentionally do NOT auto-retry</h3>
+<ul>
+  <li><strong>HeyGen <code>status: failed</code></strong> — usually script content tripped moderation; auto-retry burns money. Surface to HG3 reviewer.</li>
+  <li><strong>ffmpeg failure</strong> — deterministic; re-running reproduces.</li>
+  <li><strong>Whisper missing</strong> — system-config issue, not per-Reel.</li>
+</ul>
+
+<h2>8. Testing strategy</h2>
+
+<h3>Layer 1 — Pure libraries (vitest, no I/O)</h3>
+<ul>
+  <li><code>ReelShotlistSchema</code>: accept valid, reject <code>targetSeconds</code> out of 15–60, reject chart scenes with null chartRef, reject voiceover &gt; 30 words.</li>
+  <li><code>build-filtergraph.ts</code>: StitchSpec → ffmpeg argv. Snapshot tests on argv for each cut combination (face only, mixed, face-over-chart PiP, with subtitles, with music).</li>
+  <li><code>scene-to-time.ts</code>: exact match, punctuation-fuzzy match, partial-match-falls-to-proportional, empty-transcript edge case.</li>
+</ul>
+
+<h3>Layer 2 — media-stitch integration (vitest, Docker required)</h3>
+<p>One e2e test that invokes ffmpeg in Docker against tiny fixtures: 3s test mp4 (HeyGen-shaped), 1 chart PNG, 5-line SRT. Asserts ffprobe reports correct resolution + codec; subtitle track present. Marked <code>integration</code> — skipped when <code>DOCKER_HOST</code> unavailable.</p>
+
+<h3>Layer 3 — Orchestrator stage tests (produce.test.ts extension)</h3>
+<ul>
+  <li>Mixed plan: 2 Scripts × 4 CreativeUnits = 8 units, 2 of which are Reels — asserts P2-render emits correct static vs reel spawns.</li>
+  <li>ADR-024 compliance: spawn prompts carry only <code>sr_…</code> refs.</li>
+  <li>Orphan resume: pre-existing <code>renderState="HeygenGenerating"</code> + jobId → emits resume spawn, not fresh.</li>
+</ul>
+
+<h3>Layer 4 — Worker fixture tests</h3>
+<p>Five fixtures under <code>test/fixtures/reel/</code>:</p>
+<ul>
+  <li><code>reel-pure-face.fixture.ts</code> — 0 chart scenes</li>
+  <li><code>reel-mixed.fixture.ts</code> — 2 face + 2 chart scenes</li>
+  <li><code>reel-pic-in-pic.fixture.ts</code> — face-over-chart PiP</li>
+  <li><code>reel-resume.fixture.ts</code> — pre-existing reelHeygenJobId; expects skip-to-poll path</li>
+  <li><code>reel-heygen-failed.fixture.ts</code> — HeyGen mock returns failed; expects <code>RenderFailed</code> row state</li>
+</ul>
+<p>MCPs mocked except <code>media-stitch::stitch</code> — runs against real fixture mp4 in Docker (exercises Layer 2).</p>
+
+<h3>Layer 5 — Schema migration</h3>
+<p>Up: existing rows get null for new columns. Down: clean drop. <code>pnpm lint:migrations</code> passes.</p>
+
+<h3>Layer 6 — End-to-end smoke (manual, gated)</h3>
+<p>One real HeyGen call before merging PR 4: <code>pnpm tsx scripts/smoke-reel.mts --script="..." --avatar=HEYGEN_AVATAR_ID_TEST</code>. Not in CI (costs money).</p>
+
+<h2>9. Delivery plan</h2>
+
+<h3>Base dependency</h3>
+<p>All implementation PRs target the long-lived integration branch <code>feat/heygen-reel-pipeline</code>, which itself is branched off <code>main</code>. The integration branch is rebased onto main at the start of each PR. Once all 5 PRs merge into integration and G2 sandbox smoke + manual HG3 approval pass, the integration branch merges to main as one squash-merge.</p>
+
+<h3>Sequence — five PRs</h3>
+
+<h4>PR 1 — Schema + zod contracts (low-risk foundation, no runtime change)</h4>
+<ul>
+  <li><strong>Adds:</strong> <code>reelHeygenJobId</code> + <code>renderState</code> columns on CreativeVariants. <code>ReelShotlistSchema</code> in <code>packages/shared/src/zod.ts</code>. Drizzle migration.</li>
+  <li><strong>Runtime:</strong> none. New columns nullable.</li>
+  <li><strong>Rollback:</strong> drop migration; revert.</li>
+</ul>
+
+<h4>PR 2 — packages/media-stitch library (pure, not yet imported)</h4>
+<ul>
+  <li><strong>Adds:</strong> new package with <code>stitch()</code> + <code>build-filtergraph.ts</code> + <code>scene-to-time.ts</code>. Docker pin: <code>jrottenberg/ffmpeg:6.1</code>.</li>
+  <li><strong>Runtime:</strong> none. Not imported anywhere.</li>
+  <li><strong>Rollback:</strong> delete package.</li>
+</ul>
+
+<h4>PR 3 — HeyGen wrapper + reel-render-worker prompt (infra, dormant)</h4>
+<ul>
+  <li><strong>Adds:</strong> heygen wrapper <code>subtitleUrl</code> + <code>durationSeconds</code> additive return fields; new <code>corpus/templates/worker-prompts/reel-render-worker.md</code>.</li>
+  <li><strong>Runtime:</strong> heygen wrapper change is additive; new worker prompt not invoked until PR 4.</li>
+  <li><strong>Rollback:</strong> revert.</li>
+</ul>
+
+<h4>PR 4 — Orchestrator P2-render Reel branch + creative-director prompt (activation)</h4>
+<ul>
+  <li><strong>Adds:</strong> <code>produce.ts</code> dispatches Reel units to <code>reel-render-worker</code>; orphan resume logic; <code>.claude/agents/creative-director.md</code> Reel rules; <code>pnpm sync:agents</code> rerun.</li>
+  <li><strong>Runtime:</strong> <strong>yes</strong>. First runtime impact.</li>
+  <li><strong>Opt-in switch:</strong> <code>EDOS_REEL_PIPELINE</code> env var, <strong>default off</strong>. Only the literal string <code>"on"</code> (case-sensitive) enables the pipeline; unset / empty / any other value leaves it disabled. When off, P1a-reels-prepare emits no rows and P2-render's Reel branch emits no spawns — the loop behaves as it did before activation. The default-off semantic prevents accidental HeyGen credit burn on any environment that pulls integration without explicit activation.</li>
+  <li><strong>Rollback:</strong> flip env off instantly; or revert PR.</li>
+  <li><strong>Smoke gate:</strong> <code>/produce --run=&lt;sandbox-runId&gt;</code> against sandbox DB with one Reel; verify mp4 in CreativeVariants row; HG3 review page plays it.</li>
+</ul>
+
+<h4>PR 5 — TASKS.md / ARCHITECTURE.md cleanup (docs)</h4>
+<ul>
+  <li>Rescope E-004: drop kie.ai dependency; note YT-Long uses same worker with 16:9, follow-up after first 5 Reels.</li>
+  <li>Update <code>ARCHITECTURE.md</code> § Media Production.</li>
+  <li>No runtime change.</li>
+</ul>
+
+<h3>Rollout gates</h3>
+<table>
+  <tr><th>Gate</th><th>Condition</th><th>Action</th></tr>
+  <tr><td>G1 — Silent</td><td>All 5 PRs merged, env <code>off</code></td><td>No-op for production</td></tr>
+  <tr><td>G2 — Sandbox smoke</td><td><code>/loop</code> on sandbox DB with 1 Reel-only Script</td><td>Inspect MP4 quality, HG3 review surface, distribute plan</td></tr>
+  <tr><td>G3 — Single-Reel prod</td><td>Flip <code>EDOS_REEL_PIPELINE=on</code></td><td>First production run produces 1 Reel; manual HG3</td></tr>
+  <tr><td>G4 — Steady state</td><td>5 production Reels with HG3 approve ≥ 60%</td><td>Pipeline considered stable; close E-004</td></tr>
+  <tr><td>G5 — YT extension</td><td>Steady state held 2 weeks</td><td>Add 16:9 (YT-Long) and 9:16-Short variants</td></tr>
+</table>
+
+<h3>Kill switches</h3>
+<table>
+  <tr><th>Switch</th><th>Effect</th><th>Cost to flip</th></tr>
+  <tr><td><code>EDOS_REEL_PIPELINE=off</code></td><td>Reels skipped at P2-render; static path unchanged</td><td>Instant</td></tr>
+  <tr><td>Revert PR 4</td><td>Removes orchestrator dispatch; PR 1-3 dormant</td><td>One revert + redeploy</td></tr>
+  <tr><td>Drop ffmpeg Docker image</td><td>Every Reel fails; HG3 shows RenderFailed; recover via stored reelHeygenJobId</td><td>Manual</td></tr>
+</table>
+
+<h2>10. Risks &amp; mitigations</h2>
+<table>
+  <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
+  <tr><td>HeyGen API breaks during PR 3</td><td>Low</td><td>Wrapper changes additive; existing methods untouched</td></tr>
+  <tr><td>ffmpeg version drift dev↔CI</td><td>Medium</td><td>Docker image tag pinned; upgrade via PR with regenerated snapshots</td></tr>
+  <tr><td>Creative-director generates non-Reel-aware shotlists post-prompt</td><td>Medium</td><td>Zod rejects at validation boundary; HG2 reviewer sees error before HG3</td></tr>
+  <tr><td>First production Reel quality is poor</td><td>High</td><td>Expected; G3 gate is deliberately one-Reel; 2-3 prompt iterations before steady state</td></tr>
+  <tr><td>HeyGen account doesn't return SRT</td><td>Medium</td><td>Whisper fallback; load-bearing only if SRT unavailable</td></tr>
+  <tr><td>Docker unavailable on deploy target</td><td>Low (dev only)</td><td>media-stitch falls back to host ffmpeg if <code>DOCKER_HOST</code> unset; logs which path taken</td></tr>
+</table>
+
+<h2>11. Open questions / deferred decisions</h2>
+<ul>
+  <li>Does HeyGen's current account tier return SRT natively? Probe in PR 3; decision determines whether whisper is a hard or fallback dependency.</li>
+  <li>Should bg music be added in V1? Defer to G3 review — if Reels feel "dry" without it, add in a follow-up PR.</li>
+  <li>Whisper packaging: <code>openai-whisper</code> (Python) vs <code>whisper.cpp</code> (C++)? Defer until #1 resolves.</li>
+  <li>BM Reels: deferred to a follow-up spec after EN steady state holds.</li>
+</ul>
+
+<hr>
+<p class="subtitle">End of spec. The companion implementation plan lives at <code>docs/superpowers/plans/2026-05-28-heygen-reel-pipeline.{html,md}</code>.</p>
+
+</div>
+</body>
+</html>

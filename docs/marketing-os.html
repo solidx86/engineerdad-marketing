@@ -1,0 +1,3015 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marketing OS — A Closed-Loop Creative Engine</title>
+  <meta name="description" content="A closed-loop creative engine for the Andromeda era. Eight specialized agents, seven MCP servers, eight review databases, six human gates.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300..600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─────────────────────────────────────────────────────────
+       PALETTE & TOKENS
+       ───────────────────────────────────────────────────────── */
+    :root {
+      --ink: #1a1612;
+      --ink-soft: #2c2620;
+      --cream: #f4ecdd;
+      --cream-deep: #ede2cd;
+      --paper: #faf5ea;
+      --signal: #b8431f;
+      --signal-soft: #d4734b;
+      --rule: #d6c9b3;
+      --rule-soft: rgba(26, 22, 18, 0.08);
+      --annotate: #736a59;
+      --confirmed: #4a6b3a;
+      --refuted: #8a3a30;
+
+      --col: 1640px;
+      --gutter: clamp(20px, 4vw, 56px);
+
+      --ease: cubic-bezier(0.16, 0.84, 0.32, 1);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       RESET
+       ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+    button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+    /* ─────────────────────────────────────────────────────────
+       BASE
+       ───────────────────────────────────────────────────────── */
+    body {
+      color: var(--ink);
+      background: var(--cream);
+      background-image:
+        linear-gradient(var(--rule-soft) 1px, transparent 1px),
+        linear-gradient(90deg, var(--rule-soft) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-position: -1px -1px;
+      font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+      font-size: 18px;
+      line-height: 1.65;
+      font-weight: 380;
+      font-variation-settings: 'opsz' 16;
+    }
+
+    main {
+      max-width: var(--col);
+      margin: 0 auto;
+      padding: clamp(24px, 6vw, 72px) var(--gutter) 120px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       TYPOGRAPHY
+       ───────────────────────────────────────────────────────── */
+    .mono {
+      font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      font-weight: 500;
+    }
+
+    .display {
+      font-family: 'Fraunces', 'Tiempos Headline', 'Times New Roman', serif;
+      font-variation-settings: 'opsz' 144, 'wght' 380;
+      letter-spacing: -0.02em;
+      line-height: 0.95;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 72, 'wght' 420;
+      letter-spacing: -0.015em;
+      line-height: 1.05;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    h1 { font-size: clamp(48px, 8vw, 96px); }
+    h2 { font-size: clamp(36px, 5.5vw, 58px); font-variation-settings: 'opsz' 72, 'wght' 380; }
+    h3 { font-size: clamp(22px, 2.6vw, 28px); font-variation-settings: 'opsz' 36, 'wght' 460; }
+    h4 { font-size: 18px; font-variation-settings: 'opsz' 24, 'wght' 500; letter-spacing: 0; }
+
+    p { margin: 0 0 1em; }
+    p + p { margin-top: 1em; }
+    em { font-style: italic; color: var(--ink-soft); }
+    strong { font-weight: 600; color: var(--ink); }
+    a { color: var(--signal); text-decoration: none; border-bottom: 1px solid var(--signal-soft); }
+
+    /* ─────────────────────────────────────────────────────────
+       SECTION CHROME
+       ───────────────────────────────────────────────────────── */
+    section {
+      margin-top: clamp(80px, 12vw, 140px);
+      position: relative;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      padding-top: 18px;
+      margin-bottom: 36px;
+      border-top: 1px solid var(--ink);
+    }
+    .section-label .num { font-weight: 600; color: var(--ink); }
+    .section-label .name { color: var(--annotate); }
+
+    .section-intro {
+      max-width: 720px;
+      font-size: 20px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+    .section-intro .lede {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 380;
+      font-size: 24px;
+      line-height: 1.4;
+      color: var(--ink);
+      margin-bottom: 1.2em;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       COVER
+       ───────────────────────────────────────────────────────── */
+    .cover {
+      padding-top: 48px;
+      padding-bottom: 80px;
+    }
+
+    .cover .wordmark-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-top: 1px solid var(--ink);
+      padding-top: 14px;
+      margin-bottom: 64px;
+    }
+    .cover .wordmark {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .cover .wordmark span { color: var(--annotate); margin: 0 8px; }
+    .cover .meta-row { color: var(--annotate); font-size: 11px; }
+
+    .cover-title {
+      margin-bottom: 28px;
+      animation: rise 1.1s var(--ease) both;
+    }
+    .cover-title .line-1 { display: block; }
+    .cover-title .line-2 { display: block; color: var(--signal); font-style: italic; font-variation-settings: 'opsz' 144, 'wght' 320; }
+
+    .cover-tagline {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 48, 'wght' 360;
+      font-size: clamp(20px, 2.4vw, 26px);
+      max-width: 640px;
+      color: var(--ink-soft);
+      margin: 0 0 36px;
+      line-height: 1.4;
+      animation: rise 1.1s var(--ease) 0.15s both;
+    }
+
+    .cover-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      border-top: 1px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      padding: 18px 0;
+      margin-bottom: 56px;
+      animation: rise 1.1s var(--ease) 0.3s both;
+    }
+    .cover-stats .stat {
+      padding: 4px 0;
+      border-left: 1px solid var(--rule);
+      padding-left: 16px;
+    }
+    .cover-stats .stat:first-child { border-left: 0; padding-left: 0; }
+    .cover-stats .stat .num {
+      font-family: 'Fraunces', serif;
+      font-size: 36px;
+      font-variation-settings: 'opsz' 48, 'wght' 360;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .cover-stats .stat .lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      margin-top: 8px;
+    }
+
+    .cover-preview {
+      max-width: 760px;
+      margin: 0 auto;
+      animation: rise 1.1s var(--ease) 0.45s both;
+    }
+    .cover-preview svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .cover-preview .fig-caption {
+      text-align: center;
+      margin-top: 14px;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       COVER — DOCTRINE PULL-QUOTE & VISUAL TOC
+       ───────────────────────────────────────────────────────── */
+    .cover-doctrine {
+      margin: 56px auto 0;
+      max-width: 1240px;
+      padding: 36px 8px 28px;
+      border-top: 2px solid var(--ink);
+      border-bottom: 1px solid var(--rule);
+      animation: rise 1.1s var(--ease) 0.55s both;
+    }
+    .cover-doctrine .quote {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 96, 'wght' 320;
+      font-style: italic;
+      font-size: 50px;
+      line-height: 1.18;
+      color: var(--ink);
+      letter-spacing: -0.005em;
+      margin: 0;
+      max-width: 1120px;
+    }
+    .cover-doctrine .quote em {
+      font-style: italic;
+      color: var(--signal);
+    }
+    .cover-doctrine .attribution {
+      margin-top: 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      text-align: right;
+    }
+
+    .cover-toc {
+      margin: 36px auto 0;
+      max-width: 1240px;
+      animation: rise 1.1s var(--ease) 0.65s both;
+    }
+    .cover-toc .toc-head {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      padding: 0 4px 10px;
+      border-bottom: 1px solid var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 600;
+    }
+    .cover-toc .row {
+      display: grid;
+      grid-template-columns: 80px 1fr 360px;
+      align-items: baseline;
+      gap: 24px;
+      padding: 20px 4px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .cover-toc .row:last-child {
+      border-bottom: 1px solid var(--ink);
+    }
+    .cover-toc .num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      font-weight: 600;
+      color: var(--signal);
+    }
+    .cover-toc .title {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 380;
+      font-size: 24px;
+      line-height: 1.25;
+      color: var(--ink);
+    }
+    .cover-toc .title em {
+      font-style: italic;
+      color: var(--ink-soft);
+      font-size: 18px;
+      font-weight: 380;
+      margin-left: 10px;
+    }
+    .cover-toc .figref {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      text-align: right;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       FIGURE FRAME
+       ───────────────────────────────────────────────────────── */
+    .figure {
+      position: relative;
+      padding: 28px 24px 22px;
+      background: var(--paper);
+      border: 1px solid var(--ink);
+    }
+    .figure::before, .figure::after,
+    .figure > .corner-tr, .figure > .corner-bl {
+      content: "";
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: var(--ink);
+      border-style: solid;
+    }
+    .figure::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+    .figure::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+    .figure > .corner-tr { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+    .figure > .corner-bl { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+    .figure-caption {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--annotate);
+    }
+    .figure-caption b { color: var(--ink); font-weight: 600; margin-right: 6px; }
+
+    /* ─────────────────────────────────────────────────────────
+       SVG LOOP — shared styles
+       ───────────────────────────────────────────────────────── */
+    .loop-node, .loop-gate, .loop-pipe, .loop-arrow {
+      transition: stroke 360ms var(--ease), fill 360ms var(--ease), opacity 360ms var(--ease);
+    }
+    .loop-pipe { stroke: var(--ink); stroke-width: 1; fill: none; }
+    .loop-pipe-soft { stroke: var(--ink); stroke-width: 1; fill: none; opacity: 0.35; }
+    .loop-arrow { fill: var(--ink); }
+
+    .loop-node rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+    .loop-node .node-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; fill: var(--ink); font-weight: 500; text-transform: uppercase; }
+    .loop-node .node-num { font-family: 'Fraunces', serif; font-size: 11px; fill: var(--annotate); font-style: italic; }
+
+    .loop-gate rect { fill: var(--cream-deep); stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 2; }
+    .loop-gate .gate-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.1em; fill: var(--ink-soft); font-weight: 500; }
+
+    .loop-annotate { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; fill: var(--annotate); text-transform: uppercase; }
+
+    /* Active state for walker */
+    .loop-node.is-active rect { fill: var(--signal); stroke: var(--signal); }
+    .loop-node.is-active .node-label,
+    .loop-node.is-active .node-num { fill: var(--cream); }
+    .loop-node.is-active rect { transform-origin: center; transform: scale(1.03); }
+
+    /* Visited */
+    .loop-node.is-visited rect { fill: var(--cream-deep); }
+    .loop-pipe.is-traversed { stroke: var(--signal); stroke-width: 1.5; }
+
+    /* ─────────────────────────────────────────────────────────
+       §02 WALKER LAYOUT
+       ───────────────────────────────────────────────────────── */
+    .walker {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      gap: 40px;
+      align-items: start;
+      margin-top: 32px;
+    }
+    @media (max-width: 760px) {
+      .walker { grid-template-columns: 1fr; gap: 28px; }
+    }
+
+    .walker-rail {
+      position: sticky;
+      top: 24px;
+    }
+    .rail-step-hdr {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .rail-step-num {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 72, 'wght' 360;
+      font-size: 44px;
+      line-height: 1;
+      color: var(--signal);
+    }
+    .rail-step-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+      text-align: right;
+    }
+    .rail-role {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 380;
+      font-size: 18px;
+      line-height: 1.4;
+      color: var(--ink);
+      margin-bottom: 18px;
+    }
+    .rail-grid {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 6px 14px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .rail-grid dt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      padding-top: 3px;
+    }
+    .rail-grid dd { margin: 0; color: var(--ink-soft); }
+    .rail-grid .tool { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink); display: inline-block; margin-right: 6px; }
+    .rail-grid .tool::before { content: "·"; color: var(--annotate); margin-right: 4px; }
+    .rail-grid .tool:first-of-type::before { content: ""; margin: 0; }
+
+    .rail-gate {
+      margin-top: 22px;
+      padding: 12px 14px;
+      border: 1px dashed var(--ink);
+      background: var(--cream-deep);
+    }
+    .rail-gate .glabel {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .rail-gate .gbody {
+      font-family: 'Newsreader', serif;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--ink-soft);
+    }
+
+    .rail-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .rail-controls .arrow {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      transition: background 200ms var(--ease);
+    }
+    .rail-controls .arrow:hover { background: var(--ink); color: var(--cream); }
+    .rail-controls .play {
+      padding: 0 14px;
+      height: 36px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: var(--cream);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .rail-controls .play.is-playing { background: var(--signal); border-color: var(--signal); }
+    .rail-controls .step-of {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--annotate);
+    }
+
+    .walker-fig svg { width: 100%; height: auto; display: block; }
+
+    /* ─────────────────────────────────────────────────────────
+       §02 SHAPE — PHASED CHAPTERS, AGENT ROWS, GATES BLOCK
+       ───────────────────────────────────────────────────────── */
+    .phase-chapter {
+      margin-top: 56px;
+    }
+    .phase-chapter + .phase-chapter {
+      margin-top: 72px;
+    }
+    .phase-header {
+      display: grid;
+      grid-template-columns: 100px 240px 1fr;
+      align-items: baseline;
+      gap: 32px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--ink);
+      margin-bottom: 32px;
+    }
+    .phase-header .num {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 96, 'wght' 320;
+      font-style: italic;
+      font-size: 56px;
+      line-height: 0.9;
+      color: var(--signal);
+    }
+    .phase-header .name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+      padding-top: 16px;
+    }
+    .phase-header .frame {
+      font-family: 'Newsreader', serif;
+      font-size: 18px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      max-width: 760px;
+      padding-top: 12px;
+    }
+
+    .agent-row {
+      display: grid;
+      grid-template-columns: 200px 1fr 420px;
+      gap: 36px;
+      padding: 32px 0;
+      align-items: start;
+    }
+    .agent-row + .agent-row {
+      border-top: 1px solid var(--rule);
+    }
+    .agent-row .head {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .agent-row .head .num {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 72, 'wght' 360;
+      font-style: italic;
+      font-size: 40px;
+      line-height: 1;
+      color: var(--signal);
+    }
+    .agent-row .head .name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .agent-row .body {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .agent-row .body .role {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 380;
+      font-size: 19px;
+      line-height: 1.45;
+      color: var(--ink);
+      max-width: 600px;
+    }
+    .agent-row .body .io {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 10px 20px;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .agent-row .body .io dt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      padding-top: 3px;
+      font-weight: 600;
+    }
+    .agent-row .body .io dd {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+    .agent-row .body .io .tool {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--ink);
+      display: inline-block;
+      margin-right: 6px;
+    }
+    .agent-row .body .io .tool::before {
+      content: "·";
+      color: var(--annotate);
+      margin-right: 4px;
+    }
+    .agent-row .body .io .tool:first-of-type::before {
+      content: "";
+      margin: 0;
+    }
+    .agent-row .artifact {
+      position: relative;
+      background: var(--paper);
+      border: 1px solid var(--ink);
+      padding: 32px 20px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      line-height: 1.7;
+      color: var(--ink);
+      white-space: pre;
+      overflow: visible;
+    }
+    .agent-row .artifact::before {
+      content: "ARTIFACT · ILLUSTRATIVE";
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      background: var(--cream-deep);
+      border: 1px solid var(--ink);
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      color: var(--ink-soft);
+    }
+
+    .gates-block {
+      margin-top: 96px;
+      padding-top: 28px;
+      border-top: 2px solid var(--ink);
+    }
+    .gates-block .gates-head {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 32px;
+      padding-bottom: 24px;
+      margin-bottom: 12px;
+      align-items: baseline;
+    }
+    .gates-block .gates-head .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      font-weight: 600;
+    }
+    .gates-block .gates-head .title {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 60, 'wght' 380;
+      font-size: 32px;
+      line-height: 1.15;
+      color: var(--ink);
+      font-style: italic;
+    }
+    .gates-block .gate-row {
+      display: grid;
+      grid-template-columns: 100px 220px 1fr 260px;
+      gap: 28px;
+      align-items: baseline;
+      padding: 24px 0;
+      border-top: 1px solid var(--rule);
+    }
+    .gates-block .gate-row:last-of-type {
+      border-bottom: 1px solid var(--rule);
+    }
+    .gates-block .gate-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 34px;
+      border: 1px dashed var(--ink);
+      background: var(--cream-deep);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .gates-block .gate-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .gates-block .gate-body {
+      font-family: 'Newsreader', serif;
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+    .gates-block .gate-after {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      text-align: right;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       §03 RUN OUTPUT — six-column funnel comparison
+       ───────────────────────────────────────────────────────── */
+    .runtable-wrap {
+      margin-top: 40px;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+    }
+    .runtable {
+      display: grid;
+      grid-template-columns: 200px repeat(6, minmax(118px, 1fr));
+      min-width: 920px;
+    }
+    .runtable .rt-th-corner,
+    .runtable .rt-th,
+    .runtable .rt-cell,
+    .runtable .rt-stage,
+    .runtable .rt-gate,
+    .runtable .rt-label,
+    .runtable .rt-annotation {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--rule);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      color: var(--ink);
+    }
+    .runtable .rt-th-corner,
+    .runtable .rt-th {
+      border-bottom: 1px solid var(--ink);
+      background: var(--cream-deep);
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+    .runtable .rt-th-corner {
+      text-align: left;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--annotate);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .runtable .rt-th .rt-num {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-variation-settings: 'opsz' 36, 'wght' 380;
+      font-size: 22px;
+      line-height: 1;
+      color: var(--signal);
+      text-align: center;
+    }
+    .runtable .rt-th .rt-phase {
+      margin-top: 6px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--annotate);
+      text-align: center;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .runtable .rt-stage {
+      grid-column: 1 / -1;
+      background: var(--ink);
+      color: var(--cream);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      padding: 8px 14px;
+      font-size: 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--ink);
+    }
+    .runtable .rt-gate {
+      grid-column: 1 / -1;
+      background: var(--cream);
+      padding: 7px 14px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 600;
+      text-align: left;
+      border-top: 1px dashed var(--ink);
+      border-bottom: 1px solid var(--rule);
+    }
+    .runtable .rt-label {
+      text-align: left;
+      background: var(--cream);
+      border-right: 1px solid var(--rule);
+    }
+    .runtable .rt-label .term {
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+    }
+    .runtable .rt-label .def {
+      font-family: 'Newsreader', serif;
+      font-variant-numeric: normal;
+      font-size: 11px;
+      line-height: 1.35;
+      color: var(--annotate);
+      font-style: italic;
+      margin-top: 2px;
+    }
+    .runtable .rt-row-trust .rt-cell,
+    .runtable .rt-row-trust .rt-label {
+      background: var(--cream-deep);
+      font-weight: 600;
+    }
+    .runtable .rt-row-cpa .rt-cell,
+    .runtable .rt-row-cpa .rt-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--signal);
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+    .runtable .rt-row-cpa .rt-label .term { color: var(--signal); }
+    .runtable .rt-row-cpa .rt-label .def { color: var(--annotate); }
+    .runtable .rt-annotation {
+      font-family: 'Newsreader', serif;
+      font-variant-numeric: normal;
+      font-size: 12px;
+      line-height: 1.5;
+      font-style: italic;
+      color: var(--ink-soft);
+      text-align: left;
+      padding: 14px 12px 18px;
+      border-top: 1px solid var(--ink);
+      border-bottom: 0;
+    }
+    .runtable .rt-annotation b {
+      font-style: normal;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .runtable .rt-annotation .rt-anno-tag {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+      font-style: normal;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .runtable .rt-annotation-label {
+      grid-column: 1;
+      background: var(--cream);
+      border-top: 1px solid var(--ink);
+      border-bottom: 0;
+      padding: 14px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      font-weight: 600;
+      text-align: left;
+    }
+
+    /* horizontal scroll hint on smaller screens */
+    @media (max-width: 980px) {
+      .runtable-wrap::after {
+        content: "scroll →";
+        display: block;
+        text-align: right;
+        padding: 6px 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        color: var(--annotate);
+        background: var(--cream);
+        border-top: 1px solid var(--rule);
+      }
+    }
+
+    @media print {
+      .runtable-wrap { overflow: visible; border: 1px solid var(--ink); }
+      .runtable { min-width: 0; }
+      .runtable-wrap::after { display: none; }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       §04 BRAIN — bandit + hypothesis
+       ───────────────────────────────────────────────────────── */
+    .triple {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin: 28px 0 56px;
+    }
+    @media (max-width: 820px) { .triple { grid-template-columns: 1fr; } }
+    .triple .card {
+      padding: 22px 22px 24px;
+      background: var(--paper);
+      border: 1px solid var(--ink);
+      position: relative;
+    }
+    .triple .card .pill {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--cream);
+      background: var(--ink);
+      padding: 3px 8px;
+      margin-bottom: 12px;
+    }
+    .triple .card h4 {
+      margin-bottom: 8px;
+      font-variation-settings: 'opsz' 36, 'wght' 460;
+      font-size: 21px;
+    }
+    .triple .card p { font-size: 15px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+
+    .setpiece {
+      margin-top: 56px;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 40px;
+      align-items: start;
+    }
+    @media (max-width: 820px) { .setpiece { grid-template-columns: 1fr; gap: 28px; } }
+    .setpiece-intro h3 { margin-bottom: 12px; }
+    .setpiece-intro p { color: var(--ink-soft); font-size: 16px; line-height: 1.55; }
+
+    /* Bandit chart */
+    .bandit {
+      padding: 26px 22px 22px;
+    }
+    .bandit-bars {
+      display: grid;
+      grid-template-columns: 22px 1fr 56px 36px;
+      gap: 10px 12px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .bandit-bars .arm-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink); }
+    .bandit-bars .arm-track {
+      height: 18px;
+      background: var(--cream-deep);
+      border: 1px solid var(--rule);
+      position: relative;
+      overflow: hidden;
+    }
+    .bandit-bars .arm-fill {
+      height: 100%;
+      background: var(--ink);
+      width: 20%;
+      transition: width 600ms var(--ease), background 600ms var(--ease);
+    }
+    .bandit-bars .arm-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--ink);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .bandit-bars .arm-bucket {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--annotate);
+      text-align: right;
+      opacity: 0;
+      transition: opacity 400ms var(--ease);
+      font-weight: 600;
+    }
+    .bandit-bars .arm-bucket.is-visible { opacity: 1; }
+    .bandit-bars .arm-bucket.is-top { color: var(--signal); }
+
+    .bandit-bars .is-top .arm-fill { background: var(--signal); }
+    .bandit-bars .is-mid .arm-fill { background: var(--ink); }
+    .bandit-bars .is-tail .arm-fill { background: var(--annotate); }
+
+    .bandit-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--rule);
+    }
+    .bandit-controls .btn {
+      padding: 8px 14px;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: var(--cream);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .bandit-controls .btn.ghost { background: var(--paper); color: var(--ink); }
+    .bandit-controls .meter {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--annotate);
+    }
+    .bandit-controls .meter b { color: var(--ink); font-weight: 600; }
+
+    /* Hypothesis card */
+    .hypothesis-stack {
+      padding: 22px;
+      min-height: 360px;
+    }
+    .hcard {
+      position: relative;
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      padding: 18px 18px 16px;
+      margin-bottom: 14px;
+      transition: transform 400ms var(--ease), opacity 400ms var(--ease);
+    }
+    .hcard .hcard-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--annotate);
+      margin-bottom: 6px;
+    }
+    .hcard .hcard-body {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 24, 'wght' 380;
+      font-size: 17px;
+      line-height: 1.4;
+      color: var(--ink);
+      margin: 0 0 8px;
+    }
+    .hcard .hcard-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--annotate);
+    }
+    .hcard .hcard-meta b { color: var(--ink); }
+    .hcard .stamp {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      font-weight: 600;
+      text-transform: uppercase;
+      border: 1.5px solid currentColor;
+      padding: 3px 8px;
+      transform: rotate(-4deg);
+      opacity: 0;
+      transition: opacity 360ms var(--ease) 100ms, transform 360ms var(--ease) 100ms;
+    }
+    .hcard.is-confirmed .stamp.confirmed { opacity: 1; color: var(--confirmed); transform: rotate(-4deg) scale(1); }
+    .hcard.is-refuted .stamp.refuted { opacity: 1; color: var(--refuted); transform: rotate(-3deg) scale(1); }
+
+    .hcard.is-graduating {
+      animation: graduate 700ms var(--ease) forwards;
+    }
+    @keyframes graduate {
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-12px); opacity: 0.4; }
+    }
+
+    .lcard {
+      border: 1px solid var(--ink);
+      background: var(--cream-deep);
+      padding: 16px 18px;
+      position: relative;
+      animation: slidein 600ms var(--ease) both;
+    }
+    .lcard::before {
+      content: "↳ Learning";
+      position: absolute;
+      top: -10px;
+      left: 12px;
+      background: var(--cream);
+      padding: 0 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal);
+      font-weight: 600;
+    }
+    .lcard .lbody {
+      font-family: 'Fraunces', serif;
+      font-size: 16px;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .lcard .lmeta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--annotate);
+    }
+    .lcard .lmeta .conf {
+      color: var(--ink);
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
+    @keyframes slidein {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .hypothesis-controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .hypothesis-controls .meter {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--annotate);
+    }
+    .hypothesis-controls .meter b { color: var(--ink); }
+
+    /* ─────────────────────────────────────────────────────────
+       §04 SUBSTRATE
+       ───────────────────────────────────────────────────────── */
+    .substrate {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      margin-top: 32px;
+    }
+    @media (max-width: 900px) { .substrate { grid-template-columns: 1fr; } }
+    .substrate-col h3 {
+      font-size: 17px;
+      font-variation-settings: 'opsz' 24, 'wght' 500;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--ink);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .substrate-col h3 .count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--annotate);
+      font-weight: 500;
+    }
+    .substrate-col .glyph {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--signal);
+      margin-right: 8px;
+    }
+
+    .drill {
+      border-top: 1px solid var(--rule);
+      padding: 12px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .drill:first-of-type { border-top: 0; }
+    .drill .row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .drill .toggle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--signal);
+      width: 14px;
+      flex-shrink: 0;
+      transition: transform 200ms var(--ease);
+    }
+    .drill[aria-expanded="true"] .toggle { transform: rotate(45deg); }
+    .drill .title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink);
+      flex: 1;
+    }
+    .drill .role {
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      margin-top: 4px;
+      padding-left: 24px;
+    }
+    .drill .detail {
+      padding-left: 24px;
+      padding-top: 10px;
+      margin-top: 8px;
+      border-top: 1px dotted var(--rule);
+      display: none;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+    }
+    .drill[aria-expanded="true"] .detail { display: block; }
+    .drill .detail dl {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 4px 10px;
+      margin: 0;
+    }
+    .drill .detail dt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      padding-top: 2px;
+    }
+    .drill .detail dd { margin: 0; }
+    .drill .detail code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--ink);
+      background: var(--cream-deep);
+      padding: 1px 5px;
+    }
+
+    .substrate-note {
+      grid-column: 1 / -1;
+      margin-top: 8px;
+      padding: 14px 18px;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+      font-size: 13px;
+      color: var(--annotate);
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .substrate-note span b { color: var(--ink); font-weight: 600; }
+    .substrate-note span { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; }
+
+    /* ─────────────────────────────────────────────────────────
+       §05 COMPLIANCE
+       ───────────────────────────────────────────────────────── */
+    .compliance-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 48px;
+      align-items: start;
+      margin-top: 32px;
+    }
+    @media (max-width: 820px) { .compliance-layout { grid-template-columns: 1fr; gap: 28px; } }
+
+    .layers {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .layer {
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      padding: 16px 18px;
+      position: relative;
+    }
+    .layer .layer-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .layer .layer-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+    .layer .layer-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--annotate);
+    }
+    .layer p { font-size: 14px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+    .layer.gates-fail {
+      border-color: var(--signal);
+      border-style: dashed;
+    }
+
+    .gates {
+      counter-reset: gate;
+    }
+    .gates h3 { margin-bottom: 16px; }
+    .gate {
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 14px;
+      padding: 14px 0;
+      border-top: 1px solid var(--rule);
+    }
+    .gate:last-child { border-bottom: 1px solid var(--rule); }
+    .gate .gnum {
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 360;
+      font-size: 30px;
+      line-height: 1;
+      color: var(--signal);
+    }
+    .gate .gname {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .gate .gdesc {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       §06 FUTURE
+       ───────────────────────────────────────────────────────── */
+    .bets {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 22px;
+      margin: 32px 0 28px;
+    }
+    @media (max-width: 900px) { .bets { grid-template-columns: 1fr; } }
+    .bet {
+      border: 1px solid var(--ink);
+      background: var(--paper);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+    .bet .bet-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--signal);
+      text-transform: uppercase;
+    }
+    .bet h4 {
+      font-size: 22px;
+      font-variation-settings: 'opsz' 36, 'wght' 460;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+    }
+    .bet p {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    .bet svg { width: 100%; height: 86px; }
+    .bet svg .bet-line { stroke: var(--ink); stroke-width: 1; fill: none; }
+    .bet svg .bet-node { fill: var(--paper); stroke: var(--ink); stroke-width: 1; }
+    .bet svg .bet-accent { fill: var(--signal); }
+    .bet svg text { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--ink); letter-spacing: 0.05em; }
+
+    .promotion {
+      margin-top: 28px;
+      padding-top: 22px;
+      border-top: 1px solid var(--ink);
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 360;
+      font-style: italic;
+      font-size: 19px;
+      line-height: 1.45;
+      color: var(--ink);
+      max-width: 720px;
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       §07 COLOPHON
+       ───────────────────────────────────────────────────────── */
+    .colophon {
+      margin-top: clamp(80px, 12vw, 140px);
+      padding-top: 32px;
+      border-top: 1px solid var(--ink);
+    }
+    .colophon .text {
+      max-width: 720px;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--ink-soft);
+      margin-bottom: 28px;
+    }
+    .colophon .text strong { color: var(--ink); }
+    .legend {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--annotate);
+    }
+    .legend b { color: var(--ink); margin-right: 4px; }
+    .legend span:not(:first-child)::before {
+      content: "·";
+      margin-right: 28px;
+      margin-left: -22px;
+    }
+
+    .signature {
+      margin-top: 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-top: 1px solid var(--ink);
+      padding-top: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--annotate);
+    }
+    .signature .doc-num { color: var(--ink); }
+
+    /* ─────────────────────────────────────────────────────────
+       MOTION / PRINT
+       ───────────────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    }
+
+    @media print {
+      body { background: white; }
+      .rail-controls, .bandit-controls, .hypothesis-controls { display: none; }
+      .drill { cursor: default; }
+      .drill[aria-expanded="false"] .detail { display: block; }
+      .drill[aria-expanded="false"] .toggle { transform: rotate(45deg); }
+      .walker-rail { position: static; }
+      section { page-break-inside: avoid; }
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       MISC
+       ───────────────────────────────────────────────────────── */
+    .pull-quote {
+      border-left: 2px solid var(--signal);
+      padding-left: 20px;
+      margin: 32px 0;
+      font-family: 'Fraunces', serif;
+      font-variation-settings: 'opsz' 36, 'wght' 360;
+      font-size: 22px;
+      line-height: 1.45;
+      font-style: italic;
+      max-width: 640px;
+      color: var(--ink);
+    }
+    .pull-quote cite {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-style: normal;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--annotate);
+      margin-top: 14px;
+    }
+
+    .triplet {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin: 32px 0;
+    }
+    @media (max-width: 820px) { .triplet { grid-template-columns: 1fr; } }
+    .triplet > div {
+      padding: 16px 0 0;
+      border-top: 1px solid var(--ink);
+    }
+    .triplet h4 {
+      font-size: 16px;
+      font-variation-settings: 'opsz' 24, 'wght' 500;
+      margin-bottom: 8px;
+    }
+    .triplet p { font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+    .triplet .nlabel {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--signal);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+<main>
+
+<!-- ─────────────────────────────────────────────────────────
+     COVER
+     ───────────────────────────────────────────────────────── -->
+<header class="cover">
+  <div class="wordmark-row">
+    <div class="wordmark">Marketing OS<span>/</span>v1.2<span>/</span>technical brief</div>
+    <div class="meta-row mono">DOC 0001 · ISSUED 2026</div>
+  </div>
+
+  <h1 class="cover-title display">
+    <span class="line-1">A closed-loop</span>
+    <span class="line-1">creative engine</span>
+    <span class="line-2">for the Andromeda era.</span>
+  </h1>
+
+  <p class="cover-tagline">Eight specialised agents. Seven tool servers. Eight review surfaces. Every external write gated by a human. The whole loop runs end-to-end on demand.</p>
+
+  <div class="cover-stats">
+    <div class="stat"><div class="num">8</div><div class="lbl">agents</div></div>
+    <div class="stat"><div class="num">7</div><div class="lbl">MCP servers</div></div>
+    <div class="stat"><div class="num">8</div><div class="lbl">review DBs</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">human gates</div></div>
+  </div>
+
+  <!-- doctrine pull-quote -->
+  <div class="cover-doctrine">
+    <p class="quote">
+      <em>Creative <i>is</i> targeting.</em> The platform finds the audience;
+      we earn the right to be the one it finds.
+    </p>
+    <div class="attribution">— THE ANDROMEDA DOCTRINE</div>
+  </div>
+
+  <!-- visual table of contents -->
+  <nav class="cover-toc" aria-label="Document contents">
+    <div class="toc-head">
+      <span>CONTENTS</span>
+      <span>READING NOTE</span>
+    </div>
+    <div class="row">
+      <div class="num">§01</div>
+      <div class="title">The Problem <em>— targeting moved into the creative</em></div>
+      <div class="figref">opening argument</div>
+    </div>
+    <div class="row">
+      <div class="num">§02</div>
+      <div class="title">The Shape <em>— one cycle, eight stops, six gates</em></div>
+      <div class="figref">phased read-through</div>
+    </div>
+    <div class="row">
+      <div class="num">§03</div>
+      <div class="title">Run Output <em>— the same funnel, six times running</em></div>
+      <div class="figref">CPA across six runs</div>
+    </div>
+    <div class="row">
+      <div class="num">§04</div>
+      <div class="title">The Brain Inside <em>— three reasoning paradigms, layered</em></div>
+      <div class="figref">bandit · hypothesis lifecycle</div>
+    </div>
+    <div class="row">
+      <div class="num">§05</div>
+      <div class="title">The Substrate <em>— eight agents, seven servers, eight surfaces</em></div>
+      <div class="figref">portable architecture</div>
+    </div>
+  </nav>
+</header>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §01 PROBLEM
+     ───────────────────────────────────────────────────────── -->
+<section id="problem">
+  <div class="section-label mono"><span class="num">§01</span><span class="name">/ THE PROBLEM</span></div>
+
+  <h2>Targeting moved into the creative.</h2>
+
+  <div class="section-intro" style="margin-top:28px;">
+    <p class="lede">Modern ad platforms have stopped reading audiences and started reading the ad. The lever isn't who you show it to — it's what you show.</p>
+    <p>The marketing question has changed shape. Audience-stack tuning, interest layering, demographic gates — the levers that defined a decade of paid media — have been quietly subsumed by ranking systems that read each creative's content and match it to the audience themselves. The implication is sharp and operational:</p>
+    <p><strong>If creative is the targeting lever, you need to produce diverse, compliant, evidence-led creative at volume — and you need to learn from server-side signals, not from the rank charts the platform shows you.</strong></p>
+  </div>
+
+  <div class="triplet">
+    <div>
+      <div class="nlabel">Constraint 1</div>
+      <h4>Volume without sameness</h4>
+      <p>One winning angle cannot be scaled with twenty redraws of the same hook. The engine needs to author <em>distinct</em> hooks, formats, and proof points — across emotional registers — without sliding into slop.</p>
+    </div>
+    <div>
+      <div class="nlabel">Constraint 2</div>
+      <h4>Server-side signal recovery</h4>
+      <p>Browser pixels under-report. Real conversions live behind cookie loss, app boundaries, and downstream events the pixel never sees. A first-party conversion path is no longer optional.</p>
+    </div>
+    <div>
+      <div class="nlabel">Constraint 3</div>
+      <h4>Compliance survives volume</h4>
+      <p>Regulated industries can't trade compliance for speed. Every output must be checked at the prompt and again at the write boundary — without slowing the loop or laundering responsibility through automation.</p>
+    </div>
+  </div>
+
+  <div class="pull-quote">
+    A closed loop, gated by humans at every external write, that learns from server-side signals and keeps getting smarter cycle over cycle.
+    <cite>The shape of the response</cite>
+  </div>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §02 SHAPE — WALKER
+     ───────────────────────────────────────────────────────── -->
+<section id="shape">
+  <div class="section-label mono"><span class="num">§02</span><span class="name">/ THE SHAPE</span></div>
+
+  <h2>One cycle, eight stops, six gates.</h2>
+  <p class="section-intro" style="margin-top:20px;">A single cycle runs end-to-end on demand. Tracking validates the data path. Analytics pulls and ranks signals. The Brain reasons and writes a memo. The production agents downstream — Targeting, Content, Media Production — each terminate in a human gate. Experiment OS designs the test at gate three, then Distribution routes the approved Variants and Articles to their destinations — paused on every platform, awaiting the human flip. After the experiment concludes, the cycle reflects and the next one starts from a smarter base.</p>
+
+  <!-- ─── PHASE 1 · INPUT ─────────────────────────────── -->
+  <div class="phase-chapter">
+    <div class="phase-header">
+      <div class="num">01</div>
+      <div class="name">PHASE · INPUT</div>
+      <div class="frame">Before any creative gets made, two agents establish the ground truth: the conversion path works, and the prior cycle's data is in.</div>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">01</div>
+        <div class="name">TRACKING</div>
+      </div>
+      <div class="body">
+        <div class="role">Validate the conversion-tracking path before any creative or analytics step in the closed loop.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Ad-platform test endpoint · server-side event sandbox.</dd>
+          <dt>Outputs</dt>
+          <dd>Match-quality report · warnings on drift · halts the loop on failure.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">capi_test_event</span>
+            <span class="tool">capi_send (test)</span>
+            <span class="tool">log_event</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">pixel_id ........ 1234567...
+match_quality ... 8.7 / 10
+event_seen_at ... 2026-05-15 08:42 +08
+drift ........... none → proceed</pre>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">02</div>
+        <div class="name">ANALYTICS</div>
+      </div>
+      <div class="body">
+        <div class="role">Pull platform insights into local SQLite. Compute decay curves and cost-per-message-angle. Rank top creatives; flag fatigue.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Window (7 / 14 / 30 days) · ad-platform insights API.</dd>
+          <dt>Outputs</dt>
+          <dd>Ranked top creatives · fatiguing creatives · cost-per-angle · decay curves.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">get_insights</span>
+            <span class="tool">ingest_meta_insights</span>
+            <span class="tool">decay_curve</span>
+            <span class="tool">cost_per_angle</span>
+            <span class="tool">top_creatives</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">creative_id ..... vrnt_a042
+spend ........... $48.20    purchases ... 7
+CAC ............. $6.85     decay_d7 .... +14%
+angle ........... "tax-relief urgency"
+rank ............ 1 / 12</pre>
+    </div>
+  </div>
+
+  <!-- ─── PHASE 2 · DECISION ──────────────────────────── -->
+  <div class="phase-chapter">
+    <div class="phase-header">
+      <div class="num">02</div>
+      <div class="name">PHASE · DECISION</div>
+      <div class="frame">One agent synthesises the read. The Decision Memo carries this cycle's reasoning — strategy, allocation, hypotheses to test next.</div>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">03</div>
+        <div class="name">BRAIN</div>
+      </div>
+      <div class="body">
+        <div class="role">Reads the analytics. Reflects on the prior cycle. Allocates the bandit. Writes the nine-section Decision Memo and one Hypothesis per Recommended Action.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Analytics JSON · active Learnings · open Hypotheses · last 3 memos · compliance block.</dd>
+          <dt>Outputs</dt>
+          <dd>Decision Memo v2 → review DB · one Hypothesis per Recommended Action.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">bandit_allocate</span>
+            <span class="tool">corpus.search</span>
+            <span class="tool">notion.create_page</span>
+            <span class="tool">log_event</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">§6  RECOMMENDED ACTIONS
+· Lean 60 % into "tax-relief urgency"
+  angle (CAC $6.85).
+· Spawn Authority Article on
+  frame-embedding mechanic.
+· Open Hypothesis #042 — does urgency
+  outperform on PRS persona?</pre>
+    </div>
+  </div>
+
+  <!-- ─── PHASE 3 · PRODUCTION ────────────────────────── -->
+  <div class="phase-chapter">
+    <div class="phase-header">
+      <div class="num">03</div>
+      <div class="name">PHASE · PRODUCTION</div>
+      <div class="frame">Three agents turn the Memo into shippable creative — message angles, scripts, and per-format variants. Each output passes a human gate before progressing.</div>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">04</div>
+        <div class="name">TARGETING</div>
+      </div>
+      <div class="body">
+        <div class="role">Translate the Memo into 12 message-based angles, one per persona × promise × proof × stage. Outputs angles, not audiences.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Decision Memo · proof corpus.</dd>
+          <dt>Outputs</dt>
+          <dd>12 Briefs in review DB · status Awaiting Approval · bucketed 70 / 20 / 10.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">notion.create_page (Briefs)</span>
+            <span class="tool">corpus.search</span>
+            <span class="tool">corpus.list_proof</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">BRIEF #008 / 12
+Angle ..... "RM3,000. The tax relief
+            most parents miss."
+Persona ... pre_retirement_prs_focus
+Promise ... clarity before tax season
+Proof ..... PRS allowance table
+Bucket .... 70 % (proven)</pre>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">05</div>
+        <div class="name">CONTENT</div>
+      </div>
+      <div class="body">
+        <div class="role">Per approved Brief, emit ≥ 30 hooks across six emotional registers and a full bilingual script. Optional long-form authority article.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Approved Briefs · courses + proof corpus.</dd>
+          <dt>Outputs</dt>
+          <dd>Scripts + Authority Articles in review DB · Awaiting Approval · ≥ 80 % proof-cited.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">corpus.search</span>
+            <span class="tool">notion.create_page (Scripts)</span>
+            <span class="tool">notion.create_page (Authority)</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">HOOK · 1 of 30+ for BRIEF #008
+"RM3,000. That's what walks
+ out the door every April
+ you don't claim your PRS
+ relief."
+register ...... urgency-financial
+proof-cited ... yes</pre>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">06</div>
+        <div class="name">MEDIA PRODUCTION</div>
+      </div>
+      <div class="body">
+        <div class="role">Decompose each Script into five-or-more format variants — Reel 9:16, Feed 1:1, Feed 4:5, YouTube 16:9, Carousel — each with a shotlist. <em>Also prepare the per-channel spec</em> (paid-platform primary text, headline, description, CTA; video-platform title, tags, category; article slug, meta description, reading time). Packaging is owned here; routing happens downstream.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Approved Scripts and Authority Articles.</dd>
+          <dt>Outputs</dt>
+          <dd>Creative Variants with shotlist <em>and</em> per-channel spec fields populated · Articles enriched with AEO/GEO packaging · estimated cost.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">notion.create_page (Variants)</span>
+            <span class="tool">notion.update_page (Articles)</span>
+            <span class="tool">static-renderer.render_html_to_png</span>
+            <span class="tool">asset-store.upload</span>
+            <span class="tool">corpus.search</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">VARIANT v_042 · Reel 9:16 / 18s
+scene 02 .... close-up "RM3,000"
+voice_en .... "Three thousand ringgit.
+               Every April."
+channels .... [paid-platform,
+               video-platform-shorts]
+ad_primary .. "Most parents miss this
+               PRS relief. RM3,000 each
+               April, gone."
+ad_headline . "Reclaim your RM3,000."
+yt_title .... "The PRS relief most
+               Malaysians miss"
+cost_est .... $0</pre>
+    </div>
+  </div>
+
+  <!-- ─── PHASE 4 · EXPERIMENT ────────────────────────── -->
+  <div class="phase-chapter">
+    <div class="phase-header">
+      <div class="num">04</div>
+      <div class="name">PHASE · EXPERIMENT</div>
+      <div class="frame">Experiment OS designs the test at the Variant-approval gate (design-then-progressive-fill). Distribution fills the cells as PAUSED ads land. Readout happens after the experiment concludes, and the verdict feeds the next cycle's Brain.</div>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">07</div>
+        <div class="name">EXPERIMENT OS</div>
+      </div>
+      <div class="body">
+        <div class="role">At gate three, design a factorial test across the factors flagged decisive in the Memo. Set <code>TestType</code> (factorial · single-ad) and <code>LaunchWindow</code>. Distribution back-fills <code>assigned_ad_ids</code> per cell as ads land. Read itself out after the experiment concludes.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Memo · approved Variants · linked Hypotheses.</dd>
+          <dt>Outputs</dt>
+          <dd>Experiment row · cells JSON with assigned-ad slots · allocation note · readout after conclusion.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">experiment.design</span>
+            <span class="tool">experiment.readout</span>
+            <span class="tool">notion.create_page (Experiments)</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">EXPERIMENT xp_0042 · 2×3 factorial · 7 d
+TestType ...... factorial
+LaunchWindow .. 7d
+cell B2 · angle: urgency
+        · format: 9:16 reel
+        · alloc: 20 %
+        · assigned_ad_ids: [ad_71820,
+                            ad_71821]
+readout ....... CAC $6.85 vs ctrl $9.20
+verdict ....... winner → graduate to
+                70 % bucket next cycle</pre>
+    </div>
+  </div>
+
+  <!-- ─── PHASE 5 · ROUTING ───────────────────────────── -->
+  <div class="phase-chapter">
+    <div class="phase-header">
+      <div class="num">05</div>
+      <div class="name">PHASE · ROUTING</div>
+      <div class="frame">One agent routes approved Variants and Articles to their destinations. Mechanical: reads the spec from the review surface verbatim, calls the right MCP, back-fills the result. <em>Never derives, truncates, or shapes content</em> — that work belongs to Media Production, reviewed at gate three.</div>
+    </div>
+
+    <div class="agent-row">
+      <div class="head">
+        <div class="num">08</div>
+        <div class="name">DISTRIBUTION</div>
+      </div>
+      <div class="body">
+        <div class="role">Read the <code>Channels</code> multi-select on each approved Variant; for each channel listed, call the matching MCP adapter with the spec fields already on the row. Route approved Articles (empty <code>Delivered At</code>) to the team's content site via the cross-repo MCP. Back-fill platform IDs to the review surface. Idempotent across re-runs.</div>
+        <dl class="io">
+          <dt>Inputs</dt>
+          <dd>Approved Variants with populated spec · approved Articles · Experiment cell IDs.</dd>
+          <dt>Outputs</dt>
+          <dd>Paid-platform ads created PAUSED (assigned to cells) · video-platform videos uploaded unlisted · article files committed-not-pushed on the site repo · Ad ID / Video ID / Delivered At back-filled.</dd>
+          <dt>MCP tools</dt>
+          <dd>
+            <span class="tool">meta-ads.create_ad (PAUSED)</span>
+            <span class="tool">meta-ads.upload_video</span>
+            <span class="tool">youtube.upload_video (unlisted)</span>
+            <span class="tool">site.draft_article</span>
+            <span class="tool">notion.update_page</span>
+            <span class="tool">corpus.get_compliance_block</span>
+            <span class="tool">analytics.log_event</span>
+          </dd>
+        </dl>
+      </div>
+      <pre class="artifact">$ /distribute --run=run_42 --dry-run
+plan ........... 6 calls across 3 sinks
+
+would_call · meta-ads.create_ad
+  ad_set_id ... as_881
+  creative .... cr_2204
+  cell_id ..... xp_0042.B2
+  status ...... PAUSED
+
+would_call · youtube.upload_video
+  file ........ assets/v_042.mp4
+  title ....... "The PRS relief most
+                 Malaysians miss"
+  privacy ..... unlisted
+
+would_call · site.draft_article
+  slug ........ prs-tax-relief-2026
+  branch ...... main
+  push ........ false
+  index_edit .. false</pre>
+    </div>
+  </div>
+
+  <!-- ─── THE SIX HUMAN GATES ─────────────────────────── -->
+  <div class="gates-block">
+    <div class="gates-head">
+      <div class="label">SIX HUMAN GATES</div>
+      <div class="title">Every external write waits for a human.</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G1</div>
+      <div class="gate-name">Brief approval</div>
+      <div class="gate-body">Humans approve which angles get scripts. Rejected briefs stay in the DB for the next cycle's Brain to learn from.</div>
+      <div class="gate-after">after Targeting</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G2</div>
+      <div class="gate-name">Script + Article approval</div>
+      <div class="gate-body">Humans approve which scripts get produced and which articles get delivered. The hook bank is visible; the chosen hook can be edited before media production.</div>
+      <div class="gate-after">after Content Gen</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G3</div>
+      <div class="gate-name">Variant + spec approval</div>
+      <div class="gate-body">Humans approve the Variant and review the per-channel spec fields (paid-platform primary text, video-platform title, article slug). The reviewable surface is the row itself; humans can edit a field directly before Distribution runs.</div>
+      <div class="gate-after">after Media Production</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G4</div>
+      <div class="gate-name">Paid platform · flip ACTIVE</div>
+      <div class="gate-body">Distribution has staged ads in PAUSED with cell assignments. A human reviews in the ad manager, then flips the batch to ACTIVE.</div>
+      <div class="gate-after">after Distribution · paid</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G5</div>
+      <div class="gate-name">Video platform · flip Public</div>
+      <div class="gate-body">Distribution uploaded videos as unlisted. A human reviews on the video platform and toggles to Public when ready.</div>
+      <div class="gate-after">after Distribution · video</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-mark">▣ G6</div>
+      <div class="gate-name">Content site · merge to main</div>
+      <div class="gate-body">Distribution committed <code>/articles/&lt;slug&gt;.html</code> in the site repo but did not link it in the site index and did not push. A human reviews, links, pushes.</div>
+      <div class="gate-after">after Distribution · article</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §03 RUN OUTPUT & COMPOUNDING — FIGURE ii.
+     ───────────────────────────────────────────────────────── -->
+<section id="output">
+  <div class="section-label mono"><span class="num">§03</span><span class="name">/ RUN OUTPUT & COMPOUNDING — FIGURE ii.</span></div>
+
+  <h2>The same funnel, six times running.</h2>
+  <p class="section-intro" style="margin-top:20px;">
+    <span class="lede">Run the loop once and it produces a precise set of artifacts. Run it six times and the numbers shift in a specific direction — not because the model gets smarter at writing, but because two things compound against each other.</span>
+    The Bandit's posterior tightens around what works. The team approves more aggressively at Gate 2 as trust accumulates. And the ad platform's ranking algorithm builds a frame-level audience embedding from the volume of on-frame variants it sees. Below: the same funnel six times, with the human gates marked. The most legible compounding signal is the <strong>Gate-2 ratio</strong> — how many of the emitted scripts the team approves to render — which widens cycle-over-cycle.
+  </p>
+
+  <div class="runtable-wrap figure" style="padding:0;">
+    <div class="runtable" role="table" aria-label="Run output and compounding across six runs">
+
+      <!-- Header row -->
+      <div class="rt-th-corner">Stage · Term</div>
+      <div class="rt-th"><div class="rt-num">Run 1</div><div class="rt-phase">Cold Start</div></div>
+      <div class="rt-th"><div class="rt-num">Run 2</div><div class="rt-phase">Iterate</div></div>
+      <div class="rt-th"><div class="rt-num">Run 3</div><div class="rt-phase">Tent. Learning</div></div>
+      <div class="rt-th"><div class="rt-num">Run 4</div><div class="rt-phase">Working</div></div>
+      <div class="rt-th"><div class="rt-num">Run 5</div><div class="rt-phase">Steady</div></div>
+      <div class="rt-th"><div class="rt-num">Run 6</div><div class="rt-phase">Pivot</div></div>
+
+      <!-- TARGETING -->
+      <div class="rt-stage">▸ Targeting</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Briefs</div>
+        <div class="def">12 strategic frames Brain picks each cycle. Each Brief is one Persona × Angle × Promise × Proof × Stage × Bucket.</div>
+      </div>
+      <div class="rt-cell">12</div>
+      <div class="rt-cell">12</div>
+      <div class="rt-cell">12</div>
+      <div class="rt-cell">12</div>
+      <div class="rt-cell">12</div>
+      <div class="rt-cell">12</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Bucket split</div>
+        <div class="def">70 / 20 / 10 tags on the 12 Briefs. 70 = iterate winner · 20 = adjacent · 10 = wild card.</div>
+      </div>
+      <div class="rt-cell">4 / 4 / 4</div>
+      <div class="rt-cell">6 / 4 / 2</div>
+      <div class="rt-cell">7 / 3 / 2</div>
+      <div class="rt-cell">8 / 3 / 1</div>
+      <div class="rt-cell">7 / 3 / 2</div>
+      <div class="rt-cell">5 / 4 / 3</div>
+
+      <!-- GATE 1 -->
+      <div class="rt-gate">▣ Gate 1 — Human approves Briefs</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Approved</div>
+        <div class="def">Humans pick from the 12. Cold start is conservative; trust climbs as signal accumulates.</div>
+      </div>
+      <div class="rt-cell">3</div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">10</div>
+      <div class="rt-cell">9</div>
+      <div class="rt-cell">8</div>
+
+      <!-- CONTENT GEN -->
+      <div class="rt-stage">▸ Content Gen</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">hookBank</div>
+        <div class="def">Per approved Brief, 30 hooks distributed across 6 emotional registers (fear · aspiration · curiosity · proof · contrarian · identity).</div>
+      </div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">30</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">valueSegBank</div>
+        <div class="def">Per approved Brief, 6 distinct value segments grounded in the local courses corpus.</div>
+      </div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">6</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Permutation space</div>
+        <div class="def">30 hooks × 6 value segs = 180 per Brief. Multiplied by approved Briefs. The latent design space.</div>
+      </div>
+      <div class="rt-cell">540</div>
+      <div class="rt-cell">900</div>
+      <div class="rt-cell">1,080</div>
+      <div class="rt-cell">1,800</div>
+      <div class="rt-cell">1,620</div>
+      <div class="rt-cell">1,440</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Scripts emitted</div>
+        <div class="def">Curated by Bandit + Memo from the permutation space. The Iterate-on-winners rule unlocks at Run 2 and adds 20+ scripts per winning Brief.</div>
+      </div>
+      <div class="rt-cell">9</div>
+      <div class="rt-cell">32</div>
+      <div class="rt-cell">65</div>
+      <div class="rt-cell">80</div>
+      <div class="rt-cell">95</div>
+      <div class="rt-cell">70</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Authority Articles</div>
+        <div class="def">Long-form per cycle for organic compounding (AEO / GEO).</div>
+      </div>
+      <div class="rt-cell">1</div>
+      <div class="rt-cell">2</div>
+      <div class="rt-cell">2</div>
+      <div class="rt-cell">3</div>
+      <div class="rt-cell">3</div>
+      <div class="rt-cell">2</div>
+
+      <!-- GATE 2 -->
+      <div class="rt-gate">▣ Gate 2 — Human approves Scripts · the biggest cut</div>
+
+      <div class="rt-cell rt-label rt-row-trust">
+        <div class="term">Trust ratio</div>
+        <div class="def">Approved / emitted. The most legible measure of accumulated trust in the system.</div>
+      </div>
+      <div class="rt-cell rt-row-trust">1 / 9</div>
+      <div class="rt-cell rt-row-trust">3 / 32</div>
+      <div class="rt-cell rt-row-trust">6 / 65</div>
+      <div class="rt-cell rt-row-trust">10 / 80</div>
+      <div class="rt-cell rt-row-trust">12 / 95</div>
+      <div class="rt-cell rt-row-trust">8 / 70</div>
+
+      <!-- MEDIA PRODUCTION -->
+      <div class="rt-stage">▸ Media Production</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Variants / Script</div>
+        <div class="def">One per format · Reel 9:16 · Feed 1:1 · Feed 4:5 · YT 16:9 · Carousel 1:1. Bilingual fields live on one row.</div>
+      </div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">5</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Total Variants</div>
+        <div class="def">Scripts approved at Gate 2 × 5 formats.</div>
+      </div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">15</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">50</div>
+      <div class="rt-cell">60</div>
+      <div class="rt-cell">40</div>
+
+      <!-- GATE 3 -->
+      <div class="rt-gate">▣ Gate 3 — Human attaches rendered assets</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Approved</div>
+        <div class="def">Roughly all variants pass — creative-quality check only; compliance has already cleared at the write boundary.</div>
+      </div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">15</div>
+      <div class="rt-cell">30</div>
+      <div class="rt-cell">50</div>
+      <div class="rt-cell">60</div>
+      <div class="rt-cell">40</div>
+
+      <!-- EXPERIMENT OS -->
+      <div class="rt-stage">▸ Experiment OS</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Factors × levels</div>
+        <div class="def">≥ 2 decisive factors picked from the Memo. Common families: format · hook-register · persona · angle · proof.</div>
+      </div>
+      <div class="rt-cell">format × 5</div>
+      <div class="rt-cell">3 × 2</div>
+      <div class="rt-cell">2 × 2 × 2</div>
+      <div class="rt-cell">2 × 2 × 2</div>
+      <div class="rt-cell">2 × 2 × 2</div>
+      <div class="rt-cell">3 × 2</div>
+
+      <div class="rt-cell rt-label">
+        <div class="term">Cells</div>
+        <div class="def">Product of factor levels. Bounded by available Variants. Each cell holds one creative-factor combination.</div>
+      </div>
+      <div class="rt-cell">5</div>
+      <div class="rt-cell">6</div>
+      <div class="rt-cell">8</div>
+      <div class="rt-cell">8</div>
+      <div class="rt-cell">8</div>
+      <div class="rt-cell">6</div>
+
+      <!-- GATE 4 -->
+      <div class="rt-gate">▣ Gate 4 — Human launches in the ad platform</div>
+
+      <!-- OUTCOME -->
+      <div class="rt-stage">▸ Outcome</div>
+
+      <div class="rt-cell rt-label rt-row-cpa">
+        <div class="term">CPA</div>
+        <div class="def">Cost per acquisition. Currency-neutral.</div>
+      </div>
+      <div class="rt-cell rt-row-cpa">8.5</div>
+      <div class="rt-cell rt-row-cpa">6.8</div>
+      <div class="rt-cell rt-row-cpa">5.2</div>
+      <div class="rt-cell rt-row-cpa">4.1</div>
+      <div class="rt-cell rt-row-cpa">4.3</div>
+      <div class="rt-cell rt-row-cpa">3.9</div>
+
+      <!-- Annotation row -->
+      <div class="rt-annotation-label">Note</div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">Cold start</span>
+        No prior signal. Bandit posteriors uniform. Brain falls back to a proof-led prior from the corpus. All 5 Variants enter the platform's learning phase — about 50 conversions each before audience matches stabilise. Signal back to the loop is noisy.
+      </div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">First winner</span>
+        A Run-1 winner identified. Iterate-on-winners triggers: 20+ scripts drawn from the winning Brief's 180-permutation reserve. Hypothesis #042 grades <b>Confirmed (1 of 2)</b>. The platform begins transfer-learning across on-frame variants — new variants warm-start audience match.
+      </div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">Tentative learning</span>
+        Second confirmation. Hypothesis #042 graduates to a Tentative Learning. Brain now reasons from a durable belief, not just signal. A frame-level audience embedding is forming. Variants in-frame escape learning phase faster.
+      </div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">Working learning</span>
+        Third confirmation upgrades the Learning to Working. Cross-Pollinate fires — an Authority Article spawned for the winning angle. The platform's frame embedding has settled — new on-frame variants escape learning phase in 10–20 conversions instead of 50.
+      </div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">Steady state</span>
+        Bandit posteriors are sharp. Allocation is heavily exploitative. The 10 bucket holds at structural minimum. CPA stops falling — a slight uptick (<b>4.1 → 4.3</b>) appears as the same audience sees variations of the same frame. Creative decay is becoming visible.
+      </div>
+      <div class="rt-annotation">
+        <span class="rt-anno-tag">Saturation → pivot</span>
+        Top performer's CPA trend crosses +25 % above its baseline → <b>Sunset</b> fires. <b>Pivot Persona</b> fires concurrently. The 10 bucket grows again (3 / 12) as exploration returns. The new persona's first frame is warm-started by adjacent-embedding transfer — recovery is fast, not cold-start.
+      </div>
+
+    </div>
+  </div>
+
+  <p style="margin-top:24px;font-family:'Newsreader',serif;font-size:15px;line-height:1.55;color:var(--ink-soft);max-width:760px;">
+    <em>Two things to notice.</em> First, the Gate-2 trust ratio (<strong>1 / 9 → 12 / 95</strong>) widens by an order of magnitude across the first five runs — the human team is approving more scripts to render because the Bandit's picks have earned the call. Second, CPA doesn't fall forever. Saturation surfaces at Run 5 and the system responds with a Pivot in Run 6 rather than burning the winning frame further. The system is designed to survive its own success.
+  </p>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §04 BRAIN
+     ───────────────────────────────────────────────────────── -->
+<section id="brain">
+  <div class="section-label mono"><span class="num">§04</span><span class="name">/ THE BRAIN INSIDE</span></div>
+
+  <h2>Three reasoning paradigms, layered.</h2>
+  <p class="section-intro" style="margin-top:20px;">The Brain is not a single prompt. It composes a scientific-method outer loop, a Thompson-sampling bandit inner loop, and a self-critique gate. They don't fight each other — each handles a different problem.</p>
+
+  <div class="triple">
+    <div class="card">
+      <div class="pill">OUTER</div>
+      <h4>Scientific Method</h4>
+      <p>Each cycle states predictions with confidence intervals. The next cycle grades them. Confirmed predictions graduate into durable Learnings. Refuted ones are archived with the evidence that killed them. <em>Epistemology.</em></p>
+    </div>
+    <div class="card">
+      <div class="pill">INNER</div>
+      <h4>Bandit allocation</h4>
+      <p>For each creative arm — a tuple of hook × angle × format × persona × language — maintain a posterior on cost-per-acquisition. Each cycle samples, allocates inverse to sampled CPA, and the familiar 70 / 20 / 10 split <em>emerges</em> from the posterior. <em>Allocation policy.</em></p>
+    </div>
+    <div class="card">
+      <div class="pill">GATE</div>
+      <h4>Reflexion self-critique</h4>
+      <p>Every cycle's memo opens with a paragraph grading the last one. <em>Where I was right. Where I was overconfident. What I omitted. What I'd do differently.</em> The Self-Critique is the first thing the next cycle reads. <em>Quality check.</em></p>
+    </div>
+  </div>
+
+  <!-- Setpiece A — bandit -->
+  <div class="setpiece">
+    <div class="setpiece-intro">
+      <h3>Set-piece A — Bandit allocation, emergent.</h3>
+      <p>Start with five arms at uniform allocation. Each cycle samples from each arm's posterior and reallocates budget. Watch the 70 / 20 / 10 buckets surface from the data — they're a consequence of the math, not a fixed input.</p>
+      <p style="margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--annotate);letter-spacing:0.04em;">Click <b style="color:var(--ink);">+ CYCLE</b> to advance. The simulation is deterministic; <b style="color:var(--ink);">RESET</b> returns to uniform.</p>
+    </div>
+
+    <div class="bandit figure">
+      <span class="corner-tr"></span><span class="corner-bl"></span>
+      <div class="bandit-bars" id="bandit-bars">
+        <div class="arm-name">A</div><div class="arm-track"><div class="arm-fill" style="width:20%"></div></div><div class="arm-pct">20.0%</div><div class="arm-bucket" data-arm="0"></div>
+        <div class="arm-name">B</div><div class="arm-track"><div class="arm-fill" style="width:20%"></div></div><div class="arm-pct">20.0%</div><div class="arm-bucket" data-arm="1"></div>
+        <div class="arm-name">C</div><div class="arm-track"><div class="arm-fill" style="width:20%"></div></div><div class="arm-pct">20.0%</div><div class="arm-bucket" data-arm="2"></div>
+        <div class="arm-name">D</div><div class="arm-track"><div class="arm-fill" style="width:20%"></div></div><div class="arm-pct">20.0%</div><div class="arm-bucket" data-arm="3"></div>
+        <div class="arm-name">E</div><div class="arm-track"><div class="arm-fill" style="width:20%"></div></div><div class="arm-pct">20.0%</div><div class="arm-bucket" data-arm="4"></div>
+      </div>
+      <div class="bandit-controls">
+        <button class="btn" id="bandit-step">+ Cycle</button>
+        <button class="btn ghost" id="bandit-reset">Reset</button>
+        <div class="meter">Cycle <b id="bandit-cycle">0</b> · ε <b>0.20</b></div>
+      </div>
+      <div style="margin-top:14px;" class="figure-caption mono"><b>FIG. ii</b>POSTERIOR ALLOCATION ACROSS FIVE ARMS · DETERMINISTIC SIM</div>
+    </div>
+  </div>
+
+  <!-- Setpiece B — hypothesis -->
+  <div class="setpiece" style="margin-top:80px;">
+    <div class="setpiece-intro">
+      <h3>Set-piece B — Hypothesis to Learning.</h3>
+      <p>The Brain writes one Hypothesis per Recommended Action. After the cycle's experiment concludes, the next cycle grades it against the prediction. Two independent confirmations promote the Hypothesis into a Tentative Learning. A third upgrades it to Working. Refuted hypotheses do <em>not</em> graduate — they archive with a citation.</p>
+      <p style="margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--annotate);letter-spacing:0.04em;">Click <b style="color:var(--ink);">RUN CYCLE</b>. Two cycles is enough to see the graduation.</p>
+    </div>
+
+    <div class="hypothesis-stack figure">
+      <span class="corner-tr"></span><span class="corner-bl"></span>
+
+      <div id="hypothesis-zone">
+        <div class="hcard" id="hcard-1" data-state="open">
+          <div class="hcard-id">HYPOTHESIS #042 · STATUS: OPEN</div>
+          <div class="hcard-body">If hook A × format B × persona P, then CPA ≤ 6.0 at 70 % confidence.</div>
+          <div class="hcard-meta">Predicted range <b>4.2–5.8</b> · Expected runtime <b>7 d</b></div>
+          <div class="stamp confirmed">CONFIRMED</div>
+          <div class="stamp refuted">REFUTED</div>
+        </div>
+      </div>
+
+      <div class="hypothesis-controls">
+        <button class="btn" id="hyp-step" style="padding:8px 14px;border:1px solid var(--ink);background:var(--ink);color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;">Run cycle</button>
+        <button class="btn ghost" id="hyp-reset" style="padding:8px 14px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;">Reset</button>
+        <div class="meter">Confirmations <b id="hyp-conf">0</b></div>
+      </div>
+      <div style="margin-top:14px;" class="figure-caption mono"><b>FIG. iii</b>HYPOTHESIS LIFECYCLE · OPEN → PREDICTED → GRADUATION</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §05 SUBSTRATE
+     ───────────────────────────────────────────────────────── -->
+<section id="substrate">
+  <div class="section-label mono"><span class="num">§05</span><span class="name">/ THE SUBSTRATE</span></div>
+
+  <h2>Eight agents, seven tool servers, eight review surfaces.</h2>
+  <p class="section-intro" style="margin-top:20px;">The whole architecture is portable. Agents are markdown files. Tool servers are stdio processes. The review surface is a database under the team's existing knowledge tool. Local SQLite holds insights and creative metadata; a small file indexer holds the grounding corpus. <em>Some tool servers live in other repos</em> — the article-writer MCP runs inside the team's content-site codebase and is called over stdio just like any in-house adapter. Same protocol, different home. No warehouse. No proprietary middleware. Same shape from v1 onwards.</p>
+
+  <div class="substrate">
+
+    <!-- Agents -->
+    <div class="substrate-col">
+      <h3><span><span class="glyph">◯</span>Agents</span><span class="count">8</span></h3>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Brain · OS07</span></div>
+        <div class="role">Router and reasoner. Reads analytics, writes the nine-section Decision Memo, dispatches the rest.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Ranked + fatiguing JSON, active Learnings, open Hypotheses, last three memos, compliance block.</dd>
+          <dt>Outputs</dt><dd>Decision Memo v2 → review DB. One Hypothesis row per Recommended Action.</dd>
+          <dt>Tools</dt><dd><code>bandit_allocate</code> · <code>notion.*</code> · <code>corpus.*</code> · Task dispatch.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Tracking · OS02</span></div>
+        <div class="role">Validates the server-side conversion path before each cycle. Monitor-only in v1; never fires production events.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Ad-platform sandbox, hashed test payload.</dd>
+          <dt>Outputs</dt><dd>Match quality, drift warnings, halts the loop on failure.</dd>
+          <dt>Tools</dt><dd><code>capi_test_event</code> · <code>capi_send (test)</code> · <code>log_event</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Analytics · OS06</span></div>
+        <div class="role">Pulls platform insights into local SQLite. Computes decay curves, cost-per-message-angle, ranks top creatives, flags fatigue.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Window (7 / 14 / 30 days), ad-platform insights API.</dd>
+          <dt>Outputs</dt><dd>Top creatives, fatiguing creatives, cost-per-angle, decay curves.</dd>
+          <dt>Tools</dt><dd><code>get_insights</code> · <code>ingest_meta_insights</code> · <code>decay_curve</code> · <code>cost_per_angle</code> · <code>top_creatives</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Targeting · OS01</span></div>
+        <div class="role">Translates the Memo into 12 message-based angles. Outputs angles, not audiences — creative <em>is</em> the targeting.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Decision Memo, proof corpus.</dd>
+          <dt>Outputs</dt><dd>12 Briefs in review DB · status Awaiting Approval · bucketed 70 / 20 / 10.</dd>
+          <dt>Tools</dt><dd><code>notion.create_page (Briefs)</code> · <code>corpus.search</code> · <code>corpus.list_proof</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Content Gen · OS05</span></div>
+        <div class="role">For each approved Brief, emits a hook bank across six emotional registers, full bilingual scripts, and 1–2 long-form authority articles.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Approved Briefs, courses + proof corpus.</dd>
+          <dt>Outputs</dt><dd>Scripts + Authority Articles in review DB · Awaiting Approval · 80 % proof-cited.</dd>
+          <dt>Tools</dt><dd><code>corpus.search</code> · <code>notion.create_page</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Media Production · OS04</span></div>
+        <div class="role">Decomposes each approved Script into five-or-more Creative Variants — Reel 9:16, Feed 1:1, Feed 4:5, YT 16:9, Carousel — each with a shotlist <em>and the per-channel spec</em> (paid-platform primary text / headline / CTA; video-platform title / tags; article slug / description / reading time). Also enriches Authority Articles with AEO/GEO packaging. Packaging is owned here; routing happens downstream.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Approved Scripts and Authority Articles.</dd>
+          <dt>Outputs</dt><dd>Creative Variants with shotlist + per-channel spec populated · Articles with Slug / Description / Reading Time / Keywords / OG Image. Static-image formats auto-rendered to assets.</dd>
+          <dt>Tools</dt><dd><code>notion.create_page (CreativeVariants)</code> · <code>notion.update_page (AuthorityArticles)</code> · <code>static-renderer.render_html_to_png</code> · <code>asset-store.upload</code> · <code>corpus.search</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Experiment OS · OS03</span></div>
+        <div class="role">Designs factorial tests at the Variant gate (design-then-progressive-fill) across the factors the Memo flagged as decisive. Sets <code>TestType</code> (factorial · single-ad) and <code>LaunchWindow</code>. Distribution back-fills per-cell ad IDs as assets land.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Memo · approved Variants · linked Hypotheses · launch window.</dd>
+          <dt>Outputs</dt><dd>Experiment row · cells JSON with <code>assigned_ad_ids</code> slots · allocation note · readout after conclusion.</dd>
+          <dt>Tools</dt><dd><code>experiment.design</code> · <code>experiment.readout</code> · <code>notion.create_page (Experiments)</code> · <code>notion.update_page (Hypotheses)</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Distribution · OS08</span></div>
+        <div class="role">Mechanical router. Reads the <code>Channels</code> multi-select on approved Variants and routes each row to its destination MCPs. Reads the spec verbatim from the review surface — never derives, truncates, or shapes content. Idempotent across re-runs.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>Approved Variants (with populated spec + Channels) · approved Articles (with empty Delivered At) · Experiment cell IDs.</dd>
+          <dt>Outputs</dt><dd>Paid-platform ads created PAUSED (assigned to cells) · video-platform videos uploaded unlisted · article files committed-not-pushed on the site repo · Ad ID / Video ID / Delivered At back-filled.</dd>
+          <dt>Tools</dt><dd><code>meta-ads.create_ad</code> · <code>meta-ads.upload_video</code> · <code>youtube.upload_video</code> · <code>site.draft_article</code> · <code>notion.update_page</code> · <code>corpus.get_compliance_block</code>. Supports <code>--dry-run</code> for plan-walk without writes.</dd>
+        </dl></div>
+      </div>
+    </div>
+
+    <!-- MCP servers -->
+    <div class="substrate-col">
+      <h3><span><span class="glyph">⬡</span>Tool servers</span><span class="count">7</span></h3>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">meta-ads</span></div>
+        <div class="role">Paid-platform read + write API + server-side conversion. Authenticated. Safe state is hard-wired in every create call.</div>
+        <div class="detail"><dl>
+          <dt>Reads</dt><dd>Campaigns, ad sets, ads, creatives, insights, decay curves.</dd>
+          <dt>Writes</dt><dd><code>create_campaign</code> (PAUSED) · <code>create_adset</code> (PAUSED) · <code>update_adset</code> (guarded — no live-budget increase on ACTIVE entities) · <code>upload_video</code> (multipart or URL-fetch) · <code>upload_image</code> · <code>create_ad_creative</code> (compliance scan inside the call) · <code>create_ad</code> (PAUSED, idempotent via <code>client_request_id</code>) · <code>pause_*</code>. Plus CAPI test / send.</dd>
+          <dt>Notes</dt><dd><b>No <code>activate_*</code> tool exists.</b> The agent cannot pass <code>status: ACTIVE</code> because the parameter is not on any tool schema. PII hashed sha-256, lowercase, trimmed. Event ID matches browser pixel for dedup.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">youtube</span></div>
+        <div class="role">Video-platform read + write. OAuth2 with long-lived refresh token. Safe state is hard-wired.</div>
+        <div class="detail"><dl>
+          <dt>Reads</dt><dd><code>get_video_status</code>.</dd>
+          <dt>Writes</dt><dd><code>upload_video</code> — <code>privacyStatus: 'unlisted'</code> hard-wired; <code>update_video_metadata</code> — refuses any payload that would flip the video public; <code>upload_thumbnail</code>; <code>delete_video</code>.</dd>
+          <dt>Notes</dt><dd><b>No <code>set_public</code> / <code>update_privacy_status</code> tool path.</b> The flip to Public is a human-only action in the video platform's studio.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">site</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;color:var(--annotate);text-transform:uppercase;margin-left:10px;">cross-repo</span></div>
+        <div class="role">Cross-repo MCP. Lives inside the team's owned content-site codebase; called over stdio just like any in-house adapter. <em>Same protocol, different home.</em></div>
+        <div class="detail"><dl>
+          <dt>Writes</dt><dd><code>draft_article(spec)</code> — reads the site's article template, substitutes placeholders, renders FAQ as visible <code>&lt;details&gt;</code> plus JSON-LD <code>FAQPage</code>, writes <code>/articles/&lt;slug&gt;.html</code> in the site repo, runs <code>git add</code> + <code>git commit -m 'draft: &lt;slug&gt;'</code>.</dd>
+          <dt>Notes</dt><dd><b>Never pushes. Never modifies the site index.</b> The merge-to-main is a human action on the site repo. Per ADR-016 — the site owns the article format; the Marketing OS hands off a spec and walks away.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">notion</span></div>
+        <div class="role">All review-DB CRUD plus a compliance gate at the write boundary.</div>
+        <div class="detail"><dl>
+          <dt>Reads</dt><dd>Page queries · approval status · related rows.</dd>
+          <dt>Writes</dt><dd>Pages, blocks, properties. Every create runs a compliance scan; failures don't create rows.</dd>
+          <dt>DBs</dt><dd>Briefs · Scripts · Authority · Variants · Experiments · Performance Reports · Hypotheses · Learnings.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">analytics</span></div>
+        <div class="role">Local SQLite plus decay / angle queries plus the Thompson-sampling bandit allocator.</div>
+        <div class="detail"><dl>
+          <dt>Tables</dt><dd>meta_insights · creatives · events · angle_tags.</dd>
+          <dt>Tools</dt><dd><code>decay_curve</code> · <code>cost_per_angle</code> · <code>top_creatives</code> · <code>bandit_allocate</code> · <code>bandit_update</code>.</dd>
+          <dt>Notes</dt><dd>Posterior is Beta-Bernoulli on conversion-per-impression, weighted by spend.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">corpus</span></div>
+        <div class="role">Local file indexer over compliance rules, course material, and proof archives. BM25 sidecar.</div>
+        <div class="detail"><dl>
+          <dt>Inputs</dt><dd>.md, .pdf, .txt, .vtt files in scope-tagged folders.</dd>
+          <dt>Outputs</dt><dd>Chunked JSONL · BM25 index · scoped retrieval.</dd>
+          <dt>Tools</dt><dd><code>search</code> · <code>get_compliance_block</code> · <code>list_proof</code>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">experiment</span></div>
+        <div class="role">Designs factorial cells with 70 / 20 / 10 overlay; reads them out after the experiment concludes.</div>
+        <div class="detail"><dl>
+          <dt>Modes</dt><dd><code>design</code> – pre-experiment cell plan with allocation. <code>readout</code> – post-experiment lift, significance note, recommendation.</dd>
+          <dt>Notes</dt><dd>v1 stops at the human gate — does not auto-publish in the ad manager.</dd>
+        </dl></div>
+      </div>
+    </div>
+
+    <!-- Notion DBs -->
+    <div class="substrate-col">
+      <h3><span><span class="glyph">▣</span>Review surfaces</span><span class="count">8</span></h3>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Briefs</span></div>
+        <div class="role">12 message-based angles per cycle. The first human gate.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Persona · Angle · Promise · Proof Type · Funnel Stage · Budget Bucket · Body EN/BM · Source Insights.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Scripts</span></div>
+        <div class="role">Hook bank plus full bilingual script per approved Brief. The second human gate.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Brief (rel) · Format · Hook EN/BM · Script EN/BM · Duration (sec) · CTA EN/BM.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Authority Articles</span></div>
+        <div class="role">Long-form AEO/GEO content that compounds with paid. Reviewed at gate two; routed at the article gate.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Topic · Target Query · Body EN/BM · FAQ EN/BM · Citations · AEO Schema · <em>Slug · Description · Reading Time · Keywords · OG Image URL · Hero Image URL/Alt · Related Slugs · Delivered At · Delivered To</em>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Creative Variants</span></div>
+        <div class="role">Per-format shotlists <em>and per-channel spec</em>. The Variant-approval gate is where humans review both the visual decomposition and the exact text that will ship to each platform.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Script (rel) · Format · Aspect · Shotlist · Thumbnail Brief · Estimated Cost · Asset Files · <em>Channels (multi_select)</em> · <em>YT Title · YT Description · YT Tags · YT Category · YT Video ID</em> · <em>Meta Primary Text EN/BM · Meta Headline EN/BM · Meta Description EN/BM · Meta CTA Type · Meta Targeting JSON · Ad ID</em>.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Experiments</span></div>
+        <div class="role">Designed factorial cells with 70 / 20 / 10 overlay. Cells get back-filled with assigned ad IDs as Distribution routes them. The paid-platform gate is the human flipping the batch to ACTIVE.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Hypothesis · Factors · Cells (with <em>assigned_ad_ids</em>) · Primary Metric · Daily Budget · Duration · <em>TestType (factorial · single-ad)</em> · <em>LaunchWindow (24h · 7d · open)</em> · Status · Linked Variants · Readout.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Performance Reports</span></div>
+        <div class="role">The Decision Memo v2 itself — nine sections per cycle.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Window · Top Creatives · Fatiguing · Cost per Angle · Decision Memo EN/BM · Self-Critique · Bandit Allocation · Linked Briefs · Linked Experiments · Linked Hypotheses.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Hypotheses</span></div>
+        <div class="role">Short-lived. One row per Recommended Action. Graded after the cycle concludes.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Statement · Predicted Effect · Predicted Range · Test Experiment · Status · Predictions History · Calibration Score · Domain.</dd>
+        </dl></div>
+      </div>
+
+      <div class="drill" aria-expanded="false">
+        <div class="row"><span class="toggle">+</span><span class="title">Learnings</span></div>
+        <div class="role">Durable beliefs. Hypotheses graduate here after two confirmations; they leave only when superseded.</div>
+        <div class="detail"><dl>
+          <dt>Fields</dt><dd>Claim · Confidence (Tentative · Working · Proven) · Half-life · Source Hypotheses · Last validated · Status · Domain.</dd>
+        </dl></div>
+      </div>
+    </div>
+
+    <div class="substrate-note">
+      <span><b>STORE</b> · local SQLite · <code style="font-family:inherit;background:var(--cream-deep);padding:1px 5px;">data/marketing.sqlite</code></span>
+      <span><b>GROUND</b> · file corpus · <code style="font-family:inherit;background:var(--cream-deep);padding:1px 5px;">corpus/.index/chunks.jsonl</code></span>
+      <span><b>NO</b> · warehouse · proprietary middleware · external data flow</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §06 COMPLIANCE
+     ───────────────────────────────────────────────────────── -->
+<section id="compliance">
+  <div class="section-label mono"><span class="num">§06</span><span class="name">/ COMPLIANCE & HUMAN GATES</span></div>
+
+  <h2>Three checks, six gates.</h2>
+  <p class="section-intro" style="margin-top:20px;">Compliance is enforced in three places — once when the agent drafts the work, once when it tries to write to the review surface, and once at the platform boundary where the dangerous parameters simply don't exist. Between those, six human gates ensure that no work crosses an external boundary without a human signing off on it.</p>
+
+  <div class="compliance-layout">
+
+    <!-- Three layers -->
+    <div class="layers">
+      <div class="layer">
+        <div class="layer-head">
+          <div class="layer-name">Layer A — System-prompt injection</div>
+          <div class="layer-tag">Before drafting</div>
+        </div>
+        <p>Every content-producing agent loads the compliance block — regulator rules, banned phrases, required disclosures — as the first thing in its working context. The agent reads the rules before it writes a word.</p>
+      </div>
+
+      <div class="layer">
+        <div class="layer-head">
+          <div class="layer-name">Layer B — Tool-call validation</div>
+          <div class="layer-tag">At the write boundary</div>
+        </div>
+        <p>The review-surface tool runs a compliance scan on every create call. Banned phrases and missing disclaimers fail the call with a violations list. <em>Fail-closed by design: no row is created.</em> The agent retries; after two failures it surfaces a flag. The Brain's memo is exempt at the row layer (internal artifact) but its synthesis prompt still loads the compliance block.</p>
+      </div>
+
+      <div class="layer gates-fail">
+        <div class="layer-head">
+          <div class="layer-name">Layer C — Safe-state hard-wiring</div>
+          <div class="layer-tag">At the platform boundary</div>
+        </div>
+        <p>Distribution MCPs hard-wire the safe state in the tool schema itself. <code>meta-ads.create_ad</code> always sends <code>status: PAUSED</code>; <code>youtube.upload_video</code> always sends <code>privacyStatus: unlisted</code>; <code>site.draft_article</code> commits but never pushes and never touches the site index. <em>There is no <code>activate_*</code> tool path. The agent cannot pass <code>status: ACTIVE</code> because the parameter doesn't exist.</em> Activation is human-only by construction.</p>
+      </div>
+    </div>
+
+    <!-- Six gates -->
+    <div class="gates">
+      <h3>Six human gates</h3>
+
+      <div class="gate">
+        <div class="gnum">1</div>
+        <div>
+          <div class="gname">Briefs · 12 angles</div>
+          <div class="gdesc">A human approves which angles get scripts. The bandit's bucket assignment is visible; humans can override before content runs.</div>
+        </div>
+      </div>
+
+      <div class="gate">
+        <div class="gnum">2</div>
+        <div>
+          <div class="gname">Scripts + Articles · hooks + body</div>
+          <div class="gdesc">A human approves which scripts get produced and which articles get delivered. Hook bank is visible; humans can pick or rewrite a different hook before media production.</div>
+        </div>
+      </div>
+
+      <div class="gate">
+        <div class="gnum">3</div>
+        <div>
+          <div class="gname">Variants + spec</div>
+          <div class="gdesc">A human approves the Variant and reviews the per-channel spec fields (paid-platform primary text, video-platform title, article slug) that will ship verbatim. Edit a field directly to override before Distribution runs.</div>
+        </div>
+      </div>
+
+      <div class="gate">
+        <div class="gnum">4</div>
+        <div>
+          <div class="gname">Paid platform · flip ACTIVE</div>
+          <div class="gdesc">Distribution stages ads PAUSED with cell assignments. A human reviews in the ad manager and flips the batch to ACTIVE.</div>
+        </div>
+      </div>
+
+      <div class="gate">
+        <div class="gnum">5</div>
+        <div>
+          <div class="gname">Video platform · flip Public</div>
+          <div class="gdesc">Distribution uploads videos as unlisted. A human reviews on the video platform and toggles to Public when ready.</div>
+        </div>
+      </div>
+
+      <div class="gate">
+        <div class="gnum">6</div>
+        <div>
+          <div class="gname">Content site · merge to main</div>
+          <div class="gdesc">Distribution commits <code>/articles/&lt;slug&gt;.html</code> on the site repo but does not push and does not link it in the site index. A human reviews, links, pushes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §07 FUTURE
+     ───────────────────────────────────────────────────────── -->
+<section id="future">
+  <div class="section-label mono"><span class="num">§07</span><span class="name">/ WHERE THIS GOES — FIGURE iii.</span></div>
+
+  <h2>Four marquee bets after v1.2.</h2>
+  <p class="section-intro" style="margin-top:20px;">v1.2 closes the loop end-to-end through Distribution — humans gate every external write, but the data-entry between gates is automated. v1.5 fills four pieces — first-party conversion recovery, visual signal, generative video, and on-approval triggers — without changing the shape of the system.</p>
+
+  <div class="bets">
+
+    <div class="bet">
+      <div class="bet-tag">BET 01 · v1.5</div>
+      <h4>Production conversion API</h4>
+      <svg viewBox="0 0 240 86" aria-hidden="true">
+        <rect class="bet-node" x="10" y="34" width="60" height="22"/>
+        <text x="40" y="48" text-anchor="middle">SITE</text>
+        <path class="bet-line" d="M70 45 L100 45"/>
+        <rect class="bet-accent" x="100" y="34" width="60" height="22"/>
+        <text x="130" y="48" text-anchor="middle" style="fill:var(--cream);">EDGE FN</text>
+        <path class="bet-line" d="M160 45 L196 45"/>
+        <rect class="bet-node" x="196" y="34" width="34" height="22"/>
+        <text x="213" y="48" text-anchor="middle">CAPI</text>
+        <text x="40" y="72" text-anchor="middle" class="bet-line" style="stroke:none;fill:var(--annotate);">pixel</text>
+        <text x="213" y="72" text-anchor="middle" class="bet-line" style="stroke:none;fill:var(--annotate);">server</text>
+      </svg>
+      <p>An always-on edge function that posts hashed conversion events from the site's own backend — recovering the 30–40 % of conversions browser pixels lose to cookie boundaries. Reuses the same CAPI builder the tracking sandbox already exercises in v1.</p>
+    </div>
+
+    <div class="bet">
+      <div class="bet-tag">BET 02 · v1.5</div>
+      <h4>Visual analytics dashboard</h4>
+      <svg viewBox="0 0 240 86" aria-hidden="true">
+        <rect class="bet-node" x="10" y="22" width="40" height="46"/>
+        <text x="30" y="49" text-anchor="middle">DB</text>
+        <path class="bet-line" d="M50 45 L90 45"/>
+        <polyline class="bet-line" points="100,68 120,52 140,58 160,38 180,30 200,22 220,18"/>
+        <circle class="bet-accent" cx="160" cy="38" r="2.5"/>
+        <circle class="bet-accent" cx="200" cy="22" r="2.5"/>
+        <text x="115" y="80" class="bet-line" style="stroke:none;fill:var(--annotate);">decay curves · cost / angle</text>
+      </svg>
+      <p>Static-site charts straight off local SQLite. Two pages to start: creative-decay over time per ad, and cost-per-angle windowed. Adds no new data infrastructure — the warehouse stays a single file.</p>
+    </div>
+
+    <div class="bet">
+      <div class="bet-tag">BET 03 · v1.5</div>
+      <h4>Generative video pipeline</h4>
+      <svg viewBox="0 0 240 86" aria-hidden="true">
+        <rect class="bet-node" x="6" y="34" width="40" height="22"/>
+        <text x="26" y="48" text-anchor="middle">SCRIPT</text>
+        <path class="bet-line" d="M46 45 L86 45"/>
+        <rect class="bet-node" x="86" y="34" width="50" height="22"/>
+        <text x="111" y="48" text-anchor="middle">CLIPS</text>
+        <path class="bet-line" d="M136 45 L160 45"/>
+        <rect class="bet-accent" x="160" y="30" width="46" height="30"/>
+        <text x="183" y="48" text-anchor="middle" style="fill:var(--cream);">STITCH</text>
+        <path class="bet-line" d="M206 45 L228 45"/>
+        <rect class="bet-node" x="200" y="34" width="34" height="22"/>
+        <text x="217" y="48" text-anchor="middle">CDN</text>
+      </svg>
+      <p>A provider abstraction over video aggregators (kie.ai-class) and TTS. Per-bucket cost caps in policy. Optional stock-footage fallback. <em>Static-image rendering is already wired into Media Production via <code>static-renderer</code> + <code>asset-store</code> — this bet is the video half.</em> No changes to the Brain or the review schemas.</p>
+    </div>
+
+    <div class="bet">
+      <div class="bet-tag">BET 04 · v1.5</div>
+      <h4>Webhook automation</h4>
+      <svg viewBox="0 0 240 86" aria-hidden="true">
+        <rect class="bet-node" x="6" y="34" width="56" height="22"/>
+        <text x="34" y="48" text-anchor="middle">REVIEW</text>
+        <path class="bet-line" d="M62 45 L96 45"/>
+        <rect class="bet-accent" x="96" y="30" width="56" height="30"/>
+        <text x="124" y="42" text-anchor="middle" style="fill:var(--cream);font-size:9px;">APPROVE</text>
+        <text x="124" y="54" text-anchor="middle" style="fill:var(--cream);font-size:8px;letter-spacing:0.1em;">↯ WEBHOOK</text>
+        <path class="bet-line" d="M152 45 L186 45"/>
+        <rect class="bet-node" x="186" y="34" width="50" height="22"/>
+        <text x="211" y="48" text-anchor="middle">/distrib</text>
+      </svg>
+      <p>Replace the manual <code>/distribute</code> trigger with on-approval webhooks. When a Variant flips to APPROVED at gate three, a webhook fires the same routing the user runs by hand today. <em>The agent prompt and the tool boundary don't change; only the trigger does.</em> Volume-gated — we build this when batch sizes justify it.</p>
+    </div>
+  </div>
+
+  <p class="promotion">And after v1.5 — the same agents and tool servers run unattended on a schedule. The team interacts through the same review surface they already use. Auth moves from local env to team secrets. Triggers move from typed commands to event webhooks. Nothing else changes.</p>
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     §08 COLOPHON
+     ───────────────────────────────────────────────────────── -->
+<footer class="colophon">
+  <div class="section-label mono"><span class="num">§08</span><span class="name">/ COLOPHON</span></div>
+
+  <div class="text">
+    <p><strong>What is locked.</strong> Eight agents · seven tool servers · eight review surfaces · six human gates · local SQLite · file-indexed corpus · a single workspace · bilingual content artifacts. Three structural principles are also locked: <em>specs-not-artifacts</em> (cross-repo MCP for formats other systems own), <em>write-API safety</em> (safe states hard-wired in the MCP layer; no <code>activate_*</code> tool path), and <em>substance-vs-packaging</em> (content owns substance, media-production owns packaging, distribution owns routing). The shape of the v1 skeleton is the shape of v2 and v3 — scaling depth means filling in agent prompts and adding tools to existing servers, not restructuring.</p>
+    <p><strong>What is intentionally deferred.</strong> Production CAPI deployment, visual analytics, generative <em>video</em> (static-image is already wired), and on-approval webhook triggers all live in v1.5. Each is a thin add — a new tool server or a new deploy target — not a re-architecture. The substrate was designed to absorb them without re-plumbing anything else.</p>
+    <p><strong>Why this shape.</strong> A modern ad platform's algorithm reads creative as targeting; a regulated business can't trade compliance for speed; a human still has to sign off on the work. A closed loop with humans at every external write, compliance enforced at three layers, and a Brain that learns from its own predictions answers all three at once.</p>
+  </div>
+
+  <div class="legend">
+    <span><b>LEGEND</b></span>
+    <span><b>◯</b> agent</span>
+    <span><b>⬡</b> tool server</span>
+    <span><b>▣</b> review surface · human gate</span>
+    <span><b>──</b> pipe</span>
+    <span><b>·</b> annotation</span>
+  </div>
+
+  <div class="signature">
+    <div>END OF DOCUMENT</div>
+    <div class="doc-num">DOC 0001 · v1.2 · TECHNICAL BRIEF</div>
+  </div>
+</footer>
+
+</main>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     SCRIPTS
+     ───────────────────────────────────────────────────────── -->
+<script>
+(() => {
+
+  /* ─────────────────────────────────────
+     BANDIT — deterministic emergent allocation
+     ───────────────────────────────────── */
+  const TRUE_CPA = [4.0, 4.5, 5.0, 7.0, 12.0]; // lower is better
+  const EPS = 0.20;
+  let allocations = [20, 20, 20, 20, 20];
+  let cycle = 0;
+  let rngSeed = 1337;
+  function rand() {
+    rngSeed = (rngSeed * 1664525 + 1013904223) >>> 0;
+    return (rngSeed & 0x7fffffff) / 0x7fffffff;
+  }
+
+  const bandit_bars = document.getElementById('bandit-bars');
+  const bandit_cycle = document.getElementById('bandit-cycle');
+
+  function renderBandit() {
+    // For each arm, sample a CPA from a tightening posterior centered on TRUE_CPA[i].
+    const sampled = TRUE_CPA.map((c, i) => {
+      const noise = (rand() - 0.5) * Math.max(0.4, 4 / (1 + cycle));
+      return Math.max(0.5, c + noise);
+    });
+    // Inverse-CPA target (lower CPA → higher allocation), smoothed by EPS toward uniform.
+    const invs = sampled.map(c => 1 / c);
+    const sum = invs.reduce((a, b) => a + b, 0);
+    const target = invs.map(v => (v / sum) * 100);
+    const uniform = 20;
+    const next = target.map(t => EPS * uniform + (1 - EPS) * t);
+    // Smooth toward target so motion is visible.
+    allocations = allocations.map((a, i) => a * 0.45 + next[i] * 0.55);
+
+    // Re-normalize to 100 for display.
+    const total = allocations.reduce((a, b) => a + b, 0);
+    const pct = allocations.map(a => (a / total) * 100);
+
+    // Sort to bucket: top 1 → 70, mid 1 → 20, bottom 3 → 10.
+    const ordered = pct.map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p);
+    const bucketOf = {};
+    bucketOf[ordered[0].i] = '70';
+    bucketOf[ordered[1].i] = '20';
+    [ordered[2], ordered[3], ordered[4]].forEach(o => bucketOf[o.i] = '10');
+
+    const bars = bandit_bars.querySelectorAll('.arm-track');
+    const fills = bandit_bars.querySelectorAll('.arm-fill');
+    const pcts = bandit_bars.querySelectorAll('.arm-pct');
+    const buckets = bandit_bars.querySelectorAll('.arm-bucket');
+
+    pct.forEach((p, i) => {
+      fills[i].style.width = p.toFixed(1) + '%';
+      pcts[i].textContent = p.toFixed(1) + '%';
+
+      // tier classes for bar fill color
+      const cell = fills[i].closest('.arm-track');
+      cell.classList.remove('is-top', 'is-mid', 'is-tail');
+      if (bucketOf[i] === '70') cell.classList.add('is-top');
+      else if (bucketOf[i] === '20') cell.classList.add('is-mid');
+      else cell.classList.add('is-tail');
+
+      // Show bucket label after cycle 3.
+      buckets[i].classList.remove('is-top');
+      if (cycle >= 3) {
+        buckets[i].textContent = bucketOf[i];
+        buckets[i].classList.add('is-visible');
+        if (bucketOf[i] === '70') buckets[i].classList.add('is-top');
+      } else {
+        buckets[i].textContent = '';
+        buckets[i].classList.remove('is-visible');
+      }
+    });
+
+    bandit_cycle.textContent = cycle;
+  }
+
+  document.getElementById('bandit-step').addEventListener('click', () => {
+    cycle += 1;
+    renderBandit();
+  });
+  document.getElementById('bandit-reset').addEventListener('click', () => {
+    cycle = 0;
+    rngSeed = 1337;
+    allocations = [20, 20, 20, 20, 20];
+    renderBandit();
+  });
+
+
+  /* ─────────────────────────────────────
+     HYPOTHESIS — graduation lifecycle
+     ───────────────────────────────────── */
+  const hypZone = document.getElementById('hypothesis-zone');
+  const hypConf = document.getElementById('hyp-conf');
+  let hypState = 'open';       // open → confirmed (n times) → learning-tentative → learning-working
+  let confirmations = 0;
+  let activeCardId = 1;
+
+  function makeHypCard(displayId, body, meta) {
+    return `<div class="hcard" id="hcard-1" data-state="open">
+      <div class="hcard-id">HYPOTHESIS #${String(displayId).padStart(3, '0')} · STATUS: OPEN</div>
+      <div class="hcard-body">${body}</div>
+      <div class="hcard-meta">${meta}</div>
+      <div class="stamp confirmed">CONFIRMED</div>
+      <div class="stamp refuted">REFUTED</div>
+    </div>`;
+  }
+
+  function makeLearningCard(body, conf) {
+    return `<div class="lcard"><div class="lbody">${body}</div><div class="lmeta">Confidence <span class="conf">${conf}</span> · Half-life 45 d · Active</div></div>`;
+  }
+
+  function runCycle() {
+    const card = document.getElementById(`hcard-${activeCardId}`);
+    if (!card) return;
+    const state = card.dataset.state;
+    const idEl = card.querySelector('.hcard-id');
+
+    if (state === 'open') {
+      // First confirmation
+      card.classList.add('is-confirmed');
+      card.dataset.state = 'confirmed-1';
+      idEl.textContent = 'HYPOTHESIS #042 · STATUS: CONFIRMED (1/2)';
+      confirmations += 1;
+      hypConf.textContent = confirmations;
+    } else if (state === 'confirmed-1') {
+      // Second confirmation — graduate to Tentative Learning
+      idEl.textContent = 'HYPOTHESIS #042 · STATUS: CONFIRMED (2/2) — GRADUATING';
+      card.dataset.state = 'graduated';
+      confirmations += 1;
+      hypConf.textContent = confirmations;
+      setTimeout(() => {
+        card.classList.add('is-graduating');
+        setTimeout(() => {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = makeLearningCard(
+            'Hook A combined with format B addresses persona P at a primary-metric ceiling of 6.0.',
+            'Tentative'
+          );
+          hypZone.appendChild(wrapper.firstChild);
+        }, 360);
+      }, 420);
+    } else if (state === 'graduated') {
+      // Third confirmation — Tentative → Working
+      const conf = hypZone.querySelector('.lcard .conf');
+      if (conf && conf.textContent.trim() === 'Tentative') {
+        conf.textContent = 'Working';
+        const lcardEl = hypZone.querySelector('.lcard');
+        const orig = lcardEl.style.background;
+        lcardEl.style.transition = 'background 800ms ease';
+        lcardEl.style.background = 'rgba(184, 67, 31, 0.18)';
+        setTimeout(() => { lcardEl.style.background = orig; }, 900);
+        confirmations += 1;
+        hypConf.textContent = confirmations;
+      }
+    }
+  }
+
+  function resetHypothesis() {
+    confirmations = 0;
+    activeCardId = 1;
+    hypState = 'open';
+    hypConf.textContent = '0';
+    hypZone.innerHTML = makeHypCard(
+      42,
+      'If hook A × format B × persona P, then primary metric ≤ 6.0 at 70 % confidence.',
+      'Predicted range <b>4.2–5.8</b> · Expected runtime <b>7 d</b>'
+    );
+  }
+
+  document.getElementById('hyp-step').addEventListener('click', runCycle);
+  document.getElementById('hyp-reset').addEventListener('click', resetHypothesis);
+
+
+  /* ─────────────────────────────────────
+     DRILL-DOWNS — substrate cards
+     ───────────────────────────────────── */
+  document.querySelectorAll('.drill').forEach(d => {
+    const toggle = (open) => {
+      const expanded = d.getAttribute('aria-expanded') === 'true';
+      const next = open === undefined ? !expanded : open;
+      d.setAttribute('aria-expanded', String(next));
+      d.querySelector('.toggle').textContent = next ? '×' : '+';
+    };
+    d.addEventListener('click', () => toggle());
+    d.setAttribute('tabindex', '0');
+    d.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

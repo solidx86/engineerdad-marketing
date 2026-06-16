@@ -1,0 +1,470 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Meta-paid distribute fixes — plan</title>
+<style>
+body{font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:900px;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+h1{font-size:1.9rem;border-bottom:3px solid #2563eb;padding-bottom:.4rem}
+h2{font-size:1.35rem;margin-top:2.4rem;color:#1e3a8a;border-bottom:1px solid #e5e7eb;padding-bottom:.25rem}
+h3{font-size:1.1rem;margin-top:1.6rem;color:#334155}
+h4{font-size:1rem;margin-top:1.2rem;color:#475569}
+code{background:#f1f5f9;padding:.1rem .35rem;border-radius:4px;font:13px/1.5 "SF Mono",Menlo,Consolas,monospace}
+pre{background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:8px;overflow-x:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem}
+th,td{border:1px solid #d1d5db;padding:.45rem .65rem;text-align:left;vertical-align:top}
+th{background:#eff6ff}
+blockquote{border-left:4px solid #f59e0b;background:#fffbeb;margin:1rem 0;padding:.6rem 1rem;border-radius:0 6px 6px 0}
+hr{border:none;border-top:2px solid #e5e7eb;margin:2rem 0}
+ul.todo{list-style:none;padding-left:.2rem}
+ul.todo li{margin:.25rem 0}
+</style></head><body>
+<h1>Meta-paid distribute fixes Implementation Plan</h1>
+<blockquote><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</blockquote>
+<p><strong>Goal:</strong> Fix the four defects the B-025/26/27 E2E walk surfaced so the Meta-paid distribute path produces valid adsets + ad creatives and the organic caption carries its compliance footer.</p>
+<p><strong>Architecture:</strong> Planner (<code>plan-distribution.ts</code>) gains deterministic paid-campaign policy (bid strategy, Advantage-Audience flag). Meta deploy-config (<code>page_id</code>/<code>link_url</code>) is defaulted from env at the <code>@engineerdad/meta-ads</code> execution layer (where <code>AD_ACCOUNT_ID</code>/<code>META_TOKEN</code> already live), not in the planner — keeping it off the conductor and out of <code>step_results</code> (ADR-022/023/024). The D2a/D2b worker prompts adopt the ADR-022 claim-check contract. The organic caption gets a prompt HARD RULE plus a deterministic produce-stage compliance backstop reusing <code>checkCompliance</code> (already an orchestrator dependency).</p>
+<p><strong>Tech Stack:</strong> TypeScript, Vitest, Zod (MCP schemas), Drizzle, the orchestrator stage/verifier engine.</p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-05-29-meta-paid-distribute-fixes-design.html</code></p>
+<hr>
+<h2>File map</h2>
+<table><thead><tr><th>File</th><th>Responsibility</th><th>Tasks</th></tr></thead><tbody><tr><td><code>packages/orchestrator/src/distribute/plan-distribution.ts</code></td><td>adset <code>bid_strategy</code>; targeting <code>advantage_audience</code>; (creativeStep unchanged — locked by test)</td><td>1, 3</td></tr><tr><td><code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code></td><td>tests for the above</td><td>1, 3</td></tr><tr><td><code>packages/meta-ads/src/writes.ts</code></td><td><code>createAdCreative</code> env defaults + CTA coercion</td><td>2</td></tr><tr><td><code>packages/meta-ads/src/writes.test.ts</code></td><td>tests for the above</td><td>2</td></tr><tr><td><code>mcp-servers/meta-ads/src/index.ts</code></td><td><code>create_ad_creative</code> schema: optional <code>page_id</code>/<code>link_url</code>, CTA string-or-object</td><td>3</td></tr><tr><td><code>.env</code></td><td>add <code>LANDING_URL</code></td><td>3</td></tr><tr><td><code>packages/orchestrator/src/stages/distribute.ts</code></td><td><code>setupPromptFor</code> + <code>routePromptFor</code> ADR-022 contract</td><td>4</td></tr><tr><td><code>packages/orchestrator/src/stages/distribute.test.ts</code></td><td>prompt-contract tests</td><td>4</td></tr><tr><td><code>packages/orchestrator/src/stages/produce.ts</code></td><td><code>projectVariant</code> carries raw captions; P5 query adds <code>organicCaptionBm</code></td><td>5</td></tr><tr><td><code>packages/orchestrator/src/verifiers/verify-produce.ts</code></td><td>compliance backstop on organic captions</td><td>5</td></tr><tr><td><code>packages/orchestrator/src/verifiers/verify-produce.test.ts</code></td><td>tests for the backstop</td><td>5</td></tr><tr><td><code>.claude/agents/creative-director.md</code> (+ <code>packages/shared/src/prompts/*</code> if sourced)</td><td>organic-caption compliance-footer HARD RULE</td><td>6</td></tr></tbody></table>
+<hr>
+<h2>Task 1: Fix B — adset <code>bid_strategy</code> + targeting <code>advantage_audience</code></h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>packages/orchestrator/src/distribute/plan-distribution.ts</code> (interface <code>MetaTargeting</code> ~148-153; <code>targetingForCell</code> ~163-170; <code>adsetStep</code> ~182-203)</li><li>Test: <code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code></li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Write failing tests</strong></li></ul>
+<p>Add to <code>plan-distribution.test.ts</code>:</p>
+<pre><code>import { describe, it, expect } from "vitest";
+import { adsetStep, targetingForCell } from "./plan-distribution.js";
+
+describe("Fix B — adset bid strategy + advantage audience", () =&gt; {
+  const cell = { cellId: "cell_01", allocationPct: 70, variantPageIds: ["v1"] } as never;
+
+  it("adsetStep sets bid_strategy LOWEST_COST_WITHOUT_CAP", () =&gt; {
+    const step = adsetStep("run_x", cell, 100);
+    expect((step.args as Record&lt;string, unknown&gt;).bid_strategy).toBe("LOWEST_COST_WITHOUT_CAP");
+  });
+
+  it("adsetStep keeps a positive daily_budget_cents (budget unchanged by Fix B)", () =&gt; {
+    const step = adsetStep("run_x", cell, 100);
+    expect((step.args as Record&lt;string, unknown&gt;).daily_budget_cents).toBe(7000);
+  });
+
+  it("targetingForCell adds targeting_automation.advantage_audience = 0 alongside geo/age/locales", () =&gt; {
+    const t = targetingForCell(cell) as Record&lt;string, unknown&gt;;
+    expect(t.targeting_automation).toEqual({ advantage_audience: 0 });
+    expect(t.geo_locations).toEqual({ countries: ["MY"] });
+    expect(t.age_min).toBe(25);
+    expect(t.age_max).toBe(55);
+    expect(Array.isArray(t.locales)).toBe(true);
+  });
+});</code></pre>
+<ul class='todo'><li>☐ <strong>Step 2: Run tests — expect FAIL</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "Fix B"</code></p>
+<p>Expected: FAIL (<code>bid_strategy</code> undefined; <code>targeting_automation</code> undefined).</p>
+<ul class='todo'><li>☐ <strong>Step 3: Implement</strong></li></ul>
+<p>In <code>plan-distribution.ts</code>, extend the <code>MetaTargeting</code> interface:</p>
+<pre><code>export interface MetaTargeting {
+  geo_locations: { countries: string[] };
+  age_min: number;
+  age_max: number;
+  locales: number[];
+  targeting_automation: { advantage_audience: number };
+}</code></pre>
+<p>Update <code>targetingForCell</code> to include the flag (preserving explicit targeting — no Meta auto-expansion):</p>
+<pre><code>export function targetingForCell(_cell: AllocatedCell): MetaTargeting {
+  return {
+    geo_locations: { countries: ["MY"] },
+    age_min: 25,
+    age_max: 55,
+    locales: [LOCALE_ID.en, LOCALE_ID.ms],
+    targeting_automation: { advantage_audience: 0 },
+  };
+}</code></pre>
+<p>Add <code>bid_strategy</code> to <code>adsetStep</code>'s args (leave the existing <code>daily_budget_cents</code> line untouched):</p>
+<pre><code>    args: {
+      name: `${runId}__${cell.cellId}`,
+      daily_budget_cents: Math.max(1, Math.round(dailyBudgetMyr * cell.allocationPct)),
+      optimization_goal: "LEAD_GENERATION",
+      billing_event: "IMPRESSIONS",
+      bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+      targeting: targetingForCell(cell),
+      client_request_id: `${runId}::${cell.cellId}`,
+    },</code></pre>
+<ul class='todo'><li>☐ <strong>Step 4: Run tests — expect PASS</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "Fix B"</code></p>
+<p>Expected: PASS. Also run the whole file to catch existing-snapshot regressions: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts</code> — if a prior test asserts the exact <code>targeting</code> object shape, update it to include <code>targeting_automation</code>.</p>
+<ul class='todo'><li>☐ <strong>Step 5: Commit</strong></li></ul>
+<pre><code>git add packages/orchestrator/src/distribute/plan-distribution.ts packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "fix(distribute): adset bid_strategy + advantage_audience flag (Fix B)"</code></pre>
+<hr>
+<h2>Task 2: Fix A (writes) — <code>createAdCreative</code> env defaults + CTA coercion</h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>packages/meta-ads/src/writes.ts</code> (<code>CreateAdCreativeInput</code> ~552-566; <code>createAdCreative</code> ~574-629)</li><li>Test: <code>packages/meta-ads/src/writes.test.ts</code></li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Write failing tests</strong></li></ul>
+<p>Append to <code>writes.test.ts</code> (mirror the existing env+fetchSpy pattern at the top of that file):</p>
+<pre><code>import { createAdCreative } from "./writes.js";
+
+describe("createAdCreative — env defaults + CTA coercion", () =&gt; {
+  const originalEnv = { ...process.env };
+  let fetchSpy: ReturnType&lt;typeof vi.spyOn&gt;;
+
+  beforeEach(() =&gt; {
+    process.env = { ...originalEnv };
+    process.env["META_TOKEN"] = "tok_x";
+    process.env["AD_ACCOUNT_ID"] = "act_123";
+    process.env["META_ORGANIC_PAGE_ID"] = "page_777";
+    process.env["LANDING_URL"] = "https://engineerdad.my";
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "cre_1" }), { status: 200 }),
+    );
+  });
+  afterEach(() =&gt; {
+    process.env = originalEnv;
+    fetchSpy.mockRestore();
+  });
+
+  const base = {
+    name: "c1",
+    primary_text: "Past performance is not indicative of future results.",
+    image_hash: "h1",
+    lang: "en" as const,
+  };
+
+  it("defaults page_id from META_ORGANIC_PAGE_ID when absent", async () =&gt; {
+    await createAdCreative({ ...base, call_to_action: "LEARN_MORE" });
+    const body = JSON.parse(String((fetchSpy.mock.calls[0]![1] as RequestInit).body
+      ? null : null)); // placeholder removed below
+  });
+});</code></pre>
+<p>NOTE: <code>metaPost</code> sends <code>application/x-www-form-urlencoded</code> (see <code>writes.ts</code> <code>metaPost</code> — it builds a <code>URLSearchParams</code>), and <code>object_story_spec</code> is a JSON-stringified field inside that form. So assert against the form body string, not <code>JSON.parse</code>. Replace the test body above with:</p>
+<pre><code>  function formBody(): string {
+    return String((fetchSpy.mock.calls[0]![1] as RequestInit).body);
+  }
+
+  it("defaults page_id from META_ORGANIC_PAGE_ID when absent", async () =&gt; {
+    await createAdCreative({ ...base, call_to_action: "LEARN_MORE" });
+    expect(formBody()).toContain("page_777");
+  });
+
+  it("defaults link_url from LANDING_URL when absent", async () =&gt; {
+    await createAdCreative({ ...base, call_to_action: "LEARN_MORE" });
+    expect(decodeURIComponent(formBody())).toContain("https://engineerdad.my");
+  });
+
+  it("coerces a bare-string call_to_action into {type, value:{link}}", async () =&gt; {
+    await createAdCreative({ ...base, call_to_action: "LEARN_MORE" });
+    const decoded = decodeURIComponent(formBody());
+    expect(decoded).toContain('"type":"LEARN_MORE"');
+    expect(decoded).toContain('"link":"https://engineerdad.my"');
+  });
+
+  it("passes an object-shape call_to_action through, filling value.link when missing", async () =&gt; {
+    await createAdCreative({ ...base, call_to_action: { type: "SIGN_UP" } });
+    const decoded = decodeURIComponent(formBody());
+    expect(decoded).toContain('"type":"SIGN_UP"');
+    expect(decoded).toContain('"link":"https://engineerdad.my"');
+  });
+
+  it("honors explicit page_id/link_url over env", async () =&gt; {
+    await createAdCreative({ ...base, page_id: "page_explicit", link_url: "https://lp.example", call_to_action: "LEARN_MORE" });
+    const decoded = decodeURIComponent(formBody());
+    expect(decoded).toContain("page_explicit");
+    expect(decoded).toContain("https://lp.example");
+  });</code></pre>
+<p>(Delete the placeholder first <code>it(...)</code> block — keep only the corrected tests.)</p>
+<ul class='todo'><li>☐ <strong>Step 2: Run tests — expect FAIL</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/meta-ads/src/writes.test.ts -t "env defaults"</code></p>
+<p>Expected: FAIL — today <code>createAdCreative</code> requires <code>page_id</code>/<code>link_url</code> (TS) and treats <code>call_to_action</code> only as the object shape.</p>
+<ul class='todo'><li>☐ <strong>Step 3: Implement</strong></li></ul>
+<p>In <code>writes.ts</code>, widen the input type:</p>
+<pre><code>export interface CreateAdCreativeInput {
+  name: string;
+  /** Optional — defaults to env META_ORGANIC_PAGE_ID. */
+  page_id?: string;
+  primary_text: string;
+  headline?: string;
+  description?: string;
+  video_id?: string;
+  image_hash?: string;
+  /** Optional — defaults to env LANDING_URL. */
+  link_url?: string;
+  /** Bare string (CTA type) or the full Meta object shape. */
+  call_to_action?: string | { type: string; value?: { link?: string } };
+  lang: ComplianceLang;
+}</code></pre>
+<p>At the top of <code>createAdCreative</code> (after the existing compliance check + video/image guard, before building <code>link_data</code>), resolve the deploy-config and normalize the CTA:</p>
+<pre><code>  const page_id = input.page_id ?? requireEnv("META_ORGANIC_PAGE_ID");
+  const link_url = input.link_url ?? requireEnv("LANDING_URL");
+  const call_to_action =
+    typeof input.call_to_action === "string"
+      ? { type: input.call_to_action, value: { link: link_url } }
+      : input.call_to_action
+        ? { type: input.call_to_action.type, value: { link: input.call_to_action.value?.link ?? link_url } }
+        : undefined;</code></pre>
+<p>Then replace every <code>input.page_id</code> / <code>input.link_url</code> / <code>input.call_to_action</code> reference in the rest of the function with the resolved locals <code>page_id</code> / <code>link_url</code> / <code>call_to_action</code> (in <code>link_data.link</code>, <code>link_data.call_to_action</code>, <code>video_data.call_to_action</code>, and <code>object_story_spec.page_id</code>).</p>
+<ul class='todo'><li>☐ <strong>Step 4: Run tests — expect PASS</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/meta-ads/src/writes.test.ts</code></p>
+<p>Expected: PASS (new + existing <code>createCampaign</code> tests).</p>
+<ul class='todo'><li>☐ <strong>Step 5: Commit</strong></li></ul>
+<pre><code>git add packages/meta-ads/src/writes.ts packages/meta-ads/src/writes.test.ts
+git commit -m "fix(meta-ads): createAdCreative defaults page_id/link_url from env + coerces CTA (Fix A)"</code></pre>
+<hr>
+<h2>Task 3: Fix A (MCP schema) + creativeStep contract lock + <code>.env</code></h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>mcp-servers/meta-ads/src/index.ts</code> (<code>create_ad_creative</code> schema ~314-328)</li><li>Modify: <code>.env</code> (add <code>LANDING_URL</code>)</li><li>Test: <code>packages/orchestrator/src/distribute/plan-distribution.test.ts</code> (lock <code>creativeStep</code>'s contract — it stays unchanged)</li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Write failing test (creativeStep contract lock)</strong></li></ul>
+<p><code>creativeStep</code> is private. Add a test via the public <code>planMetaPaidRows</code> path if it exposes creative steps, OR export <code>creativeStep</code> for testing. Simplest: add a <code>/** test-only */ export</code> for <code>creativeStep</code> next to the existing test-only exports in <code>plan-distribution.ts</code>, then:</p>
+<pre><code>import { creativeStep } from "./plan-distribution.js"; // test-only export
+
+describe("Fix A — creativeStep contract", () =&gt; {
+  const v = { variantId: "var1", rowId: "row1" } as never;
+  const spec = { ctaType: "LEARN_MORE", primaryTextEn: "x", headlineEn: "h", descriptionEn: "d",
+                 primaryTextMs: "x", headlineMs: "h", descriptionMs: "d" } as never;
+
+  it("does NOT emit page_id/link_url (MCP fills them from env)", () =&gt; {
+    const step = creativeStep(v, "en", spec);
+    const args = step.args as Record&lt;string, unknown&gt;;
+    expect(args.page_id).toBeUndefined();
+    expect(args.link_url).toBeUndefined();
+  });
+
+  it("emits call_to_action as the bare ctaType string", () =&gt; {
+    const step = creativeStep(v, "en", spec);
+    expect((step.args as Record&lt;string, unknown&gt;).call_to_action).toBe("LEARN_MORE");
+  });
+});</code></pre>
+<ul class='todo'><li>☐ <strong>Step 2: Run test — expect PASS-or-FAIL-on-import</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts -t "Fix A — creativeStep"</code></p>
+<p>Expected: FAIL only on the missing test-only export. Add it:</p>
+<pre><code>/** Test-only export so plan-distribution.test.ts can lock the creative contract. */
+export const __creativeStepForTests = creativeStep;</code></pre>
+<p>and import <code>__creativeStepForTests as creativeStep</code>. Re-run → PASS (creativeStep already emits the bare string and omits page_id/link_url; this test locks that contract against regressions).</p>
+<ul class='todo'><li>☐ <strong>Step 3: Loosen the MCP schema</strong></li></ul>
+<p>In <code>mcp-servers/meta-ads/src/index.ts</code>, the <code>create_ad_creative</code> tool schema — make <code>page_id</code>/<code>link_url</code> optional and accept CTA as string or object:</p>
+<pre><code>    name: z.string().min(1),
+    page_id: z.string().min(1).optional(),
+    primary_text: z.string().min(1),
+    headline: z.string().optional(),
+    description: z.string().optional(),
+    video_id: z.string().optional(),
+    image_hash: z.string().optional(),
+    link_url: z.string().url().optional(),
+    call_to_action: z
+      .union([
+        z.string(),
+        z.object({
+          type: z.string(),
+          value: z.object({ link: z.string().url().optional() }).optional(),
+        }),
+      ])
+      .optional(),
+    lang: z.enum(["en", "ms"]),</code></pre>
+<ul class='todo'><li>☐ <strong>Step 4: Add the env var</strong></li></ul>
+<p>Append to <code>.env</code>:</p>
+<pre><code>LANDING_URL=https://engineerdad.my</code></pre>
+<ul class='todo'><li>☐ <strong>Step 5: Build the MCP + run tests</strong></li></ul>
+<p>Run: <code>pnpm -r --filter='!@engineerdad/webapp' build</code> then <code>pnpm vitest run packages/orchestrator/src/distribute/plan-distribution.test.ts</code></p>
+<p>Expected: build clean, tests PASS.</p>
+<ul class='todo'><li>☐ <strong>Step 6: Commit</strong></li></ul>
+<pre><code>git add mcp-servers/meta-ads/src/index.ts .env packages/orchestrator/src/distribute/plan-distribution.ts packages/orchestrator/src/distribute/plan-distribution.test.ts
+git commit -m "fix(meta-ads): create_ad_creative schema page_id/link_url optional + CTA union; add LANDING_URL (Fix A)"</code></pre>
+<hr>
+<h2>Task 4: Fix C — D2a/D2b worker ADR-022 claim-check contract</h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>packages/orchestrator/src/stages/distribute.ts</code> (<code>setupPromptFor</code> ~423-444; <code>routePromptFor</code> ~529-564)</li><li>Test: <code>packages/orchestrator/src/stages/distribute.test.ts</code></li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Write failing tests</strong></li></ul>
+<p>Add to <code>distribute.test.ts</code> (import the prompt builders — add test-only exports if not already exported):</p>
+<pre><code>import { __setupPromptForTests as setupPromptFor, __routePromptForTests as routePromptFor } from "./distribute.js";
+
+describe("Fix C — worker claim-check contract (ADR-022)", () =&gt; {
+  it("setupPromptFor instructs write_step_result + {stepResultId} return", () =&gt; {
+    const p = setupPromptFor("sr_abc");
+    expect(p).toContain("mcp__orchestrator__write_step_result");
+    expect(p).toContain("{ stepResultId }");
+    expect(p).not.toContain("Return a JSON object: { campaignId");
+  });
+
+  it("routePromptFor instructs write_step_result + {stepResultId} return", () =&gt; {
+    const p = routePromptFor("sr_def", "Meta-paid");
+    expect(p).toContain("mcp__orchestrator__write_step_result");
+    expect(p).toContain("{ stepResultId }");
+  });
+});</code></pre>
+<ul class='todo'><li>☐ <strong>Step 2: Add test-only exports + run — expect FAIL</strong></li></ul>
+<p>The prompt builders must now embed <code>runId</code> (and the fanout <code>unitIndex</code>) so the worker can call <code>write_step_result</code>. Update the signatures first:</p>
+<ul><li><code>setupPromptFor(ref: string)</code> → <code>setupPromptFor(runId: string, ref: string)</code>; its caller in <code>d2aSetup.build</code> becomes <code>setupPromptFor(run.runId, ref)</code>.</li><li><code>routePromptFor(ref: string, channel: Channel)</code> → <code>routePromptFor(runId: string, ref: string, channel: Channel, unitIndex: number)</code>; its caller in <code>d2bRoute.build</code> passes <code>run.runId</code>, the staged <code>ref</code>, <code>u.channel</code>, and the unit's map index.</li></ul>
+<p>Then add, near the other <code>__*ForTests</code> exports in <code>distribute.ts</code>:</p>
+<pre><code>/** Test-only exports for prompt-contract assertions. */
+export const __setupPromptForTests = setupPromptFor;
+export const __routePromptForTests = routePromptFor;</code></pre>
+<p>Adjust the test imports/calls to the new signatures:</p>
+<pre><code>setupPromptFor("run_x", "sr_abc");
+routePromptFor("run_x", "sr_def", "Meta-paid", 0);</code></pre>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/distribute.test.ts -t "Fix C"</code></p>
+<p>Expected: FAIL (prompts still say "Return a JSON object" / "Return JSON").</p>
+<ul class='todo'><li>☐ <strong>Step 3: Implement — <code>setupPromptFor</code></strong></li></ul>
+<p>Add a <code>runId</code> line near the top of the prompt (mirroring the render-worker prompt's <code>"Run &lt;runId&gt;: ..."</code> convention) and replace the final return line (<code>"Return a JSON object: { campaignId, adsetByCellId: { cellId: adsetId, ... } }."</code>) with the claim-check contract. The function becomes:</p>
+<pre><code>function setupPromptFor(runId: string, ref: string): string {
+  return [
+    `Run ${runId}: you are the Meta paid setup worker. Your job: create the`,
+    "campaign and per-cell adsets so the row-level worker can attach ads to them.",
+    "",
+    "Your FIRST action: call",
+    `  mcp__orchestrator__read_step_result({ stepResultId: "${ref}" })`,
+    "to fetch your staged input { setupSteps, dryRun }.",
+    "",
+    "Procedure:",
+    "1. If `setupSteps` is empty, your result is { campaignId: null, adsetByCellId: {} }.",
+    "2. Otherwise execute each step in `setupSteps` IN ORDER. Each step has",
+    "   `captures` — remember its result keyed by that label (e.g. \"campaign\",",
+    "   \"adset:cell-A\"). Honor `needs` — substitute the captured label for",
+    "   placeholders in the call's args before invoking the tool.",
+    "3. If `dryRun` is true, do NOT execute any call — walk the steps and",
+    "   report what you would have called.",
+    "",
+    "Build your result object: { campaignId, adsetByCellId: { cellId: adsetId, ... } }.",
+    "Then, before your final message, call",
+    `  mcp__orchestrator__write_step_result({ runId: "${runId}", stepId: "D2a-setup", payload: &lt;your result object&gt; })`,
+    "and return ONLY { stepResultId } as your final message (ADR-022 claim-check).",
+  ].join("\n");
+}</code></pre>
+<ul class='todo'><li>☐ <strong>Step 4: Implement — <code>routePromptFor</code></strong></li></ul>
+<p>Thread <code>runId</code> + <code>unitIndex</code> into the signature, add a <code>Run &lt;runId&gt;:</code> opener, and replace the final two return lines (<code>"Return JSON: { rowId, channel, status: ... }"</code> + <code>"outputJson?, errorMessage? }."</code>) with:</p>
+<pre><code>    "Build your result object: { rowId, channel, status: \"routed\" | \"skipped\" | \"failed\", outputJson?, errorMessage? }.",
+    "Then, before your final message, call",
+    `  mcp__orchestrator__write_step_result({ runId: "${runId}", stepId: "D2b-route", unitIndex: ${unitIndex}, payload: &lt;your result object&gt; })`,
+    "and return ONLY { stepResultId } as your final message (ADR-022 claim-check).",</code></pre>
+<p>(Keep the existing channel-specific opening line; just ensure the <code>runId</code> is present in the prompt text and the <code>unitIndex</code> is interpolated from the build's map index.)</p>
+<ul class='todo'><li>☐ <strong>Step 5: Run tests — expect PASS</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/distribute.test.ts</code></p>
+<p>Expected: PASS.</p>
+<ul class='todo'><li>☐ <strong>Step 6: Commit</strong></li></ul>
+<pre><code>git add packages/orchestrator/src/stages/distribute.ts packages/orchestrator/src/stages/distribute.test.ts
+git commit -m "fix(distribute): D2a/D2b workers persist + return claim-check ref (Fix C, ADR-022)"</code></pre>
+<hr>
+<h2>Task 5: Fix D (part 1) — produce-stage organic-caption compliance backstop</h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>packages/orchestrator/src/stages/produce.ts</code> (<code>projectVariant</code> ~521-537; P5-confirm query fields ~558-568)</li><li>Modify: <code>packages/orchestrator/src/verifiers/verify-produce.ts</code> (<code>verifyProduce</code> ~31)</li><li>Test: <code>packages/orchestrator/src/verifiers/verify-produce.test.ts</code></li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Write failing test</strong></li></ul>
+<p>Add to <code>verify-produce.test.ts</code> (match the existing <code>verifyProduce</code> call shape — <code>verifyProduce(scripts, variants, reportedTotal, renderWorkersRan)</code>; build minimal valid <code>scripts</code>/<code>variants</code> so only the caption rule decides pass/fail):</p>
+<pre><code>it("fails an organic-channel variant whose caption lacks the compliance footer", () =&gt; {
+  const variants = [{
+    id: "v1", scriptId: "s1", format: "Carousel", aspect: "4:5",
+    channels: ["Meta-organic"], assetFiles: [{ url: "u", sha256: "h" }],
+    metaSpecComplete: false, organicSpecComplete: true, complianceCheck: true, estCostMyr: 0,
+    organicCaptionEn: "Slide 1... this content is for educational purposes and does not constitute personal financial",
+    organicCaptionBm: "Penafian penuh...",
+  }] as never;
+  const res = verifyProduce([{ id: "s1" }] as never, variants, 0, 1);
+  expect(res.ok).toBe(false);
+  expect(res.problems.join(" ")).toMatch(/compliance|footer|caption/i);
+});
+
+it("passes an organic-channel variant whose caption carries the footer", () =&gt; {
+  const footer = "Past performance is not indicative of future results. FIMM. Public Mutual. Master Prospectus available.";
+  const variants = [{
+    id: "v1", scriptId: "s1", format: "Carousel", aspect: "4:5",
+    channels: ["Meta-organic"], assetFiles: [{ url: "u", sha256: "h" }],
+    metaSpecComplete: false, organicSpecComplete: true, complianceCheck: true, estCostMyr: 0,
+    organicCaptionEn: "Slide 1 content. " + footer,
+    organicCaptionBm: "Kandungan. prestasi lampau tidak dijamin. FIMM. Public Mutual.",
+  }] as never;
+  const res = verifyProduce([{ id: "s1" }] as never, variants, 0, 1);
+  expect(res.ok).toBe(true);
+});
+
+it("ignores captions on non-organic variants", () =&gt; {
+  const variants = [{
+    id: "v1", scriptId: "s1", format: "Feed", aspect: "4:5",
+    channels: ["Meta-paid"], assetFiles: [{ url: "u", sha256: "h" }],
+    metaSpecComplete: true, organicSpecComplete: false, complianceCheck: true, estCostMyr: 0,
+    organicCaptionEn: "", organicCaptionBm: "",
+  }] as never;
+  const res = verifyProduce([{ id: "s1" }] as never, variants, 0, 1);
+  expect(res.ok).toBe(true);
+});</code></pre>
+<ul class='todo'><li>☐ <strong>Step 2: Run test — expect FAIL</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/verifiers/verify-produce.test.ts -t "compliance footer"</code></p>
+<p>Expected: FAIL — <code>ProduceVariant</code> has no caption fields and <code>verifyProduce</code> has no caption rule.</p>
+<ul class='todo'><li>☐ <strong>Step 3: Carry the caption through the projection</strong></li></ul>
+<p>In <code>produce.ts</code>, extend the <code>ProduceVariant</code> type (wherever it is declared — search <code>interface ProduceVariant</code>) with:</p>
+<pre><code>  organicCaptionEn: string;
+  organicCaptionBm: string;</code></pre>
+<p>Update <code>projectVariant</code> to populate them (keep <code>organicSpecComplete</code> as-is):</p>
+<pre><code>    organicCaptionEn: str("organicCaptionEn"),
+    organicCaptionBm: str("organicCaptionBm"),</code></pre>
+<p>Add <code>"organicCaptionBm"</code> to the P5-confirm <code>CreativeVariants</code> query <code>fields</code> array (it already requests <code>"organicCaptionEn"</code>):</p>
+<pre><code>            "organicCaptionEn",
+            "organicCaptionBm",</code></pre>
+<ul class='todo'><li>☐ <strong>Step 4: Add the compliance rule to <code>verifyProduce</code></strong></li></ul>
+<p>In <code>verify-produce.ts</code>, import the checker (the package is already an orchestrator dependency):</p>
+<pre><code>import { checkCompliance } from "@engineerdad/meta-ads";</code></pre>
+<p>Inside <code>verifyProduce</code>, after the existing checks build their <code>problems</code>, add — for every variant whose <code>channels</code> include <code>"Meta-organic"</code> and whose <code>organicCaptionEn</code> is non-empty:</p>
+<pre><code>  for (const v of variants) {
+    if (!v.channels.includes("Meta-organic")) continue;
+    if (v.organicCaptionEn.length === 0) continue;
+    const en = checkCompliance({ primary_text: v.organicCaptionEn, lang: "en" });
+    if (!en.ok) {
+      problems.push(`Variant ${v.id}: organic EN caption fails compliance — ${en.refusal_reason ?? "missing required disclaimer"}`);
+    }
+    if (v.organicCaptionBm.length &gt; 0) {
+      const ms = checkCompliance({ primary_text: v.organicCaptionBm, lang: "ms" });
+      if (!ms.ok) {
+        problems.push(`Variant ${v.id}: organic BM caption fails compliance — ${ms.refusal_reason ?? "missing required disclaimer"}`);
+      }
+    }
+  }</code></pre>
+<p>(Adapt the variable name <code>problems</code> to whatever the function already accumulates into; if it returns early, fold these into the same accumulation/return path. Verify <code>checkCompliance</code> is re-exported from the package index — <code>packages/meta-ads/src/index.ts</code>; if not, add <code>export { checkCompliance } from "./compliance.js";</code> there.)</p>
+<ul class='todo'><li>☐ <strong>Step 5: Run tests — expect PASS</strong></li></ul>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/verifiers/verify-produce.test.ts &amp;&amp; pnpm vitest run packages/orchestrator/src/stages/produce.test.ts</code></p>
+<p>Expected: PASS. If <code>produce.test.ts</code> fixtures construct <code>ProduceVariant</code> without the new fields, add <code>organicCaptionEn: "", organicCaptionBm: ""</code> to them.</p>
+<ul class='todo'><li>☐ <strong>Step 6: Commit</strong></li></ul>
+<pre><code>git add packages/orchestrator/src/stages/produce.ts packages/orchestrator/src/verifiers/verify-produce.ts packages/orchestrator/src/verifiers/verify-produce.test.ts packages/meta-ads/src/index.ts
+git commit -m "fix(produce): verify organic caption carries compliance footer at HG3 (Fix D backstop)"</code></pre>
+<hr>
+<h2>Task 6: Fix D (part 2) — creative-director organic-caption HARD RULE</h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>.claude/agents/creative-director.md</code> (and its source fragment under <code>packages/shared/src/prompts/</code> if one exists — check with <code>grep -rl "creative-director" packages/shared/src/prompts/</code>)</li><li>Test: a string-contains assertion (follow how brief-writer's canonical-angle rule is tested, if such a test exists; otherwise this is a prompt-doc change verified by <code>pnpm sync:agents:check</code>)</li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Locate the prompt source of truth</strong></li></ul>
+<p>Run: <code>grep -rl "creative-director\|captionEn\|organic" packages/shared/src/prompts/ .claude/agents/creative-director.md</code></p>
+<p>If a fragment exists in <code>packages/shared/src/prompts/</code>, edit THAT (then sync); otherwise edit <code>.claude/agents/creative-director.md</code> directly.</p>
+<ul class='todo'><li>☐ <strong>Step 2: Add the HARD RULE</strong></li></ul>
+<p>Insert a clearly-marked section where the agent's organic-caption output is described:</p>
+<pre><code>## Organic caption compliance (HARD RULE)
+
+Every organic caption you emit — `captionEn` AND `captionMs` — MUST end with the
+full compliance footer and MUST NOT be truncated:
+
+1. Consultant credential: "Shoo Kyuk Wei, Public Mutual (FIMM-registered UTC/PRS consultant)".
+2. Risk warning: the past-performance disclaimer (EN: "Past performance is not
+   indicative of future results; investments carry risk." / BM: "Prestasi lampau
+   bukan petunjuk prestasi masa depan; pelaburan melibatkan risiko.").
+3. Prospectus pointer: "Master Prospectus / PHS available on request." (BM:
+   "Prospektus Induk / PHS boleh didapati atas permintaan.").
+
+A caption that runs long is still required to include all three — shorten the
+body, never drop the footer. The produce verifier runs a compliance check on
+your captions and will FAIL the variant at HG3 if any block is missing.</code></pre>
+<ul class='todo'><li>☐ <strong>Step 3: Sync + verify</strong></li></ul>
+<p>Run: <code>pnpm sync:agents &amp;&amp; pnpm sync:agents:check</code></p>
+<p>Expected: clean (the <code>.claude/agents/creative-director.md</code> matches its source fragment).</p>
+<ul class='todo'><li>☐ <strong>Step 4: Commit</strong></li></ul>
+<pre><code>git add .claude/agents/creative-director.md packages/shared/src/prompts/ 2&gt;/dev/null
+git commit -m "fix(creative-director): organic captions must carry compliance footer (Fix D prompt rule)"</code></pre>
+<hr>
+<h2>Task 7: Full build + suite + TASKS.md</h2>
+<p><strong>Files:</strong></p>
+<ul><li>Modify: <code>TASKS.md</code></li></ul>
+<ul class='todo'><li>☐ <strong>Step 1: Full sequential build (webapp excluded — it may be running)</strong></li></ul>
+<p>Run: <code>pnpm -r --filter='!@engineerdad/webapp' build</code></p>
+<p>Expected: all packages <code>Done</code>, no TS errors.</p>
+<ul class='todo'><li>☐ <strong>Step 2: Full test suite</strong></li></ul>
+<p>Run: <code>pnpm -r test</code> (or <code>pnpm vitest run</code> at root)</p>
+<p>Expected: all green. Fix any fixture fallout from the <code>ProduceVariant</code>/<code>MetaTargeting</code> shape changes.</p>
+<ul class='todo'><li>☐ <strong>Step 3: Update TASKS.md</strong></li></ul>
+<p>Close the four walk findings (A/B/C/D) with one line each pointing at this plan, and record the external Meta-app <code>ads_management</code> capability gap as a non-code prerequisite (link <code>project-meta-app-capability-blocker</code>).</p>
+<ul class='todo'><li>☐ <strong>Step 4: Commit</strong></li></ul>
+<pre><code>git add TASKS.md
+git commit -m "docs(tasks): close meta-paid distribute fixes A–D; note external app-capability blocker"</code></pre>
+<hr>
+<h2>Acceptance (out-of-band)</h2>
+<p>The Meta app <code>ads_management</code> capability gap is external and blocks a live green. Once you've granted standard access for <code>act_943950444894075</code>, the deterministic acceptance is re-running the failed D2b rows on <code>run_1780029260</code> (idempotent — all rows <code>adId</code>/<code>fbPostId</code> null): rebuild, <strong>restart Claude Code</strong> (MCP dist reload), then <code>/distribute run_1780029260</code>. Expect: 8 paid ads attach to the 4 adsets (PAUSED), and the organic row publishes (caption now footer-complete). HG4 acceptance queries per the original spec §7.</p>
+</body></html>

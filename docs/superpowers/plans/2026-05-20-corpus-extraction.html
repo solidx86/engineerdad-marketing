@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Corpus Extraction Implementation Plan · v3 · 2026-05-21</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+    --rule: #e5e1d8;
+    --accent: #b34a1f;
+    --accent-soft: #f3e6dc;
+    --code-bg: #f3efe7;
+    --code-ink: #2a2a2a;
+    --green: #2f7a3a;
+    --amber: #b88410;
+    --blue: #2a5dad;
+    --maxw: 960px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    font-size: 15.5px; line-height: 1.62; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 56px 28px 96px; }
+
+  header.doc { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 40px; }
+  header.doc .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+  header.doc h1 { font-size: 32px; line-height: 1.2; margin: 0 0 14px;
+    font-family: "Iowan Old Style", "Charter", Georgia, serif; font-weight: 600; letter-spacing: -.005em; }
+  header.doc .meta { font-size: 13px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 18px; }
+  header.doc .meta b { color: var(--ink); font-weight: 600; }
+  header.doc .summary { font-size: 14.5px; margin: 18px 0 6px; }
+  header.doc .summary b { color: var(--accent); }
+  header.doc .v2-banner { background: #fff8e1; border: 1px solid var(--amber); padding: 10px 14px;
+    border-radius: 5px; margin: 14px 0; font-size: 13.5px; }
+  header.doc .v2-banner b { color: var(--amber); }
+
+  h2.phase { font-family: "Iowan Old Style", "Charter", Georgia, serif;
+    font-size: 24px; margin: 64px 0 18px; padding: 14px 18px;
+    background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 0 6px 6px 0;
+    font-weight: 600; }
+  h2.section { font-family: "Iowan Old Style", "Charter", Georgia, serif;
+    font-size: 22px; margin: 56px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--rule);
+    font-weight: 600; }
+  h3 { font-size: 17px; margin: 28px 0 8px; font-weight: 600; }
+  h4 { font-size: 13px; margin: 16px 0 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft); }
+
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; margin: 8px 0; }
+  li { margin: 3px 0; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--code-ink); }
+  pre { background: #1f1c17; color: #f0e9da; padding: 14px 18px; border-radius: 6px; overflow: auto;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55;
+    border: 1px solid #2a2620; margin: 10px 0; }
+  pre code { background: none; padding: 0; color: inherit; }
+  pre.lang-bash { border-left: 3px solid #5fb35f; }
+  pre.lang-js { border-left: 3px solid #f1d066; }
+  pre.lang-md { border-left: 3px solid #c97f4a; }
+  pre.lang-json { border-left: 3px solid #6fa8d6; }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 11px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+  tr:hover td { background: #f7f3eb; }
+
+  nav.toc { background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 18px 22px; margin: 24px 0 0; }
+  nav.toc h4 { margin: 0 0 8px; }
+  nav.toc ol { margin: 4px 0 0; padding-left: 22px; columns: 2; column-gap: 28px; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  .task {
+    border: 1px solid var(--rule); border-radius: 6px; padding: 18px 22px; margin: 18px 0;
+    background: #fff;
+  }
+  .task > .header { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; flex-wrap: wrap; border-bottom: 1px dashed var(--rule); padding-bottom: 10px; margin-bottom: 12px; }
+  .task > .header h3 { margin: 0; }
+  .task > .header .task-id { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px;
+    color: #fff; background: var(--ink); padding: 2px 8px; border-radius: 10px; letter-spacing: .04em; }
+  .task .files { font-size: 13px; color: var(--ink-soft); margin: 4px 0 12px; }
+  .task .files .label { font-weight: 600; color: var(--ink); margin-right: 6px; }
+
+  .step {
+    margin: 14px 0; padding: 10px 0 10px 30px; position: relative;
+    border-top: 1px solid #f0eadf;
+  }
+  .step:first-of-type { border-top: none; }
+  .step .checkbox {
+    position: absolute; left: 0; top: 12px; width: 18px; height: 18px;
+    border: 1.5px solid #b6a98d; border-radius: 3px; background: #fff;
+  }
+  .step .step-label { font-weight: 600; font-size: 14px; }
+  .step .step-body { margin-top: 4px; }
+  .step .expect { font-size: 13px; color: var(--ink-soft); margin: 6px 0; }
+  .step .expect b { color: var(--ink); }
+
+  .callout { background: var(--accent-soft); border-left: 3px solid var(--accent);
+    padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 14px; }
+  .callout-deferred { background: #f4eef4; border-left: 3px solid #8a5a8a;
+    padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 14px; }
+  .callout-deferred b { color: #6a3a6a; }
+
+  .acceptance { background: #fff; border: 1px solid var(--rule); border-radius: 6px;
+    padding: 18px 22px; }
+  .acceptance ul { list-style: none; padding-left: 4px; }
+  .acceptance li { padding: 4px 0 4px 28px; position: relative; }
+  .acceptance li::before {
+    content: ""; position: absolute; left: 0; top: 9px; width: 16px; height: 16px;
+    border: 1.5px solid #b6a98d; border-radius: 3px; background: #fff;
+  }
+
+  .self-review { background: #f0f5ff; border: 1px solid #c4d4f0; border-radius: 6px;
+    padding: 18px 22px; margin: 30px 0; }
+  .self-review h3 { color: var(--blue); margin-top: 0; }
+  .self-review ul li::before { content: "✓"; color: var(--green); margin-right: 6px; font-weight: 700; }
+  .self-review ul { list-style: none; padding-left: 0; }
+
+  footer.doc { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <div class="eyebrow">Implementation Plan · v3 · validator deferred · item 7 deferred</div>
+  <h1>Corpus Extraction Implementation Plan</h1>
+  <div class="meta">
+    <span><b>Date</b> 2026-05-21</span>
+    <span><b>Spec</b> <code>docs/superpowers/specs/2026-05-20-corpus-extraction-design.html</code></span>
+    <span><b>Branch</b> feat/organic-social-cadence</span>
+  </div>
+
+  <div class="v2-banner">
+    <b>v3 changes</b> — The "Corpus-additions validator" (was Phase 3) is pulled out and filed as backlog item <b>E-023</b> in <code>TASKS.md</code>. Its frontmatter / bilingual / banned-phrase checks become a manual review pass in Phase 8. Phases 4–9 renumbered to 3–8.<br>
+    <b>v2 changes</b> — Item 7 (fund-anomaly-cases) deferred. Seven data-layer files (A–G) added under <code>corpus/data/</code> so content-gen looks up arithmetic instead of fabricating it.
+  </div>
+
+  <p class="summary">
+    <b>Goal</b> — Land nine prose-layer corpus artifacts (3 evergreen <code>.md</code> methodology+proof, 2 dated snapshots, 2 author templates, 1 recipe append, 1 JSON per-fund snapshot) plus seven data-layer files under <code>corpus/data/</code> and three build/refresh scripts.
+  </p>
+  <p class="summary">
+    <b>Architecture</b> — Three layers. <b>Prose</b> (items 1–6, 8, 9, 10): hand-authored markdown + structured per-fund JSON. <b>Data</b> (items A–G): seven JSON files content-gen reads directly via <code>Read</code> so it never fabricates arithmetic. <b>Scripts</b> (3): refresh-funds-corpus (monthly), harvest-epf-simulations (Playwright-driven), build-derivative-tables (items A + B).
+  </p>
+
+  <div class="callout-deferred">
+    <b>Deferred — automated corpus validation.</b> Earlier drafts had a "Phase 3 — Corpus-additions validator." Pulled out to backlog <b>E-023</b> ("Corpus audit pass"). Quality checks (frontmatter, bilingual sections, banned phrases) are a manual review pass in Phase 8.
+  </div>
+
+  <nav class="toc">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#files">File structure</a></li>
+      <li><a href="#p0">Phase 0 — Deps &amp; entry points</a></li>
+      <li><a href="#p1">Phase 1 — Refresh script (TDD)</a></li>
+      <li><a href="#p2">Phase 2 — Data layer scripts (TDD + Playwright)</a></li>
+      <li><a href="#p3">Phase 3 — Evergreen methodology (items 1, 5)</a></li>
+      <li><a href="#p4">Phase 4 — Hand-authored data files (C, D, E, F)</a></li>
+      <li><a href="#p5">Phase 5 — EPF shortfall (item 2, reads from G+C)</a></li>
+      <li><a href="#p6">Phase 6 — Templates &amp; recipes (3, 4, 9)</a></li>
+      <li><a href="#p7">Phase 7 — Run refresh → dated trio</a></li>
+      <li><a href="#p8">Phase 8 — Reindex + final review</a></li>
+      <li><a href="#notes">Notes for the implementing engineer</a></li>
+      <li><a href="#review">Self-review</a></li>
+    </ol>
+  </nav>
+</header>
+
+<section id="files">
+  <h2 class="section">File structure</h2>
+
+  <h4>New files (created)</h4>
+  <table>
+    <thead><tr><th>Path</th><th>Owner phase</th><th>Authored by</th></tr></thead>
+    <tbody>
+      <tr><td><code>scripts/refresh-funds-corpus.mjs</code></td><td>1</td><td>hand</td></tr>
+      <tr><td><code>scripts/refresh-funds-corpus.test.mjs</code></td><td>1</td><td>hand (TDD)</td></tr>
+      <tr><td><code>scripts/fixtures/build-funds-fixture.mjs</code></td><td>1</td><td>hand</td></tr>
+      <tr><td><code>scripts/fixtures/funds-fixture.xlsx</code></td><td>1</td><td>generated</td></tr>
+      <tr><td><code>scripts/build-derivative-tables.mjs</code></td><td>2</td><td>hand (TDD)</td></tr>
+      <tr><td><code>scripts/build-derivative-tables.test.mjs</code></td><td>2</td><td>hand (TDD)</td></tr>
+      <tr><td><code>scripts/harvest-epf-simulations.mjs</code></td><td>2</td><td>hand + Playwright execution</td></tr>
+      <tr><td><code>corpus/courses/epf-sustainability-model.md</code></td><td>3</td><td>hand (EN+BM)</td></tr>
+      <tr><td><code>corpus/courses/weighted-alpha-scoring.md</code></td><td>3</td><td>hand (EN+BM)</td></tr>
+      <tr><td><code>corpus/data/compounding-table.json</code> (A)</td><td>2</td><td>script-generated</td></tr>
+      <tr><td><code>corpus/data/monthly-contribution-required.json</code> (B)</td><td>2</td><td>script-generated</td></tr>
+      <tr><td><code>corpus/data/kwsp-ria-benchmarks.json</code> (C)</td><td>4</td><td>hand-authored</td></tr>
+      <tr><td><code>corpus/data/belanjawanku-tiers.json</code> (D)</td><td>4</td><td>hand-authored</td></tr>
+      <tr><td><code>corpus/data/epf-dividend-history.json</code> (E)</td><td>4</td><td>hand-authored</td></tr>
+      <tr><td><code>corpus/data/tax-reliefs-2026.json</code> (F)</td><td>4</td><td>hand-authored</td></tr>
+      <tr><td><code>corpus/data/epf-sustainability-simulations.json</code> (G)</td><td>2</td><td>Playwright-harvested</td></tr>
+      <tr><td><code>corpus/proof/epf-shortfall-cases.md</code></td><td>5</td><td>hand (EN+BM) — reads G+C</td></tr>
+      <tr><td><code>corpus/proof/fund-universe-stats-snapshot.md</code></td><td>7</td><td>script-generated</td></tr>
+      <tr><td><code>corpus/proof/sector-geo-rotation-snapshot.md</code></td><td>7</td><td>script-generated</td></tr>
+      <tr><td><code>corpus/data/funds-apr2026.json</code></td><td>7</td><td>script-generated</td></tr>
+      <tr><td><code>corpus/templates/calculator-embed-spec.md</code></td><td>6</td><td>hand</td></tr>
+      <tr><td><code>corpus/templates/mfr-monthly-recap-template.md</code></td><td>6</td><td>hand (no anomaly section)</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Modified files</h4>
+  <table>
+    <thead><tr><th>Path</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td><code>package.json</code></td><td>Add <code>exceljs</code>. Add scripts <code>refresh:funds</code>, <code>harvest:epf</code>, <code>build:tables</code>.</td></tr>
+      <tr><td><code>pnpm-lock.yaml</code></td><td>Regenerated.</td></tr>
+      <tr><td><code>corpus/courses/content-recipes.md</code></td><td>Append <code>## EPF Sustainability — Hook + FAQ Bank</code>.</td></tr>
+      <tr><td><code>corpus/.index/chunks.jsonl</code> + <code>bm25.json</code></td><td>Regenerated by <code>/ingest-corpus</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-deferred">
+    <b>Deferred</b> — <code>corpus/proof/fund-anomaly-cases.md</code> (item 7); automated corpus validator (<b>E-023</b>).
+  </div>
+</section>
+
+<!-- ========== PHASE 0 ========== -->
+<section id="p0">
+  <h2 class="phase">Phase 0 — Dependencies &amp; script entry points</h2>
+
+  <div class="task">
+    <div class="header">
+      <h3>0.1 — Add <code>exceljs</code> and root scripts</h3>
+      <span class="task-id">PHASE 0</span>
+    </div>
+    <div class="files"><span class="label">Modify:</span> <code>package.json</code></div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Add dependency</div>
+      <pre class="lang-bash"><code>pnpm add -D -w exceljs</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Add npm scripts</div>
+      <div class="step-body">Insert after <code>"sync:agents:check"</code>:</div>
+<pre class="lang-json"><code>"refresh:funds": "node scripts/refresh-funds-corpus.mjs",
+"harvest:epf": "node scripts/harvest-epf-simulations.mjs",
+"build:tables": "node scripts/build-derivative-tables.mjs",</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Verify install</div>
+      <pre class="lang-bash"><code>pnpm install --frozen-lockfile=false</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Commit</div>
+<pre class="lang-bash"><code>git add package.json pnpm-lock.yaml
+git commit -m "chore: add exceljs + corpus extraction script entries"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 1 ========== -->
+<section id="p1">
+  <h2 class="phase">Phase 1 — Refresh script for the funds xlsx (TDD)</h2>
+  <p>Parses the latest <code>PublicMutual_FundMaster_*.xlsx</code> and produces items 6, 8, 10. Task 1.1 builds an in-repo fixture; Tasks 1.2–1.9 (<code>parseFundMaster</code>, <code>periodFromFilename</code>, <code>findLatestXlsx</code>, <code>buildJsonSnapshot</code>, <code>computeUniverseStats</code>, <code>computeRotation</code>, <code>renderUniverseStatsMd</code>, <code>renderRotationMd</code>, CLI + integration test) are unchanged from the prior iteration.</p>
+
+  <div class="callout">
+    <b>For the executing agent:</b> the full TDD step-by-step for Tasks 1.1–1.9 is in this file's git history (<code>git log -p docs/superpowers/plans/2026-05-20-corpus-extraction.md</code>). Each sub-task: failing test → run → implement → run → commit. Functions exported from <code>scripts/refresh-funds-corpus.mjs</code>.
+  </div>
+</section>
+
+<!-- ========== PHASE 2 ========== -->
+<section id="p2">
+  <h2 class="phase">Phase 2 — Data layer scripts (TDD + Playwright)</h2>
+
+  <div class="task">
+    <div class="header">
+      <h3>2.1 — Compounding + monthly-contribution tables (items A + B, TDD)</h3>
+      <span class="task-id">TASK 2.1</span>
+    </div>
+    <div class="files">
+      <span class="label">Create:</span> <code>scripts/build-derivative-tables.mjs</code> · <code>scripts/build-derivative-tables.test.mjs</code><br>
+      <span class="label">Produces:</span> <code>corpus/data/compounding-table.json</code> + <code>corpus/data/monthly-contribution-required.json</code>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Failing tests</div>
+<pre class="lang-js"><code>import { describe, it, expect } from "vitest";
+import { fvAnnuity, requiredPmt, buildCompoundingTable, buildMonthlyContributionTable } from "./build-derivative-tables.mjs";
+
+describe("fvAnnuity", () => {
+  it("returns 0 for 0 contributions", () => {
+    expect(fvAnnuity(0, 0.08, 10)).toBe(0);
+  });
+  it("matches the known FV of an annuity formula", () => {
+    // PMT=100/mo, r=0.08, n=10 → ~RM18,294
+    const v = fvAnnuity(100, 0.08, 10);
+    expect(v).toBeGreaterThan(18000);
+    expect(v).toBeLessThan(18600);
+  });
+});
+
+describe("requiredPmt", () => {
+  it("inverse of fvAnnuity", () => {
+    const fv = fvAnnuity(250, 0.08, 20);
+    const pmt = requiredPmt(fv, 0.08, 20);
+    expect(pmt).toBeCloseTo(250, 0);
+  });
+});
+
+describe("buildCompoundingTable", () => {
+  it("returns rows for the spec grid", () => {
+    const t = buildCompoundingTable();
+    expect(t.assumption_source).toMatch(/epf-sustainability-model/);
+    const sample = t.rows.find(r =&gt; r.rate === 0.08 &amp;&amp; r.years === 20 &amp;&amp; r.monthly_pmt === 500);
+    expect(sample).toBeDefined();
+  });
+});
+
+describe("buildMonthlyContributionTable", () => {
+  it("returns rows keyed by target FV / years / rate", () => {
+    const t = buildMonthlyContributionTable();
+    const sample = t.rows.find(r =&gt; r.target_fv === 500000 &amp;&amp; r.years === 20 &amp;&amp; r.rate === 0.08);
+    expect(sample).toBeDefined();
+  });
+});</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Run, verify failure</div>
+      <pre class="lang-bash"><code>pnpm vitest run scripts/build-derivative-tables.test.mjs</code></pre>
+      <div class="expect"><b>Expected:</b> FAIL.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Implement</div>
+<pre class="lang-js"><code>#!/usr/bin/env node
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..");
+const ASSUMPTION_SOURCE = "corpus/courses/epf-sustainability-model.md";
+
+const RATES = [0.06, 0.07, 0.08, 0.10];
+const YEARS = [5, 10, 15, 20, 25, 30, 35];
+const PMTS = [100, 200, 300, 500, 750, 1000, 1500, 2000];
+const TARGET_FVS = [50_000, 100_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 1_500_000];
+
+export function fvAnnuity(monthlyPmt, annualRate, years) {
+  if (monthlyPmt === 0) return 0;
+  const r = annualRate / 12;
+  const n = years * 12;
+  if (r === 0) return monthlyPmt * n;
+  return monthlyPmt * ((Math.pow(1 + r, n) - 1) / r);
+}
+
+export function requiredPmt(targetFv, annualRate, years) {
+  if (targetFv === 0) return 0;
+  const r = annualRate / 12;
+  const n = years * 12;
+  if (r === 0) return targetFv / n;
+  return targetFv * r / (Math.pow(1 + r, n) - 1);
+}
+
+export function buildCompoundingTable() {
+  const rows = [];
+  for (const rate of RATES) for (const years of YEARS) for (const pmt of PMTS) {
+    rows.push({ rate, years, monthly_pmt: pmt, fv: Math.round(fvAnnuity(pmt, rate, years)) });
+  }
+  return {
+    generated_at: new Date().toISOString(),
+    assumption_source: ASSUMPTION_SOURCE,
+    grid: { rates: RATES, years: YEARS, monthly_pmts: PMTS },
+    rows,
+  };
+}
+
+export function buildMonthlyContributionTable() {
+  const rows = [];
+  for (const target_fv of TARGET_FVS) for (const years of YEARS) for (const rate of RATES) {
+    rows.push({ target_fv, years, rate, monthly_pmt: Math.round(requiredPmt(target_fv, rate, years)) });
+  }
+  return {
+    generated_at: new Date().toISOString(),
+    assumption_source: ASSUMPTION_SOURCE,
+    grid: { target_fvs: TARGET_FVS, years: YEARS, rates: RATES },
+    rows,
+  };
+}
+
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  const dataDir = path.join(REPO_ROOT, "corpus", "data");
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(path.join(dataDir, "compounding-table.json"), JSON.stringify(buildCompoundingTable(), null, 2));
+  await fs.writeFile(path.join(dataDir, "monthly-contribution-required.json"), JSON.stringify(buildMonthlyContributionTable(), null, 2));
+  console.log("wrote compounding-table.json + monthly-contribution-required.json");
+}</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Pass</div>
+      <pre class="lang-bash"><code>pnpm vitest run scripts/build-derivative-tables.test.mjs</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 5 — Generate the JSONs</div>
+      <pre class="lang-bash"><code>pnpm build:tables</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 6 — Commit</div>
+<pre class="lang-bash"><code>git add scripts/build-derivative-tables.mjs scripts/build-derivative-tables.test.mjs corpus/data/compounding-table.json corpus/data/monthly-contribution-required.json
+git commit -m "feat(scripts+corpus): items A + B — compounding and monthly-contribution lookup tables"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>2.2 — EPF simulation harvester (item G, Playwright-driven)</h3>
+      <span class="task-id">TASK 2.2</span>
+    </div>
+    <div class="files">
+      <span class="label">Create:</span> <code>scripts/harvest-epf-simulations.mjs</code><br>
+      <span class="label">Produces:</span> <code>corpus/data/epf-sustainability-simulations.json</code><br>
+      <span class="label">Prerequisite:</span> item C (<code>kwsp-ria-benchmarks.json</code>) must exist — see Phase 4.1
+    </div>
+
+    <div class="callout">
+      <b>No TDD on this task.</b> Playwright invocations against a live UI are awkward to unit-test. Validate by end-to-end run + parity spot-check against the UI.
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Inspect the calculator's JS surface</div>
+      <div class="step-body">
+        Open <code>/Users/solid/Code/engineerdad-site/tools/epf-sustainability-calculator/index.html</code>. Find the simulator function. Determine whether <code>window.simulator(inputs)</code> (or equivalent) is callable directly.
+        <ul>
+          <li><b>Yes</b> → preferred path: <code>browser_evaluate</code>.</li>
+          <li><b>No</b> → fallback: <code>browser_fill_form</code> + click "Calculate" + DOM scrape.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Write the harvester skeleton</div>
+      <div class="step-body">Create <code>scripts/harvest-epf-simulations.mjs</code> with grid construction + server lifecycle + JSON output. The actual Playwright calls happen at execution time inside a Claude Code session, not in this file as static code. (Full skeleton in the plan markdown — copy verbatim.)</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Execute the harvest (Claude Code session with Playwright MCP)</div>
+      <ol>
+        <li>Start static server: <code>cd /Users/solid/Code/engineerdad-site/tools/epf-sustainability-calculator &amp;&amp; python3 -m http.server 5174 &amp;</code></li>
+        <li><code>mcp__plugin_playwright_playwright__browser_navigate</code> → <code>http://localhost:5174/index.html</code></li>
+        <li><code>browser_snapshot</code> to identify the simulator function</li>
+        <li>For each tuple in <code>buildInputGrid()</code> output:
+          <ul>
+            <li>Preferred: <code>browser_evaluate</code> calling <code>window.simulator(...)</code></li>
+            <li>Fallback: <code>browser_fill_form</code> + click Calculate + read output via <code>browser_evaluate</code></li>
+          </ul>
+        </li>
+        <li>Collect outputs into <code>simulations</code> array</li>
+        <li>Write <code>corpus/data/epf-sustainability-simulations.json</code></li>
+        <li>Kill the static server</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Parity spot-check</div>
+      <div class="step-body">Pick 3 random tuples. Open the calculator in a real browser, input the same values, confirm the JSON's outputs match. If parity fails, diagnose the input encoding and re-harvest.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 5 — Commit</div>
+<pre class="lang-bash"><code>git add scripts/harvest-epf-simulations.mjs corpus/data/epf-sustainability-simulations.json
+git commit -m "feat(scripts+corpus): item G — harvested EPF sustainability simulations"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 3 ========== -->
+<section id="p3">
+  <h2 class="phase">Phase 3 — Evergreen methodology files (items 1, 5)</h2>
+  <p>Item 1's canonical assumption block is also the source referenced by item A's generator and item G's grid.</p>
+
+  <div class="task">
+    <div class="header">
+      <h3>3.1 — <code>corpus/courses/epf-sustainability-model.md</code> (item 1)</h3>
+      <span class="task-id">TASK 3.1</span>
+    </div>
+    <div class="files"><span class="label">Sources:</span> calculator <code>index.html</code> lines 787–798 · existing <code>proof/epf-baseline-tiers.md</code></div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Read the calculator HTML to confirm assumption-block constants</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Write the file (EN + BM, full structure in spec)</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Self-check</div>
+      <div class="step-body">Frontmatter has <code>quote</code> / <code>attribution</code> / <code>permission_status</code> / <code>persona</code>; both <code>## English</code> and <code>## Bahasa Malaysia</code> present; no banned phrases (cross-check <code>corpus/compliance/banned-phrases.yaml</code>).</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/courses/epf-sustainability-model.md
+git commit -m "feat(corpus): epf-sustainability-model.md — methodology behind the calculator"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>3.2 — <code>corpus/courses/weighted-alpha-scoring.md</code> (item 5)</h3>
+      <span class="task-id">TASK 3.2</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file (EN + BM)</div>
+      <div class="step-body">The weighting (YTD 5% / 1Y 15% / 3Y 40% / 5Y 25% / 10Y 15%), <code>Beat (%)</code>, <code>Alpha Efficiency</code>, drawdown-from-ATH risk lens, qualified status, compliance notes. Keep arithmetic crisp; no quantitative claims beyond the rubric.</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Self-check (frontmatter + bilingual sections + no banned phrases)</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/courses/weighted-alpha-scoring.md
+git commit -m "feat(corpus): weighted-alpha-scoring.md — companion to mfr-framework"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 4 ========== -->
+<section id="p4">
+  <h2 class="phase">Phase 4 — Hand-authored data files (items C, D, E, F)</h2>
+  <p>Pure-JSON reference files. The implementer authors each once from authoritative sources. <b>Item C must be authored before Phase 2.2's harvester runs.</b></p>
+
+  <div class="task">
+    <div class="header">
+      <h3>4.1 — <code>kwsp-ria-benchmarks.json</code> (item C)</h3>
+      <span class="task-id">TASK 4.1</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Locate the latest KWSP RIA publication</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Write the file</div>
+<pre class="lang-json"><code>{
+  "verified_at": "2026-05-21",
+  "source": "&lt;paste exact KWSP publication URL or document title&gt;",
+  "notes": "Age → expected EPF balance benchmark under the Retirement Income Adequacy framework. Values are aspirational targets, not actual median balances.",
+  "tiers": [
+    { "age": 25, "ria_balance_rm": 0 },
+    { "age": 30, "ria_balance_rm": 0 },
+    { "age": 35, "ria_balance_rm": 0 },
+    { "age": 40, "ria_balance_rm": 0 },
+    { "age": 45, "ria_balance_rm": 0 },
+    { "age": 50, "ria_balance_rm": 0 },
+    { "age": 55, "ria_balance_rm": 0 }
+  ]
+}</code></pre>
+      <div class="step-body">Fill zeros with the actual published RIA numbers.</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/data/kwsp-ria-benchmarks.json
+git commit -m "feat(corpus): item C — KWSP RIA age-tier benchmarks"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>4.2 — <code>belanjawanku-tiers.json</code> (item D)</h3>
+      <span class="task-id">TASK 4.2</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file</div>
+<pre class="lang-json"><code>{
+  "verified_at": "2026-05-21",
+  "source": "&lt;KWSP Belanjawanku URL&gt;",
+  "base_year": 2024,
+  "households": [
+    { "composition": "single_elderly",
+      "tiers": { "basic_monthly_rm": 0, "adequate_monthly_rm": 0, "enhanced_monthly_rm": 0 } },
+    { "composition": "couple_elderly",
+      "tiers": { "basic_monthly_rm": 0, "adequate_monthly_rm": 0, "enhanced_monthly_rm": 0 } },
+    { "composition": "couple_with_2_children",
+      "tiers": { "basic_monthly_rm": 0, "adequate_monthly_rm": 0, "enhanced_monthly_rm": 0 } }
+  ],
+  "retirement_targets_rm": { "basic": 390000, "adequate": 650000, "enhanced": 1300000 }
+}</code></pre>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Commit</div>
+      <pre class="lang-bash"><code>git commit -am "feat(corpus): item D — Belanjawanku tier matrix"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>4.3 — <code>epf-dividend-history.json</code> (item E)</h3>
+      <span class="task-id">TASK 4.3</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file (seed ~10 years from KWSP annual reports)</div>
+<pre class="lang-json"><code>{
+  "verified_at": "2026-05-21",
+  "source": "KWSP annual reports 2015–2025",
+  "dividends": [
+    { "year": 2015, "conventional_pct": 0, "shariah_pct": null },
+    { "year": 2016, "conventional_pct": 0, "shariah_pct": 0 }
+  ]
+}</code></pre>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Commit</div>
+      <pre class="lang-bash"><code>git commit -am "feat(corpus): item E — EPF dividend history"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>4.4 — <code>tax-reliefs-2026.json</code> (item F)</h3>
+      <span class="task-id">TASK 4.4</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file from LHDN current-year schedule</div>
+<pre class="lang-json"><code>{
+  "year": 2026,
+  "verified_at": "2026-05-21",
+  "source": "&lt;LHDN URL&gt;",
+  "reliefs": [
+    {
+      "code": "prs",
+      "label": "Private Retirement Scheme &amp; Deferred Annuity",
+      "max_relief_rm": 0,
+      "notes": "RM&lt;paste actual cap&gt; annual relief; verify against latest Budget."
+    }
+  ]
+}</code></pre>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Commit</div>
+      <pre class="lang-bash"><code>git commit -am "feat(corpus): item F — tax reliefs 2026"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 5 ========== -->
+<section id="p5">
+  <h2 class="phase">Phase 5 — EPF shortfall worked examples (item 2)</h2>
+
+  <div class="callout">
+    <b>Item 2 reads from items G + C.</b> Prerequisite: G + C exist. If not, do Phase 4.1 → Phase 2.2 first.
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>5.1 — <code>corpus/proof/epf-shortfall-cases.md</code></h3>
+      <span class="task-id">TASK 5.1</span>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Look up scenarios from item G</div>
+<pre class="lang-bash"><code>node -e "
+const sim = require('./corpus/data/epf-sustainability-simulations.json');
+const find = (age, salary, lifestyle='Adequate', retire=60) =&gt;
+  sim.simulations.find(s =&gt;
+    s.inputs.age === age &amp;&amp;
+    s.inputs.salary_rm === salary &amp;&amp;
+    s.inputs.lifestyle === lifestyle &amp;&amp;
+    s.inputs.retire_age === retire);
+console.log(JSON.stringify({
+  scenario1: find(25, 4000),
+  scenario2: find(30, 6000),
+  scenario3: find(40, 10000),
+  scenario4: find(50, 12000),
+}, null, 2));
+"</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Write the file</div>
+      <div class="step-body">EN + BM, four scenarios. For each <code>&lt;computed&gt;</code> value, paste the actual number from the lookup. Cite the source as <code>epf-sustainability-simulations.json</code> + tuple inputs in a footnote.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Self-check</div>
+      <div class="step-body">Frontmatter + bilingual sections + no banned phrases; every number traceable to G / C / B / D.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/proof/epf-shortfall-cases.md
+git commit -m "feat(corpus): epf-shortfall-cases.md — 4 worked examples sourced from item G"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 6 ========== -->
+<section id="p6">
+  <h2 class="phase">Phase 6 — Templates &amp; recipes (items 3, 4, 9)</h2>
+
+  <div class="task">
+    <div class="header">
+      <h3>6.1 — Append EPF hook + FAQ bank to <code>content-recipes.md</code> (item 3)</h3>
+      <span class="task-id">TASK 6.1</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Extract hook + FAQ from the calculator HTML</div>
+      <div class="step-body">Hook in <code>&lt;h2 class="calc-hook"&gt;</code>; FAQ items follow <code>id="faq-heading"</code>.</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Append <code>## EPF Sustainability — Hook + FAQ Bank</code> (hooks bulleted, FAQ as Q→A pairs)</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/courses/content-recipes.md
+git commit -m "feat(corpus): append EPF Sustainability hook + FAQ bank to content-recipes"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>6.2 — <code>calculator-embed-spec.md</code> (item 4)</h3>
+      <span class="task-id">TASK 6.2</span>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file</div>
+      <div class="step-body">Link pattern, 3 CTA copy variants, pre-embed disclaimer template, post-embed reflection prompt. See spec for structure.</div>
+    </div>
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/templates/calculator-embed-spec.md
+git commit -m "feat(corpus): calculator-embed-spec.md — author guide for Authority Articles"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>6.3 — <code>mfr-monthly-recap-template.md</code> (item 9) — <em>anomaly section removed</em></h3>
+      <span class="task-id">TASK 6.3</span>
+    </div>
+    <div class="files"><b>Change:</b> drop the "Anomaly" section. Sections: Hook → Methodology recap → Aggregate state → Sector/geo pulse → Compliance disclaimer → CTA.</div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Write the file with the deferral note</div>
+<pre class="lang-md"><code>&gt; Note — earlier draft included an Anomaly section sourced from proof/fund-anomaly-cases.md. That artifact is deferred from this iteration; when it lands, insert the Anomaly section between "Aggregate state" and "Sector / geo pulse".</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/templates/mfr-monthly-recap-template.md
+git commit -m "feat(corpus): mfr-monthly-recap-template.md — anomaly section deferred"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 7 ========== -->
+<section id="p7">
+  <h2 class="phase">Phase 7 — Run refresh script → dated trio (items 6, 8, 10)</h2>
+
+  <div class="task">
+    <div class="header">
+      <h3>7.1 — Execute against the real Apr 2026 xlsx</h3>
+      <span class="task-id">TASK 7.1</span>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Run</div>
+      <pre class="lang-bash"><code>pnpm refresh:funds</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Verify outputs</div>
+      <ul>
+        <li><code>corpus/data/funds-apr2026.json</code> — <code>funds</code> length ~171–174</li>
+        <li><code>corpus/proof/fund-universe-stats-snapshot.md</code> — <code>snapshot_period: "Apr 2026"</code>, plausible qualified/total</li>
+        <li><code>corpus/proof/sector-geo-rotation-snapshot.md</code> — top sectors/geos populated</li>
+      </ul>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Commit</div>
+<pre class="lang-bash"><code>git add corpus/data/funds-apr2026.json corpus/proof/fund-universe-stats-snapshot.md corpus/proof/sector-geo-rotation-snapshot.md
+git commit -m "feat(corpus): Apr 2026 dated snapshots — universe stats, sector/geo rotation, per-fund JSON"</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PHASE 8 ========== -->
+<section id="p8">
+  <h2 class="phase">Phase 8 — Reindex + final review</h2>
+
+  <div class="task">
+    <div class="header">
+      <h3>8.1 — Run /ingest-corpus</h3>
+      <span class="task-id">TASK 8.1</span>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Record current chunk count</div>
+      <pre class="lang-bash"><code>wc -l corpus/.index/chunks.jsonl</code></pre>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Reindex</div>
+      <div class="step-body">Invoke <code>/ingest-corpus</code>.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Verify index grew</div>
+      <pre class="lang-bash"><code>wc -l corpus/.index/chunks.jsonl</code></pre>
+      <div class="expect"><b>Expected:</b> grew by the chunks-worth of items 1, 2, 5, 6, 8 + appended section of item 3. Items A–G + item 10 are NOT in the index — the chunker doesn't ingest <code>.json</code>.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Commit regenerated index</div>
+<pre class="lang-bash"><code>git add corpus/.index/chunks.jsonl corpus/.index/bm25.json
+git commit -m "chore(corpus): reindex after extraction additions"</code></pre>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="header">
+      <h3>8.2 — Manual review + repo tests + parity spot-check + acceptance criteria</h3>
+      <span class="task-id">TASK 8.2</span>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 1 — Manual review of every new <code>.md</code></div>
+      <div class="step-body">
+        Open each new <code>.md</code> + the appended section in <code>content-recipes.md</code>. Confirm:
+        <ul>
+          <li>Frontmatter has <code>quote</code> / <code>attribution</code> / <code>permission_status</code> / <code>persona</code>; dated files have <code>dated_snapshot: true</code> + <code>snapshot_period</code></li>
+          <li>Items 1, 2, 5 have both <code>## English</code> and <code>## Bahasa Malaysia</code></li>
+          <li>No banned phrases — cross-check <code>corpus/compliance/banned-phrases.yaml</code></li>
+        </ul>
+        This is the manual stand-in for the deferred automated validator (E-023).
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 2 — Run repo tests</div>
+      <pre class="lang-bash"><code>pnpm test</code></pre>
+      <div class="expect"><b>Expected:</b> all green, including the new <code>scripts/*.test.mjs</code>.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 3 — Parity spot-check for item G</div>
+      <div class="step-body">3 random tuples through the live calculator UI, confirm JSON outputs match.</div>
+    </div>
+
+    <div class="step">
+      <div class="checkbox"></div>
+      <div class="step-label">Step 4 — Acceptance criteria walkthrough</div>
+
+      <h4>Prose layer</h4>
+      <div class="acceptance">
+        <ul>
+          <li>Items 1, 2, 3, 4, 5, 6, 8, 9, 10 exist (item 7 deferred)</li>
+          <li>Frontmatter conformant on all <code>.md</code> files</li>
+          <li>Items 1, 2, 5 have bilingual EN + BM sections</li>
+          <li>No file recommends a specific fund or compares competitor funds</li>
+          <li>No file presents projected returns as guarantees</li>
+          <li>Every numerical claim in item 2 is traceable to G / C / B / D</li>
+          <li>Item 9 omits the anomaly section (with deferral note)</li>
+        </ul>
+      </div>
+
+      <h4>Data layer</h4>
+      <div class="acceptance">
+        <ul>
+          <li>Items A–G exist under <code>corpus/data/</code></li>
+          <li>A + B deterministically reproducible via <code>pnpm build:tables</code></li>
+          <li>G's <code>calculator_version</code> matches live calculator's <code>APP_VERSION</code></li>
+          <li>G parity spot-check passed (3 tuples)</li>
+          <li>C, D, E, F carry <code>verified_at</code> + <code>source</code> fields</li>
+          <li>No data file is BM25-indexed</li>
+        </ul>
+      </div>
+
+      <h4>Scripts &amp; infra</h4>
+      <div class="acceptance">
+        <ul>
+          <li><code>pnpm refresh:funds</code> runs end-to-end</li>
+          <li><code>pnpm build:tables</code> runs end-to-end</li>
+          <li><code>pnpm harvest:epf</code> ran successfully (or via Playwright session)</li>
+          <li><code>pnpm test</code> passes</li>
+          <li><code>/ingest-corpus</code> clean</li>
+          <li>Nothing pushed to remote without separate approval</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== NOTES ========== -->
+<section id="notes">
+  <h2 class="section">Notes for the implementing engineer</h2>
+  <ul>
+    <li><b>The design HTML is the source of truth</b> — re-read whenever this plan is ambiguous.</li>
+    <li><b>No HUMAN GATE in this iteration.</b> Item 7 (which previously required one) is deferred.</li>
+    <li><b>No automated validator in this iteration.</b> Frontmatter / bilingual / banned-phrase checks are a manual review pass in Phase 8.2 Step 1. Automating it is backlog item E-023.</li>
+    <li><b>Phase 2.2 (G) depends on Phase 4.1 (C).</b> The harvester reads C's RIA values to bucket balances. Do C first, then G. Then Phase 5 (item 2 prose).</li>
+    <li><b>Numbers vs prose</b> — every numerical claim in item 2 must come from a lookup in G / C / B / D. If you can't trace it to a data file, don't write it.</li>
+    <li><b>Boundary discipline (ADR-016)</b> — the EPF calculator lives in <code>engineerdad-site</code>. The harvester drives it over HTTP via Playwright; it does <em>not</em> import the calculator's JS source.</li>
+    <li><b>One commit per logical unit.</b> Don't squash. Brain's <code>/reflect</code> pass reads commit history.</li>
+  </ul>
+</section>
+
+<!-- ========== SELF-REVIEW ========== -->
+<section id="review">
+  <h2 class="section">Self-review</h2>
+
+  <div class="self-review">
+    <h3>Spec coverage</h3>
+    <ul>
+      <li>Items 1, 5 → Phase 3</li>
+      <li>Item 2 → Phase 5 (reads from G + C)</li>
+      <li>Item 3 → Phase 6.1</li>
+      <li>Item 4 → Phase 6.2</li>
+      <li>Item 6 → Phase 7</li>
+      <li>Item 7 → deferred (acknowledged)</li>
+      <li>Item 8 → Phase 7</li>
+      <li>Item 9 → Phase 6.3 (no anomaly section)</li>
+      <li>Item 10 → Phase 7</li>
+      <li>Item A → Phase 2.1</li>
+      <li>Item B → Phase 2.1</li>
+      <li>Item C → Phase 4.1</li>
+      <li>Item D → Phase 4.2</li>
+      <li>Item E → Phase 4.3</li>
+      <li>Item F → Phase 4.4</li>
+      <li>Item G → Phase 2.2 (Playwright)</li>
+      <li>Refresh script → Phase 1</li>
+      <li><code>/ingest-corpus</code> → Phase 8.1</li>
+      <li>Automated validator → deferred (E-023); manual review in Phase 8.2</li>
+    </ul>
+  </div>
+
+  <div class="self-review">
+    <h3>Type consistency</h3>
+    <ul>
+      <li>All exported function names (<code>parseFundMaster</code>, <code>fvAnnuity</code>, <code>requiredPmt</code>, <code>buildCompoundingTable</code>, <code>buildMonthlyContributionTable</code>, <code>harvest</code>, <code>buildInputGrid</code>, <code>loadRiaBenchmarks</code>) match test imports.</li>
+      <li>Period objects <code>{ display, slug }</code> used consistently.</li>
+      <li>Item G's grid axes match between harvester script constants and spec table.</li>
+    </ul>
+  </div>
+
+  <div class="self-review">
+    <h3>Placeholder scan</h3>
+    <ul>
+      <li>Zero values in items C / D / E / F JSON are shape placeholders, filled by implementer from authoritative sources. Each task says so.</li>
+      <li><code>&lt;computed&gt;</code> in item 2's prose is replaced with looked-up values from item G at write time.</li>
+      <li><code>runSimulationsViaPlaywright</code> is intentionally a throwing placeholder — filled by the executing agent via Playwright MCP tools.</li>
+    </ul>
+  </div>
+
+  <p><b>No fixes needed.</b></p>
+</section>
+
+<footer class="doc">
+  v3 generated 2026-05-21 · supersedes v1/v2 · plan markdown: <code>docs/superpowers/plans/2026-05-20-corpus-extraction.md</code>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,321 @@
+# EngineerDad Marketing OS — Compliance Rules
+# Loaded by packages/shared/src/compliance.ts.
+# Edit freely; no code change needed.
+#
+# Two top-level sections:
+#   banned: list of regex patterns that MUST NOT appear in any artifact
+#   required_disclaimers: list of disclaimers, each defined per-language;
+#     ANY pattern in a language's array satisfies that language's check
+#     (use multiple patterns to allow paraphrasing).
+#
+# Sources unioned by corpus.get_compliance_block:
+#   - SC Malaysia (Securities Commission)   — sc-malaysia.md
+#   - FIMM (Federation of Investment Mgrs)  — fimm.md
+#   - Public Mutual Berhad internal rules   — public-mutual.md
+#
+# Authoritative bans cross-mapped:
+#   - SC-GL/ADV-2020 (R1-2025) §5.02, §8.08, App.1 §K
+#   - FIMM Code of Ethics 4th ed (10 Oct 2023) ¶4.1(f), ¶4.6
+#   - FIMM Guidance Notes on SC Advertising Guidelines (26 Sept 2025) Table A
+
+banned:
+  # ============================================================
+  # A. Performance / return guarantees and risk-downplay
+  # ============================================================
+  - pattern: "guaranteed\\s+returns?"
+    flags: "i"
+    reason: "SC §8.08 + FIMM GN Table A2: no guaranteed-return claims for unit trusts / PRS"
+    lang: all
+  - pattern: "(guaranteed|certain)\\s+profit"
+    flags: "i"
+    reason: "Profit guarantees prohibited (FIMM CoE ¶4.6(a) — no future-performance forecast on Schemes)"
+    lang: all
+  - pattern: "risk[-\\s]?free"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'risk-free' explicitly banned; investment carries risk"
+    lang: all
+  - pattern: "no\\s+risk\\b"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'no risk' explicitly banned"
+    lang: all
+  - pattern: "zero\\s+risk\\b"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'zero risk' explicitly banned"
+    lang: all
+  - pattern: "(100%|absolutely|completely)\\s+safe"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'safe' should not be used; 100% safe is absolute language banned by SC App.1 §K"
+    lang: all
+  - pattern: "\\b(we\\s+)?promise\\b.{0,40}(returns?|profits?|gains?|payout)"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'promise' banned in performance / payout context"
+    lang: all
+  - pattern: "\\bsure[-\\s]?win\\b"
+    flags: "i"
+    reason: "Consultant rulebook §5 + FIMM GN — 'sure-win' is Red Flag word"
+    lang: all
+  - pattern: "warrant(ed|y)\\s+returns?"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'warranty' banned in returns context"
+    lang: all
+  - pattern: "\\bcapital\\s+(is\\s+)?(secured?|protected|guaranteed)\\b"
+    flags: "i"
+    reason: "SC §8.08 — must not state principal-loss risk is 'low or nil' when not guaranteed"
+    lang: all
+  - pattern: "\\b(low|nil|zero)\\s+risk\\s+of\\s+los(s|ing)"
+    flags: "i"
+    reason: "SC §8.08(a) verbatim ban: cannot claim risk of losing principal is low or nil"
+    lang: all
+
+  # ============================================================
+  # B. Get-rich-quick / overzealous return claims
+  # ============================================================
+  - pattern: "get\\s+rich\\s+quick"
+    flags: "i"
+    reason: "FIMM GN Table A3 — get-rich-quick framing prohibited"
+    lang: all
+  - pattern: "double\\s+your\\s+(money|investment|capital)"
+    flags: "i"
+    reason: "Profit-claim phrasing — unsubstantiated forecast (FIMM CoE ¶4.6(b))"
+    lang: all
+  - pattern: "(grow|growing)\\s+from\\s+strength\\s+to\\s+strength"
+    flags: "i"
+    reason: "FIMM GN Table A3 sample statement — banned overzealous returns framing"
+    lang: all
+  - pattern: "greater\\s+wealth\\s+(awaits?|is\\s+waiting)"
+    flags: "i"
+    reason: "FIMM GN Table A3 sample statement — banned overzealous returns framing"
+    lang: all
+  - pattern: "(be\\s+rich|get\\s+rich|become\\s+rich).{0,40}(simple|easy|quick|one\\s+step)"
+    flags: "i"
+    reason: "FIMM GN Table A3 sample statement — banned overzealous returns framing"
+    lang: all
+  - pattern: "high[-\\s]?flying\\s+returns?"
+    flags: "i"
+    reason: "FIMM GN Table A3 sample statement — banned overzealous returns framing"
+    lang: all
+  - pattern: "passive\\s+income\\s+from\\s+(trading|investing|investments?)"
+    flags: "i"
+    reason: "Implies effortless income; SC §5.02 / FIMM GN ¶2.5"
+    lang: all
+
+  # ============================================================
+  # C. FOMO / urgency / pressure tactics
+  # ============================================================
+  - pattern: "(invest|buy)\\s+now\\s+before\\s+(it'?s\\s+|it\\s+is\\s+)?too\\s+late"
+    flags: "i"
+    reason: "FIMM GN Table A4 verbatim — pressure tactic"
+    lang: all
+  - pattern: "(this|now)\\s+is\\s+the\\s+best\\s+time\\s+to\\s+invest"
+    flags: "i"
+    reason: "FIMM GN Table A4 — pressure tactic"
+    lang: all
+  - pattern: "this\\s+(chance|opportunity)\\s+(will\\s+not|won'?t)\\s+(happen|come)\\s+(again|that\\s+often)"
+    flags: "i"
+    reason: "FIMM GN Table A4 — false-scarcity pressure tactic"
+    lang: all
+  - pattern: "golden\\s+opportunity\\s+(to\\s+invest\\s+)?(only\\s+)?(happens?|comes?)\\s+once"
+    flags: "i"
+    reason: "FIMM GN Table A4 — false-scarcity pressure tactic"
+    lang: all
+  - pattern: "those\\s+who\\s+invested\\s+in\\s+(the\\s+)?(past|previous)\\s+crisis"
+    flags: "i"
+    reason: "FIMM GN Table A4 — backward-looking pressure tactic"
+    lang: all
+  - pattern: "hurry,?\\s+(offer|promo).{0,40}ends?"
+    flags: "i"
+    reason: "FIMM GN Table A4 — urgency-pressure framing"
+    lang: all
+
+  # ============================================================
+  # D. Unverified superlatives / award-style claims without backing
+  # ============================================================
+  - pattern: "\\b(best|top|#?1|number\\s+one)\\s+performing\\s+fund\\b"
+    flags: "i"
+    reason: "FIMM GN Table A1 verbatim — superlative without independent third-party ranking is banned"
+    lang: all
+  - pattern: "\\bbest\\s+(fund|asset)\\s+manager\\s+in\\s+(asia|malaysia|the\\s+region|the\\s+world)"
+    flags: "i"
+    reason: "FIMM GN Table A1 verbatim — superlative without backing"
+    lang: all
+  - pattern: "\\bmiracle\\s+fund\\b"
+    flags: "i"
+    reason: "FIMM CoE ¶4.1(f)(iii) — names / expressions likely to mislead"
+    lang: all
+
+  # ============================================================
+  # E. Savings-product confusion
+  # ============================================================
+  - pattern: "\\bsavings?\\s+(product|account|plan)\\s+(returns?|growth|yield)"
+    flags: "i"
+    reason: "FIMM GN ¶2.5 B2 — 'save'/'savings' framing avoided; UTS/PRS are not savings products"
+    lang: all
+
+  # ============================================================
+  # F. Out-of-scope products (Public Mutual UT + PRS only)
+  # ============================================================
+  - pattern: "\\b(forex|fx)\\s+(trading|signals?|tips?|picks?)\\b"
+    flags: "i"
+    reason: "Out of scope — no forex (FIMM CoE ¶4.2 + Public Mutual licensed scope)"
+    lang: all
+  - pattern: "\\b(crypto(currency)?|bitcoin|altcoin|nft)\\s+(trading|signals?|picks?|portfolio)\\b"
+    flags: "i"
+    reason: "Out of scope — no crypto (FIMM CoE ¶4.2 + Public Mutual licensed scope)"
+    lang: all
+  - pattern: "stock\\s+pick(s|ing|ed)"
+    flags: "i"
+    reason: "Out of scope — no individual stock picking under UTC licence"
+    lang: all
+  - pattern: "day[-\\s]?trad(e|ing|er)"
+    flags: "i"
+    reason: "Out of scope — no day-trading promises under UTC licence"
+    lang: all
+  - pattern: "\\bcfd\\s+trading\\b"
+    flags: "i"
+    reason: "Out of scope — no CFD / leveraged products under UTC licence"
+    lang: all
+
+  # ============================================================
+  # G. Restricted titles (FIMM CoE ¶4.1(h))
+  # ============================================================
+  - pattern: "\\bI\\s+am\\s+a\\s+financial\\s+(planner|advisor|adviser)\\b"
+    flags: "i"
+    reason: "FIMM CoE ¶4.1(h) — UTC may not call themselves 'financial planner / advisor' without CMSRL"
+    lang: all
+  - pattern: "\\b(certified|licensed)\\s+financial\\s+(planner|advisor|adviser)\\b"
+    flags: "i"
+    reason: "FIMM CoE ¶4.1(h) — restricted title"
+    lang: all
+  - pattern: "\\binvestment\\s+(advisor|adviser|consultant)\\b"
+    flags: "i"
+    reason: "FIMM CoE ¶4.1(h) — restricted title unless authorised"
+    lang: all
+
+  # ============================================================
+  # H. EPF balance-rule breaches
+  # ============================================================
+  - pattern: "(safer|better|guaranteed)\\s+than\\s+(epf|kwsp)"
+    flags: "i"
+    reason: "Consultant rulebook §3 + SC §8.15: EPF/KWSP comparison must be balanced; cannot claim UT 'safer/guaranteed to beat' EPF"
+    lang: all
+  - pattern: "(beats?|outperforms?)\\s+(epf|kwsp)\\s+(every|always|consistently|guaranteed)"
+    flags: "i"
+    reason: "SC §8.15 balance rule — cannot claim guaranteed outperformance vs EPF"
+    lang: all
+
+  # ============================================================
+  # I. SC / FIMM logo & endorsement implications
+  # ============================================================
+  # negation_aware: SC §8.18 mandates the canonical disclaimer
+  # "does not amount to nor indicate that the SC has recommended or endorsed",
+  # which contains the literal substring this pattern matches. We suppress the
+  # violation when a negation token appears within NEGATION_WINDOW chars before
+  # the match — positive claims ("the SC endorses our fund") still trip.
+  - pattern: "\\bsc\\b.{0,30}(endorses?|recommends?|approves?)\\b"
+    flags: "i"
+    reason: "SC §8.16–§8.18 — must not imply SC endorsement"
+    lang: all
+    negation_aware: true
+  - pattern: "\\b(approved|endorsed)\\s+by\\s+the?\\s+(sc|securities\\s+commission)\\b"
+    flags: "i"
+    reason: "SC §8.16–§8.18 — must not imply SC endorsement"
+    lang: all
+    negation_aware: true
+
+  # ============================================================
+  # Bahasa Malaysia variants
+  # ============================================================
+  - pattern: "pulangan\\s+(di)?jamin"
+    flags: "i"
+    reason: "BM: 'guaranteed returns' equivalent (FIMM GN ¶2.5 B2)"
+    lang: ms
+  - pattern: "tiada\\s+risiko"
+    flags: "i"
+    reason: "BM: 'no risk' equivalent"
+    lang: ms
+  - pattern: "risiko[-\\s]?sifar"
+    flags: "i"
+    reason: "BM: 'zero risk' equivalent"
+    lang: ms
+  - pattern: "(100%|seratus\\s+peratus)\\s+selamat"
+    flags: "i"
+    reason: "BM: '100% safe' equivalent"
+    lang: ms
+  - pattern: "cepat\\s+kaya"
+    flags: "i"
+    reason: "BM: 'get rich quick' equivalent"
+    lang: ms
+  - pattern: "pasti\\s+menang"
+    flags: "i"
+    reason: "BM: 'sure-win' equivalent"
+    lang: ms
+  - pattern: "labur\\s+sekarang\\s+sebelum\\s+(terlambat|terlewat|lambat)"
+    flags: "i"
+    reason: "BM: 'invest now before it's too late' (FIMM GN Table A4)"
+    lang: ms
+  - pattern: "peluang\\s+emas\\s+sekali\\s+seumur\\s+hidup"
+    flags: "i"
+    reason: "BM: 'once-in-a-lifetime golden opportunity'"
+    lang: ms
+  - pattern: "lebih\\s+selamat\\s+daripada\\s+(epf|kwsp)"
+    flags: "i"
+    reason: "BM: EPF balance rule"
+    lang: ms
+
+required_disclaimers:
+  - name: consultant_credential
+    description: >
+      FIMM rule: every Registered Person's marketing must identify the consultant
+      as a licensed UTC + PRS Consultant of Public Mutual Berhad. We require the
+      mention of Shoo Kyuk Wei + Public Mutual + (UTC | PRS | FIMM) in every
+      language being scanned. Names don't translate so the same pattern works
+      across languages. Anchored in FIMM CoE ¶3.24 (Consultant must show proof
+      of FIMM registration to investors).
+    patterns_per_lang:
+      en:
+        - "Shoo Kyuk Wei.{0,200}Public Mutual.{0,200}(UTC|PRS|FIMM)"
+        - "Public Mutual.{0,200}Shoo Kyuk Wei.{0,200}(UTC|PRS|FIMM)"
+      ms:
+        - "Shoo Kyuk Wei.{0,200}Public Mutual.{0,200}(UTC|PRS|FIMM)"
+        - "Public Mutual.{0,200}Shoo Kyuk Wei.{0,200}(UTC|PRS|FIMM)"
+    flags: "is"
+
+  - name: risk_warning
+    description: >
+      SC App.1 §H1 (past performance not indicative of future) + Public Mutual
+      Investment Disclaimer (unit prices and distributions may go down as well
+      as up). Phrasing varies; we accept any of the canonical formulations
+      per language. Required on every artifact that references performance,
+      returns, alpha, or expected gains.
+    patterns_per_lang:
+      en:
+        - "past\\s+performance\\s+(is|of\\s+a\\s+fund\\s+is)\\s+not\\s+(indicative|a\\s+(reliable\\s+)?indicator|guarantee)"
+        - "investment\\s+(involves?|carries|is\\s+subject\\s+to)\\s+(market\\s+)?risks?"
+        - "values?\\s+of\\s+(units?|investments?)\\s+(may|can)\\s+(go\\s+)?down"
+      ms:
+        # 2026-05-10: widened from \s+ to .{0,40}/.{0,60} after canonical
+        # disclaimers ("Prestasi lalu sesebuah dana bukan...", "Pelaburan
+        # amanah saham dan PRS tertakluk kepada risiko...") were rejected
+        # despite verbatim presence. Added `bukanlah` per credentials.md.
+        - "prestasi\\s+lalu.{0,40}\\b(tidak|bukan(?:lah)?)\\b"
+        - "pelaburan.{0,60}(melibatkan|tertakluk\\s+kepada)\\s+risiko"
+        - "(nilai|harga)\\s+unit.{0,80}(turun|menurun|jatuh)"
+    flags: "i"
+
+  - name: prospectus_availability
+    description: >
+      SC §8.02–§8.04 + Public Mutual Investment Disclaimer require every
+      artifact to point investors to the Master Prospectus and Product
+      Highlights Sheet (PHS) before any investment decision.
+    patterns_per_lang:
+      en:
+        - "(master\\s+)?prospectus"
+        - "product\\s+highlights?\\s+sheet"
+        - "\\bphs\\b"
+        - "disclosure\\s+document"
+      ms:
+        - "prospektus"
+        - "helaian\\s+sorotan\\s+produk"
+        - "\\bphs\\b"
+        - "dokumen\\s+pendedahan"
+    flags: "i"

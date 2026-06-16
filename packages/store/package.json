@@ -1,0 +1,27 @@
+{
+  "name": "@engineerdad/store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./schema": { "types": "./dist/schema.d.ts", "import": "./dist/schema.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "DATABASE_URL=postgresql://engineerdad:engineerdad@localhost:5432/engineerdad_test vitest run",
+    "push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@engineerdad/shared": "workspace:*",
+    "drizzle-orm": "^0.36.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.28.0"
+  }
+}

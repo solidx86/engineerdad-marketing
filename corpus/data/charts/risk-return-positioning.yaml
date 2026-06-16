@@ -1,0 +1,48 @@
+# Risk-return POSITIONING map (NOT a returns ranking) — FD, ASB, EPF and an equity
+# unit-trust band placed by capital risk (x) against return (y). The point is that
+# these sit in different tiers doing different jobs; you cannot line them up as a
+# single winner table. Compliance-critical: SC App.1 §I1a/§I1b forbid an equity bar
+# towering over near-guaranteed ASB/EPF, so this is a scatter, and the honest data
+# cooperates — over recent windows EPF/ASB out-returned broad Malaysian equity, so
+# the equity band OVERLAPS the capital-stable tier rather than sitting above it.
+# Source: corpus/data/datasets/asb-asnb-returns.json (ASB declared FY2021-25 from ASNB/Edge/
+# RinggitPlus fetched 2026-06-15; FD board rates RinggitPlus 2026-06-15; EPF from
+# owned epf-dividend-history.json; equity band anchored to owned us-vs-my-returns.json
+# KLCI + fund-universe-stats-snapshot.md alpha/drawdown).
+# Used by media-production when scene argues "UT can't even beat FD/ASB/EPF" (handled
+# ONLY as a category-error correction, never a 'UT wins' claim), "why not just keep
+# everything in ASB/EPF", "match the instrument to the job"
+# (objection myth d1-just-use-asb-epf — category-error correction).
+
+id: risk-return-positioning
+title_en: "Different tiers, different jobs — where each sits on risk vs return"
+title_ms: "Tingkat berbeza, tugas berbeza — kedudukan setiap satu pada risiko lawan pulangan"
+chart_type: scatter
+x_label_en: "Capital risk (1 = principal-stable / statutory floor → 5 = full market risk)"
+x_label_ms: "Risiko modal (1 = modal stabil / lantai berkanun → 5 = risiko pasaran penuh)"
+y_label_en: "Annualised return (%)"
+y_label_ms: "Pulangan tahunan (%)"
+render_note: "Render as a Chart.js SCATTER (positioning map), x = capital_risk_index, y = return. Plot the three capital-stable instruments as labelled points; plot the equity unit-trust tier as a SHADED VERTICAL BAND between its two points (y 3% to 9%) at x≈4.5, labelled 'market-risk band — not guaranteed, can be negative'. Do NOT render this as ranked bars and do NOT draw a single tall equity bar — the message is placement across tiers, not a height contest. Keep the equity band visibly OVERLAPPING the EPF/ASB return level."
+labels:
+  - "Fixed deposit (12-mo)"
+  - "ASB (fixed RM1.00 price)"
+  - "EPF (§27 2.5% floor)"
+  - "Equity unit trust (market-risk band)"
+series:
+  - name_en: "Capital-stable tier"
+    name_ms: "Tingkat modal stabil"
+    semantic_role: floor          # FD, ASB, EPF — capital-stable / statutory-floor instruments
+    points:
+      - { label: "Fixed deposit (12-mo)", x: 1.0, y: 2.5 }
+      - { label: "ASB", x: 1.6, y: 5.4 }
+      - { label: "EPF (conventional)", x: 2.2, y: 5.9 }
+  - name_en: "Equity unit trust — market-risk band"
+    name_ms: "Amanah saham ekuiti — jalur risiko pasaran"
+    semantic_role: hero           # the variable being corrected: high capital risk, WIDE and
+                                  # uncertain return band that overlaps (does not tower over) the floor
+    points:
+      - { label: "Equity UT band — low (can be negative)", x: 4.5, y: 3 }
+      - { label: "Equity UT band — high (long-run growth case)", x: 4.5, y: 9 }
+caption_en: "This is a positioning map, not a league table — the whole point is that these do different jobs at different risk tiers, so ranking them by a single return number is the category error. Read the placement, not a winner. A fixed deposit sits at the lowest capital risk: nominal-guaranteed, PIDM-insured, ~2.0-2.55% (a parking/liquidity job). ASB is principal-stable — its RM1.00 unit price doesn't fluctuate and it has no negative distribution year on record — paying ~5.0-5.75% over FY2021-2025 (non-guaranteed, declared annually by PNB). EPF carries a statutory guaranteed-minimum 2.5% dividend under the EPF Act 1991 §27 and declared 5.35-6.30% over 2022-2025 — a retirement floor, locked long. The equity unit-trust band sits at full market risk: its return is a WIDE, uncertain range that can be negative in any year — the fund universe's median drawdown is -3.93% from each fund's high and the deepest on file is -49.32%. Notice the honest part: over recent windows EPF and ASB actually out-returned broad Malaysian equity (FBM KLCI capital return was 1.2% p.a. over 5 years, 6.7% over 3), so the equity band OVERLAPS the capital-stable tier — it does not tower over it, and an equity fund is not 'safer than' or a guaranteed improvement on EPF or ASB. The case for the equity tier is a different job: long-horizon growth potential and active alpha (the qualified Public Mutual equity universe ran a median weighted alpha of +2.04 above benchmark) for money that can stay invested through the drawdowns — not a higher-return replacement for your capital-stable savings. Match the instrument to the goal and horizon; most parents need some of each. Cost-and-structure positioning only, not a suitability ranking or advice. Figures as at 2026-06-15; declared and board rates change."
+caption_ms: "Ini peta kedudukan, bukan jadual liga — intinya setiap satu membuat tugas berbeza pada tingkat risiko berbeza, jadi menyusunnya ikut satu nombor pulangan ialah ralat kategori. Baca kedudukannya, bukan pemenang. Deposit tetap berada pada risiko modal terendah: dijamin nominal, dilindungi PIDM, ~2.0-2.55% (tugas memarkir/kecairan). ASB modal stabil — harga unit RM1.00 tidak turun naik dan tiada tahun pengagihan negatif dalam rekod — membayar ~5.0-5.75% sepanjang FY2021-2025 (tidak dijamin, diisytihar tahunan oleh PNB). EPF membawa dividen minimum berkanun 2.5% di bawah Akta KWSP 1991 §27 dan mengisytihar 5.35-6.30% sepanjang 2022-2025 — lantai persaraan, dikunci lama. Jalur amanah saham ekuiti berada pada risiko pasaran penuh: pulangannya julat LUAS dan tidak pasti yang boleh negatif pada mana-mana tahun — penurunan median alam semesta dana ialah -3.93% daripada paras tertinggi setiap dana dan yang paling dalam dalam rekod ialah -49.32%. Perhatikan bahagian jujur: sepanjang tetingkap terkini EPF dan ASB sebenarnya memulangkan lebih daripada ekuiti Malaysia luas (pulangan modal FBM KLCI ialah 1.2% setahun selama 5 tahun, 6.7% selama 3), jadi jalur ekuiti BERTINDIH dengan tingkat modal stabil — ia tidak mengatasinya, dan dana ekuiti bukan 'lebih selamat daripada' atau penambahbaikan terjamin ke atas EPF atau ASB. Hujah untuk tingkat ekuiti ialah tugas berbeza: potensi pertumbuhan jangka panjang dan alpha aktif (alam semesta ekuiti Public Mutual layak mencatat alpha berwajaran median +2.04 melebihi penanda aras) untuk wang yang boleh kekal dilabur sepanjang penurunan — bukan pengganti pulangan lebih tinggi bagi simpanan modal stabil anda. Padankan instrumen dengan matlamat dan ufuk; kebanyakan ibu bapa perlukan sebahagian setiap satu. Kedudukan kos-dan-struktur sahaja, bukan penarafan kesesuaian atau nasihat. Angka setakat 2026-06-15; kadar diisytihar dan papan berubah."
+source_citation: "All rows from corpus/data/datasets/asb-asnb-returns.json (verified 2026-06-15). ASB declared distributions FY2021-FY2025 (5.00/5.10/5.25/5.75/5.75 sen) from the ASNB FY2025 income-distribution press release (asnb.com.my, fetched 2026-06-15), corroborated by The Edge Malaysia (theedgemalaysia.com/node/786562) and RinggitPlus; ASB is a fixed-price RM1.00 principal-stable fund, distribution non-guaranteed. 12-month conventional FD board rates ~2.0-2.55% (promo to ~3.2%) from RinggitPlus (ringgitplus.com/en/fixed-deposit/12-month/, fetched 2026-06-15); PIDM RM250k coverage. EPF conventional declared 2022-2025 (5.35/5.50/6.30/6.15) and the EPF Act 1991 §27 guaranteed-minimum 2.5% dividend from owned corpus/data/datasets/epf-dividend-history.json. Equity band anchored to owned corpus/data/datasets/us-vs-my-returns.json (FBM KLCI capital return 1.2% pa 5y / 6.7% pa 3y, FTSE Russell factsheet as at 2026-05-29) and owned corpus/proof/fund-universe-stats-snapshot.md (Apr 2026: equity median weighted alpha +2.04, median drawdown -3.93%, deepest -49.32%); the equity band is illustrative, not guaranteed, and can be negative. The capital-risk index (x-axis) is a documented qualitative capital-loss ordering, not a sourced volatility statistic. POSITIONING / category-error correction only — never a claim that a unit trust is safer than or beats EPF/ASB; no individual fund named or recommended (FIMM)."

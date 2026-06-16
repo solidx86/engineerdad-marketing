@@ -1,0 +1,10 @@
+{
+  "scriptId": "test_visual",
+  "format": "Reel", "aspect": "9:16", "width": 1080, "height": 1920, "language": "en",
+  "targetSeconds": 20, "faceFirstHook": true, "paletteEmphasis": "calm",
+  "scenes": [
+    { "scene": "1", "voiceover": "Doing nothing is also a choice with a cost.", "onScreenText": "The cost of waiting", "chartRef": null, "sceneType": "face", "estimatedSeconds": 4, "visualBrief": null, "explains": null },
+    { "scene": "2", "voiceover": "On one side the saver who waits, on the other the investor who starts; the gap between them only widens.", "onScreenText": "Saver vs Investor", "chartRef": null, "sceneType": "visual", "estimatedSeconds": 7, "visualBrief": "Two-column split-screen. Left column labelled 'Saver' with a static piggy bank. Right column labelled 'Investor' with an upward growth arrow. Focal point: a widening gap arrow between the columns. Calm palette, no numbers.", "explains": "waiting has a widening cost" }
+  ],
+  "heygen": { "avatarId": "av_test", "voiceId": "vo_test" }
+}

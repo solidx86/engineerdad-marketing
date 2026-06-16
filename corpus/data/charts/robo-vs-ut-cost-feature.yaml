@@ -1,0 +1,38 @@
+# Annual management fee — two robo-advisors vs a Public Mutual equity unit trust.
+# The honest point: "robo" is not one number. StashAway (0.8% p.a. on the first
+# RM150k, and no sales charge) is genuinely cheaper than an equity UT; Versa Invest
+# (1.50% p.a. AHAM fund fee) is about the SAME as a UT. So the fee point is conceded
+# where it's true and corrected where it isn't — then the chart pivots to the
+# structural difference the fee bars don't show: the PRS tax-relief wrapper and EPF
+# i-Invest access a robo Invest account doesn't carry.
+# Source: corpus/data/datasets/robo-fee-tiers.json (StashAway pricing page + Versa Invest fee
+# schedule, fetched 2026-06-15; Public Mutual AMF + PRS relief from owned
+# a-fee-schedule.md + b-relief-stacking.md).
+# Used by media-production when scene argues "robo-advisors do it cheaper",
+# "StashAway/Versa is the same thing", "just use a robo-advisor"
+# (objection myths d2-robo-is-cheaper, d2-robo-same-as-ut).
+
+id: robo-vs-ut-cost-feature
+title_en: "\"Robo\" isn't one price — annual management fee, two robos vs a unit trust"
+title_ms: "\"Robo\" bukan satu harga — caj pengurusan tahunan, dua robo lawan amanah saham"
+chart_type: bar
+x_label_en: "Where you buy the portfolio"
+x_label_ms: "Tempat anda membeli portfolio"
+y_label_en: "Annual management fee (% per year)"
+y_label_ms: "Caj pengurusan tahunan (% setahun)"
+labels:
+  - "StashAway Invest (first RM150k tier; +~0.2% ETF cost underneath)"
+  - "Versa Invest (Growth/Moderate; AHAM fund fee)"
+  - "Public Mutual equity fund (e.g. PEF)"
+series:
+  - name_en: "Annual management fee"
+    name_ms: "Caj pengurusan tahunan"
+    semantic_role: hero          # one series across all three; StashAway (0.8%, lowest)
+                                 # is the honest concession — the robo fee point is real
+                                 # at the cheap end. Versa Invest (1.50%) sitting level
+                                 # with the UT is the correction. The caption carries the
+                                 # pivot the bars can't: the PRS relief + EPF-access gap.
+    values: [0.8, 1.5, 1.5]
+caption_en: "Concede the fee point where it's true: StashAway's 0.8% p.a. on your first RM150,000 (tiering down to 0.2% above RM3m) is genuinely cheaper than an equity unit trust's 1.50% annual management fee, and robos charge no upfront sales charge — a unit trust can carry up to 5.0% of NAV on entry (see the sales-charge-by-channel chart). Those are real robo advantages. But 'robo' is not one number: Versa Invest's core Growth/Moderate portfolios charge 1.50% p.a. (the AHAM fund-level fee; Versa itself charges no platform fee) plus a 0.04% trustee fee — about the same annual fee as a Public Mutual equity fund. StashAway's 0.8% also sits on top of roughly 0.2% p.a. of underlying ETF cost. The bars compare annual management fee only — not the one-off sales charge and not what each wrapper does. The part the fee can't show: a robo Invest portfolio is a taxable account — it does NOT earn the RM3,000 standalone PRS tax relief that a PRS-registered fund does (worth RM390 at the 13% bracket up to RM720 at 24%, relief sunset YA 2030), and robo Invest money can't be funded from your EPF Akaun Persaraan savings the way a unit trust can via EPF i-Invest. All three offer a Shariah option, so that isn't the difference. The right pick depends on whether the tax wrapper and EPF access matter to you — this is a cost-and-structure comparison, not a suitability ranking. Figures as at 2026-06-15 (StashAway and Versa pricing); robo fees change without notice."
+caption_ms: "Akui hujah caj di mana ia benar: 0.8% setahun StashAway untuk RM150,000 pertama anda (menurun ke 0.2% melebihi RM3j) memang lebih murah daripada caj pengurusan tahunan 1.50% sesebuah dana ekuiti amanah saham, dan robo tidak mengenakan caj jualan di hadapan — amanah saham boleh menanggung sehingga 5.0% daripada NAB semasa masuk (lihat carta sales-charge-by-channel). Itu kelebihan robo yang nyata. Tetapi 'robo' bukan satu angka: portfolio teras Growth/Moderate Versa Invest mengenakan 1.50% setahun (caj peringkat-dana AHAM; Versa sendiri tidak mengenakan caj platform) tambah caj pemegang amanah 0.04% — lebih kurang sama dengan dana ekuiti Public Mutual. 0.8% StashAway juga duduk di atas kira-kira 0.2% setahun kos ETF pendasar. Bar ini membandingkan caj pengurusan tahunan sahaja — bukan caj jualan sekali sahaja dan bukan apa yang dibuat oleh setiap bungkusan. Bahagian yang caj tidak dapat tunjukkan: portfolio robo Invest ialah akaun bercukai — ia TIDAK memperoleh pelepasan cukai PRS RM3,000 berasingan yang diperoleh dana berdaftar PRS (bernilai RM390 pada kadar 13% sehingga RM720 pada 24%, pelepasan tamat YA 2030), dan wang robo Invest tidak boleh dibiayai daripada simpanan Akaun Persaraan EPF anda seperti amanah saham boleh melalui EPF i-Invest. Ketiga-tiganya menawarkan pilihan patuh Syariah, jadi itu bukan perbezaannya. Pilihan yang betul bergantung pada sama ada bungkusan cukai dan akses EPF penting kepada anda — ini perbandingan kos-dan-struktur, bukan penarafan kesesuaian. Angka setakat 2026-06-15 (harga StashAway dan Versa); caj robo berubah tanpa notis."
+source_citation: "All rows from corpus/data/datasets/robo-fee-tiers.json (verified 2026-06-15). StashAway tiered fee verbatim from the StashAway Malaysia pricing page (https://www.stashaway.my/pricing, fetched 2026-06-15): 0.8% p.a. first RM150,000 tiering to 0.2% above RM3,000,000, underlying ETF expense ~0.2% p.a., no sales charge. Versa Invest fee from the Versa support centre (https://support.versa.com.my/hc/en-us/articles/12621457689495-What-are-the-fees-associated-with-Invest, headless browser 2026-06-15): 'you will not incur any fees from Versa' — AHAM fund-level 1.50% p.a. management + 0.04% trustee for Versa Growth/Moderate (1.80% for thematic Global-i/REITs). Public Mutual equity AMF 1.50% p.a. of NAV + 0.06% trustee and up to 5.0% one-off sales charge from owned corpus/knowledge/a-fee-schedule.md (Master Prospectus p. 150/153; PEF PHS 30 Jan 2026). PRS RM3,000 standalone relief, marginal-rate values, and YA 2030 sunset from owned corpus/knowledge/b-relief-stacking.md (LHDN YA 2025 schedule; ppa.my, fetched 2026-05-31). Annual-management-fee comparison only; the one-off sales charge (UT) and underlying ETF TER (StashAway) are separate non-charted rows in the dataset. Cost-and-structure comparison, not a suitability ranking or advice; robo fees flagged volatility 'variable'."

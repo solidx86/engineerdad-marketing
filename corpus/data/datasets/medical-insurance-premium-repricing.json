@@ -1,0 +1,46 @@
+{
+  "id": "medical-insurance-premium-repricing",
+  "generated_at": "2026-06-03T00:00:00Z",
+  "source": "Bank Negara Malaysia (BNM) interim measures on medical and health insurance/takaful (IPMI) repricing, announced December 2024; and Nov 2024 Malaysian industry/press reports on the 2024-25 repricing cycle (insurers sought one-step premium increases of +40% to +70% driven by ~19.6% medical claims inflation). The RM250/month base premium and the 10-year glide it feeds are an ILLUSTRATIVE projection of the BNM-capped <=10%/yr mechanism, not a quoted premium for any specific policy.",
+  "verification_status": "mixed: verified (BNM Dec 2024 measures + Nov 2024 40-70% repricing context) / derived (the RM250/month illustrative 10%/yr glide)",
+  "notes": "Two kinds of facts live here, kept strictly separate. (A) VERIFIED regulatory/market context — in the 2024-25 IPMI cycle insurers SOUGHT one-step premium increases of +40% to +70% (driven by medical claims inflation ~19.6%); BNM's Dec 2024 interim measures FORBID that one-off pass-through and instead require increases to be STAGGERED over a minimum of 3 years (through end-2026), with at least 80% of policyholders facing annual premium adjustments of NO MORE THAN 10% per year. Under a sustained 10%/yr cap, a premium roughly DOUBLES every ~7.3 years (ln2 / ln1.10 = 7.27). This context is documented below in regulatory_context but is NOT plotted as a point — the 40-70% never appears in the series, because BNM capped exactly that one-off jump. (B) DERIVED illustrative glide — to depict what a monthly premium does UNDER the regulated mechanism, we take an illustrative RM250/month medical-insurance premium today and apply only the BNM-capped <=10%/yr glide: RM250 x 1.10^t for years 0..10, reaching ~RM648/month at year 10. There is NO year-1 spike: modelling a +50% one-off step would contradict the very BNM cap this dataset cites. The RM250 base is illustrative and not a quoted premium; actual premiums, repricing magnitude, and per-policyholder caps vary by insurer, plan, age and claims experience. The early-report 'age-60 pause' is deliberately OMITTED — it is not in the confirmed BNM measure text. Currency: RM (Malaysian ringgit), nominal ringgit of each year. Illustrative model output — not personalised advice, not a guaranteed or assured result. This depicts insurance PREMIUM inflation (what you pay), distinct from medical-COST inflation (the price of treatment).",
+  "regulatory_context": {
+    "verification_status": "verified",
+    "repricing_cycle": "2024-25",
+    "insurers_sought_one_step_increase_range_pct": [40, 70],
+    "insurers_sought_one_step_increase_note": "Documented context only — the magnitude insurers SOUGHT before regulation. NOT a plotted point: BNM forbade the one-off pass-through, so this range never enters the series.",
+    "claims_inflation_driver_pct": 19.6,
+    "bnm_interim_measures_date": "2024-12",
+    "bnm_one_off_jump_forbidden": true,
+    "bnm_stagger_min_years": 3,
+    "bnm_stagger_through": "2026-12",
+    "bnm_annual_cap_pct": 10,
+    "bnm_annual_cap_min_policyholder_coverage_pct": 80,
+    "doubling_years_at_10pct_cap": 7.27,
+    "citations": [
+      "Bank Negara Malaysia — interim measures on medical and health insurance/takaful repricing, December 2024",
+      "Nov 2024 Malaysian industry/press reports — insurers sought IPMI one-step premium hikes of 40-70% driven by ~19.6% claims inflation"
+    ]
+  },
+  "model_assumptions": {
+    "base_premium_rm_per_month": 250,
+    "base_label": "illustrative — not a quoted premium",
+    "annual_glide_multiplier": 1.10,
+    "glide_basis": "BNM <=10%/yr cap for >=80% of policyholders, staggered over >=3 years (no one-off step)",
+    "formula": "premium_rm_per_month = 250 * 1.10^year",
+    "horizon_years": 10
+  },
+  "rows": [
+    { "year": 0,  "premium_rm_per_month": 250, "phase": "today (illustrative base)" },
+    { "year": 1,  "premium_rm_per_month": 275, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 2,  "premium_rm_per_month": 303, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 3,  "premium_rm_per_month": 333, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 4,  "premium_rm_per_month": 366, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 5,  "premium_rm_per_month": 403, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 6,  "premium_rm_per_month": 443, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 7,  "premium_rm_per_month": 487, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 8,  "premium_rm_per_month": 536, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 9,  "premium_rm_per_month": 589, "phase": "BNM-capped <=10%/yr glide" },
+    { "year": 10, "premium_rm_per_month": 648, "phase": "BNM-capped <=10%/yr glide" }
+  ]
+}

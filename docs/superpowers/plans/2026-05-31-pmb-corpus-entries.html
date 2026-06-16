@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PMB Corpus Entries — Plan 2</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    max-width: 860px; margin: 0 auto; padding: 48px 24px 96px; color: #1a1d21; background: #fff;
+  }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 2px solid #ececf0; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; margin: 26px 0 8px; }
+  p { margin: 10px 0; }
+  .sub { color: #6b7280; font-size: 14px; margin-bottom: 26px; }
+  code { background: #f3f4f6; padding: 1.5px 6px; border-radius: 4px; font: 13.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: #be185d; }
+  pre { background: #1e2430; color: #e6e9ef; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; background: #f8f9fb; border: 1px solid #ececf0; border-radius: 10px; padding: 16px 20px; margin: 20px 0; font-size: 14.5px; }
+  .meta dt { font-weight: 650; color: #374151; }
+  .meta dd { margin: 0; }
+  .callout { border-radius: 10px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+  .callout.warn { background: #fff8e6; border: 1px solid #f5d990; }
+  .callout.info { background: #eef4ff; border: 1px solid #c5d8ff; }
+  .callout.danger { background: #fef1f1; border: 1px solid #f5b9b9; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  ol.doctrine { padding-left: 22px; }
+  ol.doctrine li { margin: 9px 0; }
+  .task { border: 1px solid #e5e7eb; border-radius: 12px; padding: 4px 22px 18px; margin: 20px 0; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .task h3 { display: flex; align-items: center; gap: 10px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; color: #fff; }
+  .b-prim { background: #6366f1; }
+  .b-a { background: #0891b2; }
+  .b-b { background: #16a34a; }
+  .b-c { background: #d97706; }
+  .b-fund { background: #7c3aed; }
+  .b-final { background: #4b5563; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14px; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px 11px; text-align: left; vertical-align: top; }
+  th { background: #f8f9fb; font-weight: 650; }
+  td code { font-size: 12.5px; }
+  ul.entries { list-style: none; padding-left: 0; margin: 8px 0; }
+  ul.entries li { padding: 7px 0 7px 26px; position: relative; border-bottom: 1px solid #f1f2f4; font-size: 14.5px; }
+  ul.entries li:last-child { border-bottom: none; }
+  ul.entries li::before { content: "\1F4C4"; position: absolute; left: 0; top: 7px; font-size: 13px; }
+  ul.entries li.synth::before { content: "\1F4AD"; }
+  .fname { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #be185d; font-weight: 600; }
+  .verify { background: #f4fbf6; border-left: 3px solid #16a34a; padding: 8px 14px; margin: 10px 0; font-size: 14px; border-radius: 0 6px 6px 0; }
+  .commit { background: #1e2430; color: #9fe6b8; padding: 8px 14px; border-radius: 6px; font: 12.5px ui-monospace, Menlo, monospace; margin: 8px 0; overflow-x: auto; }
+  .toc { background: #f8f9fb; border: 1px solid #ececf0; border-radius: 10px; padding: 14px 22px; margin: 22px 0; }
+  .toc a { color: #1d4ed8; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { margin: 6px 0; padding-left: 20px; }
+  .toc li { margin: 4px 0; font-size: 14.5px; }
+  hr { border: none; border-top: 1px solid #ececf0; margin: 36px 0; }
+  .tree { background: #f8f9fb; border: 1px solid #ececf0; border-radius: 8px; padding: 14px 18px; font: 13px/1.7 ui-monospace, Menlo, monospace; color: #374151; }
+  .tree .c { color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<h1>PMB Corpus Entries — Plan 2</h1>
+<p class="sub">2026-05-31 · Authoring plan for ~28 knowledge entries into <code>corpus/knowledge/</code> · Branch <code>worktree-feat+pmb-corpus-entries</code></p>
+
+<dl class="meta">
+  <dt>Goal</dt><dd>Author ~28 PMB-specific knowledge entries, tagged with the ADR-029 frontmatter schema, so brain / brief-writer / content-writer / creative-director can surface deeper-than-DCA technical content.</dd>
+  <dt>Approach</dt><dd>Pure content authoring — markdown only, no code. Each entry follows the <code>corpus/knowledge/README.md</code> convention. Reindex + verify after each phase.</dd>
+  <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-05-29-pmb-corpus-expansion-design.html</code></dd>
+  <dt>Sequence</dt><dd>Primitives → Cluster A (mechanics) → B (tax/PRS) → C (portfolio) → fund-level proof → final audit</dd>
+</dl>
+
+<div class="toc">
+  <strong>Tasks</strong>
+  <ol>
+    <li><a href="#t1">Primitives — glossary, compliance phrasebank, proof index</a> (3 entries)</li>
+    <li><a href="#t2">Cluster A — mechanics concept entries</a> (7 entries)</li>
+    <li><a href="#t3">Cluster A — synthesized scenario</a> (1 entry)</li>
+    <li><a href="#t4">Cluster B — tax / PRS</a> (6 entries)</li>
+    <li><a href="#t5">Cluster C — portfolio concept entries</a> (6 entries)</li>
+    <li><a href="#t6">Fund-level proof instances</a> (≥5 entries)</li>
+    <li><a href="#t7">Final reindex, cleanup, audits</a></li>
+  </ol>
+</div>
+
+<h2>Authoring Doctrine — applies to every entry</h2>
+<p>Hard rules. A reviewer rejects any entry that breaks them.</p>
+<ol class="doctrine">
+  <li><strong>EN ships first.</strong> <code>lang_status: en_only</code> on first commit. BM is a later pass, not in this plan.</li>
+  <li><strong>Proof discipline.</strong> Every entry carries at least one of: a real PMB factsheet / fund-code worked example, a prospectus or trust-deed clause citation, or an LHDN / FIMM / SC reference. No generic "unit trusts in general…" hedging.</li>
+  <li><strong>Honesty on figures.</strong> For <code>source_type: public</code>, author with best-known <em>public</em> PMB/LHDN figures and name the document in <code>source_ref</code>. Do <em>not</em> invent precise numbers as if confirmed — where an exact figure is used (a sales-charge %, a switching fee, a relief cap) it is flagged for Shoo to confirm in PR review. The sourcing blockquote says so explicitly.</li>
+  <li><strong>Synthesized framing.</strong> <code>source_type: synthesized</code> entries are plausible patterns, <em>never</em> real client cases. Body uses "imagine / a parent who / scenario" language. Never "my client."</li>
+  <li><strong>Hook density.</strong> Every <code>granularity: concept</code> entry contains <strong>≥4 standalone "I didn't know that" facts</strong> as bullets, so content-writer can lift them directly.</li>
+  <li><strong>Register.</strong> EN body leans technical/analytical (the engineer-parent). No ZH ever (ADR-010).</li>
+  <li><strong>Filename = slug = ID.</strong> Kebab-case; the slug is what other entries reference in <code>related:</code>.</li>
+  <li><strong>Disclaimer blockquote.</strong> Mirror <code>corpus/proof/epf-shortfall-cases.md</code>: a leading <code>&gt;</code> block stating what's sourced, what's illustrative, and that nothing is personalised advice.</li>
+</ol>
+
+<div class="callout warn">
+  <strong>⚠ Data dependency</strong>
+  Output fidelity jumps a lot if Cluster A and the fund entries can cite real numbers. If you have the FundMaster Excel (fund-screener skill) or the current PMB fee schedule / prospectus, supplying it first replaces flagged placeholders with real figures. Otherwise entries ship with figures marked "consultant to confirm."
+</div>
+
+<h2>File Structure</h2>
+<p>All files under <code>corpus/knowledge/</code>. <code>_example.md</code> is deleted in the final task. Target ~28 entries (spec's ~40 includes BM versions + a deeper factsheet archive grown in later passes; ±20% acceptable).</p>
+<div class="tree">
+corpus/knowledge/<br>
+<span class="c"># Phase 1 — primitives</span><br>
+glossary.md · compliance-claim-phrasebank.md · proof-asset-index.md<br>
+<span class="c"># Phase 2 — Cluster A (mechanics)</span><br>
+a-fee-schedule · a-switching-matrix · a-sales-charge-math · a-nav-cutoff-settlement<br>
+a-distribution-mechanics · a-trust-deed-prospectus-map · a-bid-offer-retirement<br>
+a-scenario-double-charged <span class="c">(synthesized)</span><br>
+<span class="c"># Phase 3 — Cluster B (tax/PRS)</span><br>
+b-relief-stacking · b-prs-withdrawal-mechanics · b-prs-default-vs-self-select<br>
+b-prs-estate-nomination-hibah · b-self-employed-contribution-math<br>
+b-scenario-relief-stack <span class="c">(synthesized)</span><br>
+<span class="c"># Phase 4 — Cluster C (portfolio)</span><br>
+c-reading-a-factsheet · c-fund-family-taxonomy · c-risk-metric-glossary<br>
+c-shariah-vs-conventional · c-currency-exposure · c-rebalance-without-charges<br>
+<span class="c"># Phase 4b — fund-level (granularity: fund)</span><br>
+fund-pmittf · fund-pmgf · fund-pmbf · fund-pm-shariah-equity · fund-pm-bond
+</div>
+
+<hr>
+
+<div class="task" id="t1">
+<h3><span class="badge b-prim">Task 1</span> Primitives</h3>
+<p>The transverse layer that unlocks every cluster. Front-loaded.</p>
+<ul class="entries">
+  <li><span class="fname">glossary.md</span> — ≥12 investor terms (NAV, unit, bid-offer, sales charge, switching fee, redemption, distribution vs dividend, reinvestment, mgmt fee, trustee fee, ex-date, T+ settlement), each tied to how it shows on a PMB statement. ≥4 carry a non-obvious clause.</li>
+  <li><span class="fname">compliance-claim-phrasebank.md</span> — two lists: <b>Claimable</b> (past-performance disclaimer, how to cite a factsheet figure) and <b>Banned</b> (guaranteed returns, "risk-free", capital-protection implications). Cross-refs <code>corpus/compliance/public-mutual.md</code>. This is what keeps anger/fear-register hooks compliant.</li>
+  <li><span class="fname">proof-asset-index.md</span> — registry table of available proof assets (factsheets, prospectus clauses, calculator outputs, data files) → what claim each can back. The map brief-writer uses to pick a proof type per Brief.</li>
+</ul>
+<div class="verify">Verify: reindex, then search <code>{ query: "NAV distribution ex-date", scope: ["knowledge"], cluster: "primitive" }</code> → <code>glossary.md</code> returns tagged <code>cluster: primitive</code>.</div>
+<div class="commit">git commit -m "feat(corpus): knowledge primitives — glossary, compliance phrasebank, proof index"</div>
+</div>
+
+<div class="task" id="t2">
+<h3><span class="badge b-a">Task 2</span> Cluster A — mechanics (concept)</h3>
+<p>The moat layer. All <code>cluster: mechanics</code>, <code>granularity: concept</code>, <code>source_type: public</code>. Each ≥4 facts.</p>
+<table>
+<tr><th>Entry</th><th>Must cover</th></tr>
+<tr><td><code>a-fee-schedule</code></td><td>Full PMB fee table — sales charge by class, switching fee, redemption, annual mgmt fee, trustee fee. Figures flagged for confirmation.</td></tr>
+<tr><td><code>a-switching-matrix</code></td><td>Intra-family vs cross-family switching; the "redeem-then-rebuy pays sales charge twice" trap; NAV used for the switch.</td></tr>
+<tr><td><code>a-sales-charge-math</code></td><td>5.5% upfront vs annual-fee drag over 5/10/20yr; break-even; worked example with a fund code.</td></tr>
+<tr><td><code>a-nav-cutoff-settlement</code></td><td>Forward pricing, daily NAV cutoff, T+ settlement, why your price isn't today's published NAV.</td></tr>
+<tr><td><code>a-distribution-mechanics</code></td><td>Ex-date vs payment date; NAV drops by distributed amount; auto-reinvest rule; distribution ≠ profit.</td></tr>
+<tr><td><code>a-trust-deed-prospectus-map</code></td><td>Which doc binds what — trust deed vs prospectus vs PHS vs factsheet; where charges/switching/suspension clauses live.</td></tr>
+<tr><td><code>a-bid-offer-retirement</code></td><td>Bid-offer spread retired; single-NAV pricing replaced it; why old statements still mention it.</td></tr>
+</table>
+<div class="verify">Verify: search <code>{ query: "switching fee twice sales charge", scope: ["knowledge"], cluster: "mechanics" }</code> → <code>a-switching-matrix</code> returns.</div>
+<div class="commit">git commit -m "feat(corpus): Cluster A mechanics concept entries (7)"</div>
+</div>
+
+<div class="task" id="t3">
+<h3><span class="badge b-a">Task 3</span> Cluster A — synthesized scenario</h3>
+<ul class="entries">
+  <li class="synth"><span class="fname">a-scenario-double-charged.md</span> — <code>source_type: synthesized</code>. An <em>imagined</em> parent who redeemed one equity fund to buy another and paid the sales charge twice, vs the intra-family switch. "Imagine a parent who…" throughout. Ringgit difference as an illustrative example (assumptions stated). The hook-seed across fear/anger/curiosity registers.</li>
+</ul>
+<div class="verify">Verify: no "client" language anywhere; all hypothetical. Reindex.</div>
+<div class="commit">git commit -m "feat(corpus): Cluster A synthesized scenario — double-charged switch"</div>
+</div>
+
+<div class="task" id="t4">
+<h3><span class="badge b-b">Task 4</span> Cluster B — tax / PRS</h3>
+<p>All <code>cluster: tax</code>. <code>source_ref</code> cites LHDN relief schedules / PPA rules / SC PRS guidelines. Exact RM caps flagged for confirmation.</p>
+<table>
+<tr><th>Entry</th><th>Must cover</th></tr>
+<tr><td><code>b-relief-stacking</code></td><td>RM3,000 PRS relief stacking with EPF/life-insurance, SSPN, education, medical; shared vs separate caps; LHDN line items.</td></tr>
+<tr><td><code>b-prs-withdrawal-mechanics</code></td><td>Pre-55 8% penalty tax; exemptions (death, departure, healthcare, housing); opportunity-cost frame.</td></tr>
+<tr><td><code>b-prs-default-vs-self-select</code></td><td>Regulatory default glide path by age band vs self-select; how PM's PRS series maps; when default under-serves the young parent.</td></tr>
+<tr><td><code>b-prs-estate-nomination-hibah</code></td><td>PRS vs UT nomination; interaction with hibah and faraid; what passes outside the estate. (BM version later carries extra weight.)</td></tr>
+<tr><td><code>b-self-employed-contribution-math</code></td><td>Gig/self-employed: EPF i-Saraan vs PRS vs EPF voluntary; income brackets where each wins.</td></tr>
+<tr><td class="synth"><code>b-scenario-relief-stack</code></td><td><code>synthesized</code> — an imagined dual-income couple optimising combined reliefs. "Imagine a household…"</td></tr>
+</table>
+<div class="verify">Verify: search <code>{ query: "PRS relief RM3000 stacking EPF", scope: ["knowledge"], cluster: "tax" }</code> → <code>b-relief-stacking</code> returns.</div>
+<div class="commit">git commit -m "feat(corpus): Cluster B tax/PRS entries (6)"</div>
+</div>
+
+<div class="task" id="t5">
+<h3><span class="badge b-c">Task 5</span> Cluster C — portfolio (concept)</h3>
+<p>All <code>cluster: portfolio</code>, <code>granularity: concept</code>. <code>source_ref</code> cites PMB factsheets/prospectuses. Each ≥4 facts.</p>
+<table>
+<tr><th>Entry</th><th>Must cover</th></tr>
+<tr><td><code>c-reading-a-factsheet</code></td><td>Read a PMB factsheet like an analyst — what Sharpe, std dev, top-10, sector weights, benchmark line each tell you.</td></tr>
+<tr><td><code>c-fund-family-taxonomy</code></td><td>PMB's actual classification (equity/balanced/fixed income/Shariah/regional/global) with representative codes.</td></tr>
+<tr><td><code>c-risk-metric-glossary</code></td><td>Sharpe, std dev, beta, max drawdown, tracking error — tied to PMB statement language.</td></tr>
+<tr><td><code>c-shariah-vs-conventional</code></td><td>Screening criteria, fee differential, tracking error; when the Shariah variant is structurally advantaged.</td></tr>
+<tr><td><code>c-currency-exposure</code></td><td>Hidden MYR/USD/regional bet in global funds; how FX swamps alpha; where the factsheet shows/hides it.</td></tr>
+<tr><td><code>c-rebalance-without-charges</code></td><td>The legal intra-family rebalance route (no re-paid sales charge); ties to <code>a-switching-matrix</code>.</td></tr>
+</table>
+<div class="verify">Verify: search <code>{ query: "Sharpe ratio factsheet PMB", scope: ["knowledge"], cluster: "portfolio" }</code> → <code>c-reading-a-factsheet</code> returns.</div>
+<div class="commit">git commit -m "feat(corpus): Cluster C portfolio concept entries (6)"</div>
+</div>
+
+<div class="task" id="t6">
+<h3><span class="badge b-fund">Task 6</span> Fund-level proof instances</h3>
+<p>The <em>proof layer</em>. All <code>cluster: portfolio</code>, <code>granularity: fund</code>. <code>source_ref</code> = the fund's latest factsheet + quarter. Use the real codes/names Shoo recommends.</p>
+<p>Per-fund body: full name + code, asset class, inception, benchmark, charges (from <code>a-fee-schedule</code>), risk metrics (latest, flagged), top sectors/holdings shape, currency note, one-line "what this fund is for."</p>
+<div class="callout info">If the FundMaster Excel (fund-screener output) is available, prefer its figures and cite it in <code>source_ref</code> — turns flagged placeholders into real numbers.</div>
+<ul class="entries">
+  <li><span class="fname">fund-pmittf · fund-pmgf · fund-pmbf · fund-pm-shariah-equity · fund-pm-bond</span> — adjust slugs to real funds. Each <code>related:</code> back to <code>c-fund-family-taxonomy</code> + concept entries that use it. Update <code>proof-asset-index.md</code> to list them.</li>
+</ul>
+<div class="verify">Verify: search <code>{ query: "&lt;fund name&gt;", scope: ["knowledge"], granularity: "fund" }</code> → fund entry returns tagged <code>granularity: fund</code>.</div>
+<div class="commit">git commit -m "feat(corpus): fund-level instances (proof layer) + proof index update"</div>
+</div>
+
+<div class="task" id="t7">
+<h3><span class="badge b-final">Task 7</span> Final reindex, cleanup, audits</h3>
+<ol>
+  <li>Delete the placeholder: <code>git rm corpus/knowledge/_example.md</code></li>
+  <li>Full reindex via <code>mcp__corpus__reindex</code> — record files + chunk count; expect 0 skipped among <code>knowledge/*.md</code>.</li>
+  <li><b>Filter smoke</b> — confirm non-empty, correctly-tagged hits for each: mechanics / tax / portfolio cluster filters; <code>source_type: synthesized</code> → scenarios only; <code>granularity: fund</code> → fund entries only.</li>
+  <li><b>Hook-density audit</b> — every concept entry has ≥4 bulleted standalone facts. Fix any shortfall.</li>
+  <li><b>Honesty audit</b> — <code>grep -rliE "my client|our client|a client of" corpus/knowledge/</code> → expect <code>clean</code>.</li>
+</ol>
+<div class="commit">git commit -m "chore(corpus): final reindex + remove _example placeholder"</div>
+</div>
+
+<hr>
+
+<h2>Self-Review — spec coverage</h2>
+<table>
+<tr><th>Spec section</th><th>Covered by</th></tr>
+<tr><td>§3 Cluster A (mechanics)</td><td>Tasks 2–3 ✓</td></tr>
+<tr><td>§3 Cluster B (tax/PRS)</td><td>Task 4 ✓</td></tr>
+<tr><td>§3 Cluster C (portfolio)</td><td>Tasks 5–6 ✓</td></tr>
+<tr><td>§3 Primitives</td><td>Task 1 ✓</td></tr>
+<tr><td>§4 Artifact shape (frontmatter, both granularities)</td><td>every task; fund-level in Task 6 ✓</td></tr>
+<tr><td>§5 Sequencing (primitives → A → B → C)</td><td>task order ✓</td></tr>
+<tr><td>§6 Hook extraction (≥4 facts)</td><td>doctrine #5 + Task 7 audit ✓</td></tr>
+<tr><td>§7 Proof discipline</td><td>doctrine #2 ✓</td></tr>
+<tr><td>§10 EN-first, public+synthesized, trust+spot-check</td><td>doctrine #1, #3, #4 ✓</td></tr>
+</table>
+<p><b>Out of scope (correct):</b> BM bodies (later pass), staleness policy, downstream article/hook generation.</p>
+<div class="callout danger">
+  <strong>Honesty guardrail</strong>
+  Doctrine #3 + Task 7 honesty audit prevent (a) fabricated precise figures presented as confirmed, and (b) synthesized scenarios masquerading as real cases. Shoo's PR review is the spot-check gate.
+</div>
+
+</body>
+</html>

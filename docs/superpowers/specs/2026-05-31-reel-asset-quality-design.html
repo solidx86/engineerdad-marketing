@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec — Reel/static asset quality: format-aware density + worker self-critique + two-type reel model (2026-05-31)</title>
+<style>
+  :root {
+    --navy:#1B2B6B; --navy-dark:#111c45; --orange:#F07621; --teal:#00B4A6;
+    --teal-light:#e6f8f7; --offwhite:#F7F8FC; --text:#1a1a2e; --muted:#6b7280; --border:#e5e7f0;
+  }
+  * { box-sizing:border-box; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text); background:var(--offwhite); margin:0; line-height:1.6;
+  }
+  .wrap { max-width:980px; margin:0 auto; padding:48px 28px 120px; }
+  h1 { color:var(--navy); font-size:30px; line-height:1.25; margin:0 0 6px; }
+  h2 { color:var(--navy); font-size:22px; margin:46px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+  h3 { color:var(--navy-dark); font-size:17px; margin:28px 0 8px; }
+  .sub { color:var(--muted); font-size:14px; margin:0 0 4px; }
+  p { margin:10px 0; }
+  code { background:#eef0f7; padding:1px 5px; border-radius:4px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:13px; color:var(--navy-dark); }
+  pre { background:var(--navy-dark); color:#e8eaf3; padding:16px 18px; border-radius:8px; overflow-x:auto; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5; }
+  pre code { background:none; color:inherit; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:13.5px; }
+  th,td { border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:var(--navy); color:#fff; font-weight:600; }
+  tr:nth-child(even) td { background:#fff; }
+  tr:nth-child(odd) td { background:#fbfcff; }
+  .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:2px 9px; border-radius:999px; vertical-align:middle; }
+  .pill.code { background:#fde7d6; color:#9a4408; }
+  .pill.prompt { background:var(--teal-light); color:#0a6b62; }
+  .pill.both { background:#e7ecff; color:#22389c; }
+  .callout { border-left:4px solid var(--orange); background:#fff7f1; padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0; }
+  .callout.info { border-left-color:var(--teal); background:var(--teal-light); }
+  .callout.warn { border-left-color:#d6442b; background:#fdeeeb; }
+  .callout strong { color:var(--navy-dark); }
+  ul,ol { margin:10px 0; padding-left:24px; }
+  li { margin:5px 0; }
+  .meta { background:#fff; border:1px solid var(--border); border-radius:8px; padding:14px 18px; margin:18px 0; font-size:13.5px; }
+  .meta dt { font-weight:700; color:var(--navy-dark); float:left; width:140px; clear:left; }
+  .meta dd { margin:0 0 6px 150px; }
+  .tag { font-size:12px; color:var(--muted); }
+  .strike { text-decoration:line-through; color:var(--muted); }
+  hr { border:none; border-top:1px solid var(--border); margin:40px 0; }
+  .toc { columns:2; column-gap:36px; font-size:14px; }
+  .toc a { color:var(--navy); text-decoration:none; }
+  .toc a:hover { text-decoration:underline; }
+  .filechip { font-family:"SF Mono",Menlo,monospace; font-size:12.5px; background:#eef0f7; padding:2px 7px; border-radius:5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Reel &amp; static asset quality — format-aware text density, worker self-critique, and the two-type reel model</h1>
+<p class="sub">Design spec · 2026-05-31 · branch <code>feat/reel-visual-scenes</code></p>
+
+<div class="meta">
+<dl>
+  <dt>Problem</dt><dd>Rendered creatives (1) show overlapping elements by chance, and (2) cram too much text — reels especially, where the voiceover should carry the explanation.</dd>
+  <dt>Approach</dt><dd><strong>B</strong> — fix at the render layer <em>and</em> upstream at the authoring layer. Critique mechanism = <strong>worker self-critique</strong> (no separate critic agent/step).</dd>
+  <dt>Scope</dt><dd>One indivisible change set: density doctrine + self-critique rubric + collapse the reel scene model from three types to two (<code>face | visual</code>), across <em>both</em> the authoring and HeyGen-substrate layers, dropping <code>emphasize</code>.</dd>
+  <dt>Blast radius</dt><dd>Prompt files (no restart) <em>plus</em> schema/code/MCP + a new Opus-pinned <code>render-worker</code> agent (needs <code>pnpm -r build</code> + Claude Code restart) + ADR rewrite + tests/fixtures. Two agents change model: <code>creative-director</code> (Sonnet→Opus) and the new <code>render-worker</code> (Opus).</dd>
+  <dt>Supersedes</dt><dd>Rewrites <strong>ADR-029</strong> in place (three-type → two-type).</dd>
+</dl>
+</div>
+
+<h2>Contents</h2>
+<div class="toc">
+  <a href="#why">1. Why — root causes (verified)</a><br>
+  <a href="#models">2. Which model runs each agent</a><br>
+  <a href="#decisions">3. Decisions locked</a><br>
+  <a href="#twotype">4. The two-type reel model</a><br>
+  <a href="#density">5. §8 Text density by format (doctrine)</a><br>
+  <a href="#rubric">6. §9 Self-critique rubric</a><br>
+  <a href="#textsource">7. Where on-frame text comes from</a><br>
+  <a href="#changes">8. Component changes (file by file)</a><br>
+  <a href="#schema">9. Schema &amp; code changes (the merge)</a><br>
+  <a href="#nongoals">10. Non-goals / out of scope</a><br>
+  <a href="#risks">11. Risks &amp; backstops</a><br>
+  <a href="#verify">12. How we'll verify</a><br>
+</div>
+
+<h2 id="why">1. Why — root causes (verified against the code)</h2>
+<ol>
+  <li><strong>Overlaps "by chance."</strong> The reel render worker has <em>no visual-QA pass in its normal path</em> — the PNG-reading QA only runs in "FRAMES-ONLY MODE" (a dev harness). In a real run, frames are built and shipped straight to HeyGen unchecked. The static worker <em>does</em> have a QA loop (<code>render-worker.md</code> §5.5, incl. an overlap check), but it can still miss, and its anti-overlap clearances live only in <code>brand-contract.md</code> §4b which the worker is told to "sanity-check," not score.</li>
+  <li><strong>Too much text.</strong> Nothing caps on-frame text. <code>onScreenText: z.string()</code> in <span class="filechip">packages/shared/src/zod.ts:174</span> has no length bound; only <code>voiceover</code> is word-capped (face ≤30 / chart-visual ≤45) and <code>targetSeconds</code> is bounded. So on-frame wordiness is governed <em>entirely</em> by prose in the prompts today — and the prompts apply one flat rule (<code>onScreenText ≤8 words</code>) regardless of whether the surface has a voiceover. Reels (narrated) and Feed/Carousel (silent) need <em>opposite</em> density.</li>
+</ol>
+<div class="callout info">
+<strong>Key consequence:</strong> on-frame text lives in the rendered PNG, not the database, so the produce verifier <em>cannot</em> machine-count it. Density is enforced by worker self-critique + the HG3 human gate — the same backstop the existing "no numbers on concept visuals" rule relies on.
+</div>
+
+<h2 id="models">2. Which model runs each agent (verified)</h2>
+<table>
+  <tr><th>Agent / worker</th><th>Model today</th><th>How set</th><th>Change?</th></tr>
+  <tr><td>Render workers (static + reel)</td><td>inherits the <code>/loop</code> session model (Opus only when produce happens to run on Opus)</td><td>spawned as <code>worker:"general-purpose"</code> (<span class="filechip">produce.ts:447</span>); general-purpose has no pinned model</td><td><strong>Yes → pin Opus</strong> via a dedicated <code>render-worker</code> agent (D10). The QA is spatial (overlap detection + layout repair) and editorial (what to cut) — must not depend on which model the session happened to launch on.</td></tr>
+  <tr><td><code>creative-director</code></td><td><strong>Sonnet</strong> (<span class="filechip">creative-director.md:4</span>)</td><td>pinned frontmatter</td><td><strong>Yes → Opus.</strong> It authors the wordy on-frame copy; it's the source of "too much text." Runs once per script (not fanned out), so the cost impact is small and the leverage is high.</td></tr>
+  <tr><td>brain</td><td>Opus</td><td>pinned</td><td>No</td></tr>
+  <tr><td>brief-writer, content-writer</td><td>Sonnet</td><td>pinned</td><td>No</td></tr>
+</table>
+<p><strong>Why Opus matters here:</strong> the two failure modes are spatial (overlap detection + layout repair) and editorial (judging what to cut). Both are reasoning-heavy and benefit measurably from Opus over Sonnet. So we pin <em>both</em> sides of the path to Opus: the render workers (D10, via a dedicated agent) and <code>creative-director</code> (D8). No part of the produce path should silently fall back to Sonnet based on how the session launched.</p>
+
+<h2 id="decisions">3. Decisions locked (from brainstorming)</h2>
+<table>
+  <tr><th>#</th><th>Decision</th></tr>
+  <tr><td>D1</td><td>Approach <strong>B</strong>: render layer + upstream. Critique = <strong>worker self-critique</strong>; no separate critic agent or P2b step.</td></tr>
+  <tr><td>D2</td><td>Collapse reel scene types <strong><code>face | chart | visual</code> → <code>face | visual</code></strong>. A <code>visual</code> is data-backed or concept (distinguished by field presence, below).</td></tr>
+  <tr><td>D3</td><td>Align <em>both</em> layers to the same vocabulary: the HeyGen-wrapper render <code>kind</code> <strong><code>face | chart | face-over-chart</code> → <code>face | visual</code></strong>. Delete the already-dead <code>face-over-chart</code>. Kills the "chart actually means image-background" misnomer.</td></tr>
+  <tr><td>D4</td><td><strong>Drop <code>emphasize</code> entirely</strong> — schema, <code>ReelWorkerInput</code>, both prompts, ADR, fixtures. No value-add right now; one fewer field and refinement.</td></tr>
+  <tr><td>D5</td><td>Add <strong>§8 density doctrine</strong> + <strong>§9 self-critique rubric</strong> to <code>brand-contract.md</code> (the single source of truth for visuals).</td></tr>
+  <tr><td>D6</td><td>On-frame text <strong>reuses existing fields; the worker may condense.</strong> Reel support line = the existing <code>explains</code> field (newly rendered on-frame, ≤12 words). Static body block = the worker condenses the existing <code>body</code> (=script-body segment) to ~30–45 words.</td></tr>
+  <tr><td>D7</td><td>Reel QA = mechanical §9 + <strong>1 free pre-HeyGen retry</strong>; <strong>skip</strong> the <code>ui-ux-pro-max</code> aesthetic pass on reels. Static keeps its 1-retry cap <em>and</em> the aesthetic pass.</td></tr>
+  <tr><td>D8</td><td><code>creative-director</code> model <strong>Sonnet → Opus</strong>.</td></tr>
+  <tr><td>D9</td><td><strong>Rewrite ADR-029 in place</strong> to the two-type model.</td></tr>
+  <tr><td>D10</td><td><strong>Pin render workers to Opus</strong> via a new dedicated <code>render-worker</code> agent (<code>model: opus</code>), and point P2-render's fanout at it instead of <code>general-purpose</code>. The procedures stay in the <code>corpus/templates/worker-prompts/*.md</code> files (hot-editable, no restart); the agent file is a thin model+tools shell.</td></tr>
+</table>
+
+<h2 id="twotype">4. The two-type reel model</h2>
+<p>There are two "type" fields at two layers. Both collapse to the same two values.</p>
+
+<h3>Layer 1 — authoring (<code>sceneType</code>, written by creative-director)</h3>
+<table>
+  <tr><th>sceneType</th><th>What it is</th><th>Required fields</th><th>Numbers on frame?</th></tr>
+  <tr><td><code>face</code></td><td>HeyGen avatar (Shoo) talking. Hooks, anecdotes, CTAs. First &amp; last scene must be <code>face</code>.</td><td><code>chartRef</code>=null, <code>visualBrief</code>=null, <code>explains</code>=null</td><td>n/a (no frame)</td></tr>
+  <tr><td rowspan="2"><code>visual</code></td><td><strong>Data visual</strong> — chart / graph / comparison table / anything grounded in a vetted YAML.</td><td><code>chartRef</code> set, <code>visualBrief</code>=null, <code>explains</code> set</td><td><strong>Yes</strong> — the numbers come from <code>corpus/data/charts/*.yaml</code> (vetted).</td></tr>
+  <tr><td><strong>Concept visual</strong> — comparison/flow/metaphor/diagram with no underlying dataset.</td><td><code>visualBrief</code> set, <code>chartRef</code>=null, <code>explains</code> set</td><td><strong>No</strong> — unvetted figures would be a fake-data compliance violation.</td></tr>
+</table>
+<div class="callout">
+<strong>The XOR invariant (replaces the old per-type refinements):</strong> a <code>visual</code> scene must have <em>exactly one</em> of <code>chartRef</code> or <code>visualBrief</code> non-null — never both, never neither. This is what carries the compliance boundary forward after the type names merge. Refinements key on <strong>field presence</strong>, not on a type string.
+</div>
+
+<h3>Layer 2 — HeyGen render substrate (<code>kind</code>, inside <span class="filechip">mcp-servers/heygen-wrapper</span>)</h3>
+<p>This enum describes the <em>physical render mode</em>, not the content. There are only ever two physical modes: avatar, or full-frame image background. The current names (<code>chart</code>, <code>face-over-chart</code>) are misleading — a concept illustration is also rendered as an image background. After this change:</p>
+<table>
+  <tr><th>kind (before)</th><th>kind (after)</th><th>Render</th></tr>
+  <tr><td><code>face</code></td><td><code>face</code></td><td>avatar over a colour background (<code>fit:"cover"</code>)</td></tr>
+  <tr><td><code>chart</code></td><td><code>visual</code></td><td>full-frame image background (the rendered PNG), voiceover only — <code>chart_url</code> arg kept but now means "any image URL"</td></tr>
+  <tr><td class="strike"><code>face-over-chart</code></td><td>— (deleted)</td><td>already dead since ADR-028; no distinct semantics</td></tr>
+</table>
+
+<h3 id="pinning">Pinning render workers to Opus (D10) — the mechanism</h3>
+
+<div class="callout info"><strong>"Dedicated" = the agent type, NOT the worker count.</strong> The fanout stays a fanout: same number of workers, same parallel dispatch. The only change is the <code>subagent_type</code> label each <code>Task</code> spawns — from the generic built-in <code>general-purpose</code> to a named agent <code>render-worker</code> that exists so it can carry <code>model: opus</code>. There is no flow/topology change beyond that label.</div>
+
+<pre><code>BEFORE                                  AFTER (D10)
+P2-render (fanout, N units)             P2-render (fanout, N units)   &lt;- SAME
+  |                                       |
+  +- Task(general-purpose) static 1       +- Task(render-worker) static 1
+  +- Task(general-purpose) static 2       +- Task(render-worker) static 2
+  +- Task(general-purpose) reel 1         +- Task(render-worker) reel 1
+  +- Task(general-purpose) reel N         +- Task(render-worker) reel N
+       ^ inherits session model                ^ model: opus (pinned)
+
+Whole delta: (1) new file .claude/agents/render-worker.md
+             (2) one string in produce.ts:447  worker: "general-purpose" -> "render-worker"
+Unchanged:   fanout stays fanout; N stays N; parallel single-message dispatch;
+             procedures stay in corpus/templates/worker-prompts/*.md;
+             verify / advance / claim-check identical.</code></pre>
+
+<p><strong>Precedent in this very stage:</strong> P1-fanout already spawns a <em>dedicated</em> <code>creative-director</code> agent inside a fanout (<span class="filechip">produce.test.ts:130</span> asserts <code>step.worker === "creative-director"</code>). So "dedicated agent as the fanout's worker" is already how produce works — D10 applies the same pattern to P2-render.</p>
+
+<p>Render workers are <em>not</em> a dedicated agent today. P2-render is a single <code>fanout</code> step, and the <code>Step</code> type allows exactly <strong>one</strong> worker for all units: <code>{ kind:"fanout"; worker:string; units:[…] }</code> (<span class="filechip">types.ts:39</span>). It's currently <code>worker:"general-purpose"</code> (<span class="filechip">produce.ts:447</span>), the built-in agent with no pinned model, so the worker inherits whatever model the <code>/loop</code> session launched on. There is no per-unit or per-step model field, so the only way to guarantee Opus is to point the fanout at a <strong>dedicated agent whose frontmatter pins the model</strong>.</p>
+<table>
+  <tr><th>Consequence of the shared-worker constraint</th><th>Resolution</th></tr>
+  <tr><td>One fanout = one <code>worker</code> for BOTH static and reel units.</td><td>The single <code>render-worker</code> agent covers both. Each unit's <code>spawnPrompt</code> already names which procedure file to read (<code>render-worker.md</code> vs <code>reel-render-worker.md</code>), so one shell agent dispatches both paths correctly.</td></tr>
+  <tr><td>Procedures must stay hot-editable (no Claude Code restart to tune design quality — the worker-prompt headers promise this).</td><td>Keep the procedures in <code>corpus/templates/worker-prompts/*.md</code> (read at runtime). The agent file holds only <code>model: opus</code> + the tool grant + a one-line "read your spawn-prompt's named procedure file and follow it." Editing the agent's model <em>does</em> need a restart; editing the procedures does not.</td></tr>
+  <tr><td>The agent needs the same tool breadth <code>general-purpose</code> had (Read, Write, Bash, and the render/asset/heygen/store/orchestrator MCPs — see the tool inventory both procedure files use).</td><td>Grant exactly the union the two procedure files use. <span class="callout warn" style="display:inline;padding:2px 8px;">Plan-time verification (don't assume): confirm whether omitting <code>tools:</code> in agent frontmatter grants ALL tools or NONE. If "all," omit for parity with general-purpose; if "none," enumerate the union explicitly. Verify empirically before writing the agent.</span></td></tr>
+</table>
+<div class="callout info"><strong>Cost note:</strong> this pins the fanned-out workers (N-wide) to Opus, which is the expensive multiplier — but these are exactly the units doing the spatial QA that Sonnet does unreliably. The retry cap (1) and reel's skip-aesthetic-pass keep the per-unit cost bounded.</div>
+
+<h2 id="density">5. §8 — Text density by format (new section in <code>brand-contract.md</code>)</h2>
+<p><strong>Principle:</strong> match on-frame words to whether a voiceover exists. Reels are narrated → the frame is a visual aid with a <em>concise</em> support line, not a paragraph. Feed/Carousel are silent → the frame must fully self-explain, so they carry a short body block. <strong>Over budget → trim words, never shrink type below §4a minimums.</strong></p>
+<table>
+  <tr><th>Surface</th><th>Mandatory on frame</th><th>Discretionary text budget</th><th>Notes</th></tr>
+  <tr><td><strong>Reel <code>face</code></strong></td><td>logo</td><td>none (avatar fills frame)</td><td>copy lives in HeyGen captions</td></tr>
+  <tr><td><strong>Reel <code>visual</code> — data</strong><br>(<code>chartRef</code> set)</td><td>the chart/table/graph, YAML <code>caption_en</code>, full <code>source_citation</code>, logo</td><td>headline ≤ 6 words + 1 support line ≤ 12 words</td><td><strong>numbers OK</strong> (vetted); single-stat callout lives here; support line = <code>explains</code></td></tr>
+  <tr><td><strong>Reel <code>visual</code> — concept</strong><br>(<code>visualBrief</code> set)</td><td>logo</td><td>headline ≤ 6 words + 1 support line ≤ 12 words + ≤ 2 labels ≤ 3 words each</td><td><strong>no numbers</strong> (compliance, not density); support line = <code>explains</code></td></tr>
+  <tr><td><strong>Feed</strong></td><td>logo (+ chart caption/citation if charted)</td><td>headline + body block: 2–3 lines, ~30–45 words total</td><td>must self-explain, no VO; body = condensed <code>body</code></td></tr>
+  <tr><td><strong>Carousel card</strong></td><td>kicker, <code>N / total</code> indicator, logo</td><td>2-line headline + body block: 2–3 lines, ~30–45 words</td><td>card 1 (hook hero) may be headline-only; cards 2..N carry the body</td></tr>
+</table>
+<p><strong>Binds the rubric:</strong></p>
+<ul>
+  <li>"Headline" = the hook / <code>onScreenText</code> in <code>var(--font-head)</code> at the §4a floor.</li>
+  <li>Reel mandatory chart caption + source citation are <em>never</em> counted against the headline/support budget and are <em>never</em> truncated.</li>
+  <li>Word counts = whitespace-split tokens (same definition as the schema's <code>reelWordCount</code>), counted <strong>per language</strong> (EN frame and BM frame each independently in budget).</li>
+  <li>This table is exactly what §9 rubric item 3 scores against.</li>
+</ul>
+
+<h2 id="rubric">6. §9 — Self-critique rubric (new section in <code>brand-contract.md</code>; both workers run it)</h2>
+<p>After rendering a PNG, the worker <code>Read</code>s it and writes a one-line, evidence-cited observation for each item. Any fail → fix &amp; re-render (within the retry budget). A "looks good" with no evidence is not acceptable.</p>
+<ol>
+  <li><strong>No overlap</strong> — no text-on-text, text-on-chart, or headline-descender collisions. Cites the §4b vertical-clearance gaps.</li>
+  <li><strong>No edge clip</strong> — quote the bottom-most line in full; if mid-sentence it's clipped. Reels additionally respect the safe-area (top ~14% / bottom ~20% / right ~12% clear of Reels UI).</li>
+  <li><strong>Density within §8 budget for this surface</strong> — count the on-frame words; over budget → trim (don't shrink type).</li>
+  <li><strong>Legibility</strong> — meets §4a minimums at the ~37% squint test.</li>
+  <li><strong>Hierarchy / contrast</strong> — one clear focal point; palette-correct contrast (no grey-on-navy, etc.).</li>
+</ol>
+
+<h3>Retry budget &amp; aesthetic pass</h3>
+<table>
+  <tr><th>Worker</th><th>Mechanical §9</th><th>Retry cap</th><th><code>ui-ux-pro-max</code> aesthetic pass</th><th>Cost note</th></tr>
+  <tr><td>Static (<code>render-worker.md</code>)</td><td>yes (sharpened, points at §9)</td><td>1 / scene (unchanged)</td><td><strong>keep</strong></td><td>retries re-render HTML only</td></tr>
+  <tr><td>Reel (<code>reel-render-worker.md</code>)</td><td>yes (NEW — was missing in normal path)</td><td>1 / frame</td><td><strong>skip</strong></td><td>QA runs <em>before</em> HeyGen upload → a retry is a free HTML re-render, zero HeyGen spend</td></tr>
+</table>
+<div class="callout info"><strong>Why reels can afford QA now:</strong> frame QA happens at Step 2 (render the PNG), <em>before</em> Step 3 (upload to HeyGen) and Step 4 (<code>generate_reel</code>). So adding the loop costs only local re-renders — no extra HeyGen jobs, no extra money.</div>
+
+<h2 id="textsource">7. Where on-frame text comes from (D6 detail)</h2>
+<p>No new authored fields. The worker reuses what already exists and is <em>explicitly permitted to condense</em> for the frame (the compliance footer rides the published caption assembled by <code>deriveSpecs</code>, not the frame, so excerpting on-frame copy is safe):</p>
+<table>
+  <tr><th>Surface</th><th>Headline source</th><th>Body / support source</th><th>Worker may condense?</th></tr>
+  <tr><td>Reel data/concept visual</td><td><code>onScreenText</code> (the card headline, ≤6w)</td><td><code>explains</code> → rendered on-frame as the ≤12-word support line (<strong>newly wired</strong> — not rendered today)</td><td>yes — trim <code>explains</code> to ≤12w on frame</td></tr>
+  <tr><td>Feed / Carousel</td><td>card 1 = <code>hook.en</code>; cards 2..N = <code>onScreenText</code> (≤8w)</td><td><code>body</code> (= a segment of the script body, currently <code>sc.voiceover</code> at <span class="filechip">produce.ts:326</span>)</td><td>yes — excerpt/condense <code>body</code> to a ~30–45-word block</td></tr>
+</table>
+<div class="callout warn"><strong>Correction captured during shaping:</strong> an earlier draft proposed making <code>onScreenText</code> "format-aware." That was wrong — for static formats <code>onScreenText</code> is only the short card headline; the explanatory text is the separate <code>body</code> field that already flows to the worker. §8's static body budget therefore governs how much of <code>body</code> the worker surfaces, not <code>onScreenText</code>.</div>
+
+<h2 id="changes">8. Component changes (file by file)</h2>
+
+<h3><span class="pill prompt">prompt-only · no restart</span></h3>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr><td><span class="filechip">corpus/templates/brand-contract.md</span></td><td>Add <strong>§8 Text density by format</strong> (table above) and <strong>§9 Self-critique rubric</strong> (the shared scoring checklist). These are the doctrine both workers cite.</td></tr>
+  <tr><td><span class="filechip">corpus/templates/worker-prompts/reel-render-worker.md</span></td><td>(1) Add a real visual-QA pass to the <em>normal</em> path: after Step 2 render, <code>Read</code> each PNG, score §9, retry the frame once (pre-HeyGen), then proceed. (2) Wire <code>explains</code> onto the frame as the ≤12-word support line. (3) Update to two-type model (<code>face | visual</code>; data vs concept by field presence). (4) Remove <code>emphasize</code> handling. (5) Add an explicit "read brand-contract §4a/§4b/§8/§9" step.</td></tr>
+  <tr><td><span class="filechip">corpus/templates/worker-prompts/render-worker.md</span></td><td>Point existing §5.5 at the shared §9 rubric; add the format-aware density check (Feed/Carousel = richer body block per §8); keep the 1-retry cap + <code>ui-ux-pro-max</code> pass.</td></tr>
+  <tr><td><span class="filechip">.claude/agents/creative-director.md</span></td><td>(1) Two-type model + XOR rule in Step 3.5; drop <code>emphasize</code>. (2) Format-aware on-frame guidance: reels sparse (lean on VO), Feed/Carousel richer-but-bounded body per §8; <code>onScreenText</code> stays the short headline. (3) <strong><code>model: sonnet → opus</code></strong> (frontmatter). (4) Update the return-shape JSON examples to drop <code>chart</code>/<code>emphasize</code>.</td></tr>
+</table>
+
+<h3><span class="pill code">schema / code · needs <code>pnpm -r build</code> + Claude Code restart</span></h3>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr><td><span class="filechip">packages/shared/src/zod.ts</span></td><td><code>ReelSceneTypeEnum</code> → <code>["face","visual"]</code>. Rewrite refinements: drop the per-<code>chart</code>/<code>visual</code> rules + the <code>emphasize</code>-chart-only rule; add the <strong>XOR</strong> rule (a <code>visual</code> has exactly one of <code>chartRef</code>/<code>visualBrief</code>; <code>face</code> has neither). Remove <code>emphasize</code> from the object. VO word budget stays (face ≤30 / visual ≤45).</td></tr>
+  <tr><td><span class="filechip">packages/shared/src/derive/specs.ts</span></td><td>Remove <code>emphasize</code> from the <code>CreativeUnit</code> scene type; keep <code>visualBrief</code>/<code>explains</code>. (No <code>sceneType</code> string branching exists here to change.)</td></tr>
+  <tr><td><span class="filechip">packages/orchestrator/src/produce/reel-worker-input.ts</span></td><td><code>ReelWorkerInput.scenes[].sceneType</code> → <code>"face" | "visual"</code>; drop <code>emphasize</code> from the interface + projection. Default for legacy/missing stays <code>"face"</code>.</td></tr>
+  <tr><td><span class="filechip">mcp-servers/heygen-wrapper/src/index.ts</span></td><td><code>generate_reel</code> scene <code>kind</code> enum → <code>["face","visual"]</code>; update the tool description (drop "chart"/"face-over-chart" language).</td></tr>
+  <tr><td><span class="filechip">mcp-servers/heygen-wrapper/src/heygen.ts</span></td><td><code>ReelSceneInput.kind</code> → <code>"face" | "visual"</code>; the image-background branch now triggers on <code>kind === "visual"</code>; keep the <code>chart_url</code> arg (any image URL) or rename to <code>image_url</code> (see open note in §9).</td></tr>
+  <tr><td><span class="filechip">.claude/agents/render-worker.md</span> <em>(new)</em></td><td><strong>New dedicated agent</strong> (D10). Frontmatter <code>model: opus</code> + tool grant (the union both procedure files use — verify the "omit = all vs none" rule first). Body is a thin shell: "you are a render worker; read the procedure file named in your spawn prompt and follow it exactly." Procedures stay in the corpus worker-prompt files.</td></tr>
+  <tr><td><span class="filechip">packages/orchestrator/src/stages/produce.ts</span></td><td>P2-render fanout: <code>worker: "general-purpose"</code> → <code>worker: "render-worker"</code> (<span class="filechip">produce.ts:447</span>). Also drop the dropped-field plumbing if any (<code>emphasize</code> never appears here, so likely no change beyond the worker name).</td></tr>
+  <tr><td><span class="filechip">packages/orchestrator/src/stages/produce.test.ts</span></td><td><em>Verified:</em> this file does NOT currently assert the P2-render worker name (it asserts <code>spawnPrompt</code> contains the procedure file at lines 190/458). <strong>Add</strong> an assertion that P2-render's <code>worker === "render-worker"</code>. Leave the <code>general-purpose</code> assertions in <code>engine.test.ts</code> (generic fixtures) and <code>distribute.test.ts</code> (the unrelated D2b-route worker) untouched.</td></tr>
+  <tr><td><span class="filechip">docs/decisions/029-reel-visual-scenes.md</span></td><td><strong>Rewrite in place</strong>: two-type model, XOR-by-field-presence, <code>emphasize</code> removed, both-layers-aligned vocabulary, density doctrine + self-critique rubric referenced, and the Opus-pinned dedicated render-worker agent.</td></tr>
+</table>
+<div class="callout warn"><strong>Restart required:</strong> a new agent + a changed agent model are picked up only on Claude Code restart (the agent registry loads at session start). The <em>procedures</em> in the corpus worker-prompt files remain hot-editable mid-session as before — only the model/tool shell needs the restart.</div>
+
+<h3><span class="pill both">tests &amp; fixtures (validated when run)</span></h3>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr><td><span class="filechip">packages/shared/src/zod.test.ts</span></td><td>Replace <code>chart</code>/<code>visual</code>/<code>emphasize</code> cases with two-type + XOR cases (data visual, concept visual, both-null reject, both-set reject, face-with-chartRef reject).</td></tr>
+  <tr><td><span class="filechip">packages/orchestrator/src/stages/produce.test.ts</span></td><td>Update any reel scene fixtures using <code>sceneType:"chart"</code> / <code>emphasize</code>.</td></tr>
+  <tr><td><span class="filechip">mcp-servers/heygen-wrapper/src/__tests__/heygen.test.ts</span></td><td>Update <code>kind</code> expectations to <code>face|visual</code>; drop <code>face-over-chart</code>.</td></tr>
+  <tr><td><span class="filechip">scripts/fixtures/reel-worker/*.json</span> (chart-emphasis, concept-visual, mixed-reel)</td><td>Rewrite <code>sceneType:"chart"</code> → <code>"visual"</code> (chartRef kept); remove <code>emphasize</code>. Consider renaming <code>chart-emphasis.json</code> → <code>data-visual.json</code>.</td></tr>
+  <tr><td><span class="filechip">scripts/smoke-reel.mjs</span></td><td>Update <code>sceneType</code> values + the <code>type:"chart"</code> HeyGen scene mapping to <code>"visual"</code>.</td></tr>
+</table>
+<div class="callout info"><strong>Snapshots left as-is:</strong> committed <code>data/snapshots/**/engineerdad.sql</code> dumps contain <code>sceneType:"chart"</code> in stored JSONB, but they are historical DB restores, not re-validated against the schema. They stay untouched.</div>
+
+<h2 id="schema">9. Schema &amp; code detail — the merge</h2>
+
+<h3>Before (current refinements, zod.ts:184–210)</h3>
+<pre><code>sceneType: z.enum(["face","chart","visual"])
+// face ≤30, chart/visual ≤45 word VO budget        [KEEP]
+// chart  ⇒ chartRef !== null && visualBrief == null  [REPLACE]
+// visual ⇒ visualBrief non-empty && chartRef == null [REPLACE]
+// face   ⇒ chartRef == null && visualBrief == null    [KEEP, retype]
+// emphasize ⇒ chart-only                              [DELETE]</code></pre>
+
+<h3>After</h3>
+<pre><code>sceneType: z.enum(["face","visual"])
+
+// VO budget unchanged (face ≤30, visual ≤45):
+.refine(s =&gt; reelWordCount(s.voiceover) &lt;= (s.sceneType === "face" ? 30 : 45))
+
+// face ⇒ no chartRef, no visualBrief:
+.refine(s =&gt; s.sceneType !== "face" ||
+            (s.chartRef === null &amp;&amp; (s.visualBrief ?? null) === null))
+
+// visual ⇒ XOR(chartRef, visualBrief) — exactly one present:
+.refine(s =&gt; s.sceneType !== "visual" || (
+   (s.chartRef !== null) !==
+   (typeof s.visualBrief === "string" &amp;&amp; s.visualBrief.trim().length &gt; 0)
+))
+
+// emphasize field removed from the object entirely.</code></pre>
+
+<div class="callout">
+<strong>Open implementation note (defer to plan, not blocking):</strong> the HeyGen-wrapper arg is named <code>chart_url</code>. Renaming it to <code>image_url</code> is the fully-consistent move, but it touches the wrapper's external tool signature. Decide in the plan whether to rename now (cleaner) or keep <code>chart_url</code> as a now-generic "image URL" (smaller diff). Either is fine; this spec doesn't force it.
+</div>
+
+<h2 id="nongoals">10. Non-goals / out of scope</h2>
+<ul>
+  <li><strong>No separate critic agent or P2b orchestrator step.</strong> Critique stays inside the existing workers (D1).</li>
+  <li><strong>No machine scan of on-frame text.</strong> Density &amp; the no-numbers rule remain worker-self-critique + HG3-human enforced (the text isn't in the DB).</li>
+  <li><strong>No change to the produce stage's branching logic</strong> (<code>renderScenes</code> keys on <code>format</code>, not scene type) beyond removing the dropped field.</li>
+  <li><strong>No change to <code>deriveSpecs</code> channel/copy derivation, the distribute stage, or the compliance footer assembly.</strong></li>
+  <li><strong>No more than 1 retry per frame/scene.</strong> A second failure is a signal to record honestly and move on; the conductor decides re-spawn.</li>
+</ul>
+
+<h2 id="risks">11. Risks &amp; backstops</h2>
+<table>
+  <tr><th>Risk</th><th>Mitigation</th></tr>
+  <tr><td>Reversing a one-day-old Accepted ADR (029) loses rationale.</td><td>Rewrite preserves the "why three types existed / why we collapsed" narrative in the Context section (D9).</td></tr>
+  <tr><td>Self-critique inflates worker token cost across the N-wide reel fanout.</td><td>Reel skips the aesthetic pass; mechanical §9 only; 1 retry; retries are free local re-renders.</td></tr>
+  <tr><td>Density rubric is subjective → inconsistent trimming.</td><td>§8 gives explicit word caps per surface; §9 item 3 says "count the words," making it checkable rather than vibes.</td></tr>
+  <tr><td>Schema change forgotten in a stale MCP registry → "tool not found" / validation drift.</td><td>Runbook: <code>pnpm -r build</code> (sequential) then restart Claude Code before the next produce run.</td></tr>
+  <tr><td>Opus on creative-director raises cost.</td><td>It runs once per script (single-script worker mode), not fanned out N-wide; bounded.</td></tr>
+  <tr><td><strong>Opus cost is currently un-auditable.</strong> Pinning Opus on the N-wide P2-render fanout (D10) + creative-director (D8) raises spend, but the codebase has <em>no</em> LLM token-usage capture (verified 2026-05-31: all "cost" surfaces — <code>estCostMyr</code>, <code>meta_insights.spend</code>, <code>cost_per_angle</code> — are marketing economics, not API tokens; no OTEL/telemetry config). The increase will show only in the Anthropic billing console, un-attributable to runs/stages.</td><td>Out of scope here; tracked as <strong>E-044</strong> (LLM token-usage metering &amp; audit) in TASKS.md. Until then, watch the Anthropic console after the first Opus produce run and gut-check against the per-unit retry caps.</td></tr>
+</table>
+
+<h2 id="verify">12. How we'll verify</h2>
+<ul>
+  <li><code>pnpm -r build</code> clean (sequential); <code>pnpm sync:agents:check</code> if any prompt fragment changed.</li>
+  <li><code>pnpm vitest run packages/shared/src/zod.test.ts</code> — XOR + two-type cases pass; <code>emphasize</code> cases gone.</li>
+  <li><code>pnpm vitest run mcp-servers/heygen-wrapper</code> — <code>face|visual</code> kind mapping.</li>
+  <li><code>pnpm test:reel-frames &lt;fixture&gt;</code> (frames-only harness) on a data-visual and a concept-visual fixture — confirm §9 QA runs, <code>explains</code> renders as the support line, and density is within §8.</li>
+  <li>A <code>/produce</code> dry run on a small approved run → eyeball reel frames (sparse) and a Carousel (self-explanatory body block) at HG3; confirm no overlaps and on-frame word counts within §8.</li>
+  <li><strong>Confirm the Opus pin took effect (D10):</strong> after <code>pnpm -r build</code> + Claude Code restart, run produce and verify the render workers spawn as <code>render-worker</code> (not <code>general-purpose</code>) on Opus — e.g. the conductor's <code>Task</code> dispatch uses <code>subagent_type: "render-worker"</code>, and <code>produce.test.ts</code>'s worker-name assertion passes.</li>
+</ul>
+
+<div class="callout info"><strong>Primary iteration loop = the fixture harness</strong> (chosen 2026-05-31). For tuning §8/§9 we use <code>pnpm test:reel-frames &lt;fixture&gt;</code> (reel FRAMES-ONLY: renders chart/visual frames at 1080×1920, runs QA, stops before HeyGen — free, no DB, no spend) and <code>pnpm test:worker &lt;fixture&gt;</code> (Feed/Carousel static). Both print a paste-able <code>Task()</code> call. <strong>Note:</strong> there is no real-<code>/produce</code>-run path that renders reel frames while skipping HeyGen — FRAMES-ONLY lives only in the harness; a real run is binary on <code>EDOS_REEL_PIPELINE</code>. So the harness is the only way to inspect reel frames without paying HeyGen. The 3 reel fixtures (<code>chart-emphasis</code>, <code>concept-visual</code>, <code>mixed-reel</code>) currently carry the old <code>sceneType:"chart"</code>/<code>emphasize</code> shape and MUST be refreshed to <code>face|visual</code> (drop <code>emphasize</code>) as a first-class step so the harness validates the new schema + §8/§9 prompt.</div>
+
+<hr>
+<p class="tag">End of spec. Next step after approval: <code>superpowers:writing-plans</code> → implementation plan.</p>
+
+</div>
+</body>
+</html>

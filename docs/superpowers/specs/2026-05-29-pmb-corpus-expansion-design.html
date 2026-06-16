@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PMB Corpus Expansion — Design</title>
+<style>
+  body { font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 880px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 19px; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  h3 { font-size: 16px; margin-top: 22px; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { background: #fafafa; }
+  ul { margin: 6px 0 12px 0; }
+  li { margin: 3px 0; }
+  .note { background: #fffbe6; border-left: 3px solid #f0c33c; padding: 8px 12px; margin: 12px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<h1>PMB Corpus Expansion — Design Spec</h1>
+<div class="meta">2026-05-29 · Topic: deeper-than-DCA technical content for the <code>/corpus</code> knowledge base</div>
+
+<h2>1. Purpose</h2>
+<p>Expand <code>/corpus</code> with PMB-specific technical knowledge artifacts that go materially deeper than the saturated "invest early / DCA" register. Corpus entries are <strong>raw knowledge units</strong>, not finished articles. Downstream agents (<code>brain</code>, <code>brief-writer</code>, <code>content-writer</code>, <code>creative-director</code>) compose articles, hooks, scripts, and creative variants from these primitives on demand.</p>
+<p>Audience for the eventual surfaced content is mixed: already-investing PMB holders looking to optimize, plus analytical/skeptical Malaysian parents (engineers, accountants) who reject basic content because it feels patronizing. Authority-led — designed to anchor GEO/LLM answers and slice into short-form hooks.</p>
+
+<h2>2. Scope</h2>
+<p>Three knowledge clusters plus a transverse primitives layer. PMB-specific (not generic UT/PRS) — the moat is in the instantiation. Bilingual EN + BM (parallel registers, not translations) per ADR-010.</p>
+
+<h2>3. Clusters</h2>
+
+<h3>Cluster A — Mechanics</h3>
+<p>The stuff every PMB holder thinks they understand but doesn't. High "I didn't know that" density. Strongest moat layer.</p>
+<ul>
+  <li>PMB fee schedule — full table: sales charge, switching fee, redemption fee, annual management fee per fund family</li>
+  <li>PMB switching matrix — which funds can swap intra-family vs cross-family without re-charging sales fee; the 6% trap of redeem-then-reinvest</li>
+  <li>Sales-charge math models — 5.5% upfront vs 1.8% annual over 5/10/20-year horizons; break-even tables</li>
+  <li>NAV cutoff + T+ settlement reference — same-day vs next-day pricing rules</li>
+  <li>Distribution mechanics — ex-date, payment date, NAV impact, auto-reinvest pricing rule</li>
+  <li>Trust deed + prospectus excerpt library — bookmarked clauses on charges, switching, suspension, force majeure</li>
+  <li>Bid-offer spread retirement — what replaced it, why statements still look confusing</li>
+</ul>
+
+<h3>Cluster B — Tax / PRS Optimization</h3>
+<p>Compound multi-year tax mechanics. Tax-season GEO surface. Parents Google this every March.</p>
+<ul>
+  <li>Malaysia tax-relief stacking matrix — PRS / EPF i-Saraan / SSPN / life insurance / education / medical; caps, interactions, LHDN code references</li>
+  <li>PRS pre-55 withdrawal mechanics — 8% penalty, exemptions (medical / housing / death), opportunity-cost frame</li>
+  <li>PRS default option vs self-select — regulatory rules by age band, performance comparison vs Public Mutual PRS series</li>
+  <li>PRS estate-planning interaction — nomination vs hibah vs faraid for PRS + UT accounts</li>
+  <li>Self-employed contribution math — EPF voluntary vs PRS vs i-Saraan; income-bracket thresholds where each wins</li>
+</ul>
+
+<h3>Cluster C — Portfolio Construction</h3>
+<p>For the analytical parent who actually reads factsheets. Hardest to write, highest authority signal.</p>
+<ul>
+  <li>Per-fund factsheet archive — last 4 quarters per PMB fund Shoo actively recommends</li>
+  <li>PMB fund-family taxonomy — equity / balanced / fixed income / Shariah / regional, mapped to PMB's actual classification</li>
+  <li>Risk-metric glossary — Sharpe, std dev, beta, max drawdown — tied to PMB statement language</li>
+  <li>Shariah vs conventional pairs — tracking error, fee differential, structural advantages</li>
+  <li>Currency exposure breakdown — hidden MYR / USD / regional bets inside global PMB funds</li>
+  <li>Rebalancing without triggering sales charges — the legal intra-family path</li>
+</ul>
+
+<h3>Transverse — Primitives Layer</h3>
+<p>Unlocks every cluster. Front-load this.</p>
+<ul>
+  <li>Bilingual glossary (EN + BM) — NAV, bid-offer, distribution, switching, redemption, dividend yield, units, etc.</li>
+  <li>Compliance phrase bank — SC / FIMM disclaimer requirements, claimable vs non-claimable performance language</li>
+  <li>Proof asset index — registry of factsheets, screenshots, prospectus clauses available for citation</li>
+</ul>
+
+<h2>4. Artifact Shape</h2>
+<p>Each corpus entry is a structured, citable, evergreen knowledge unit.</p>
+<table>
+<tr><th>Field</th><th>Purpose</th></tr>
+<tr><td><code>title</code></td><td>Concise descriptor</td></tr>
+<tr><td><code>cluster</code></td><td><code>mechanics</code> | <code>tax</code> | <code>portfolio</code> | <code>primitive</code></td></tr>
+<tr><td><code>granularity</code></td><td><code>fund</code> (per-PMB-fund instance) or <code>concept</code> (mechanic, rule, definition). Both are first-class.</td></tr>
+<tr><td><code>source_type</code></td><td><code>public</code> (prospectus, factsheet, LHDN, FIMM, SC) or <code>synthesized</code> (plausible scenario patterns authored from industry knowledge + public UT mechanics; not real client cases). Both are first-class; <code>synthesized</code> entries are tagged so downstream content framing can enforce "scenario / example / hypothetical" language and never imply a real client.</td></tr>
+<tr><td><code>source_ref</code></td><td>Citation — URL, doc + page, prospectus revision date, or "synthesized 2026-05-29"</td></tr>
+<tr><td><code>verified_at</code></td><td>Date last verified against source. Drives staleness checks.</td></tr>
+<tr><td><code>body_en</code> / <code>body_ms</code></td><td>Parallel EN + BM bodies (not literal translations — separate registers; BM leans Muslim-parent framing, EN leans technical/analytical)</td></tr>
+<tr><td><code>related</code></td><td>Links to other corpus entry IDs</td></tr>
+</table>
+
+<div class="note"><strong>Why both granularities:</strong> concept-level entries (e.g., "switching fee mechanics") are reusable across all funds; fund-level entries (e.g., "PMITTF Q1 2026 factsheet") are the proof layer that grounds the concept. Brain composes by pulling 1 concept + N fund instances.</div>
+
+<div class="note"><strong>Why synthesized-source is first-class:</strong> Plausible scenario patterns ("a holder who redeemed PMITTF to buy PMGF paid the sales charge twice") carry the strongest hook punch and are unreplicable by competitors who only restate the concept. They are <em>not</em> real client cases and must never be framed as such. Source tag drives mandatory downstream framing — content-writer wraps them as "imagine / scenario / example" only.</div>
+
+<h2>5. Ingestion Sequencing</h2>
+<table>
+<tr><th>Phase</th><th>What</th><th>Why first</th></tr>
+<tr><td>1</td><td>Primitives (glossary, compliance phrase bank, proof asset index)</td><td>Unlocks every downstream entry; cheap to write; high leverage</td></tr>
+<tr><td>2</td><td>Cluster A — fee schedule, switching matrix, NAV/T+ rules, distribution mechanics</td><td>Highest moat; reusable across the most surfaced content; powers "I didn't know that" hooks</td></tr>
+<tr><td>3</td><td>Cluster B — tax stacking matrix, PRS withdrawal, self-employed math</td><td>Refresh before each tax season (Jan/Feb); ride seasonal search demand</td></tr>
+<tr><td>4</td><td>Cluster C — factsheet archive, taxonomy, risk-metric glossary</td><td>Quarterly factsheet refresh; serves analytical converts attracted by A + B</td></tr>
+</table>
+
+<h2>6. Hook Extraction Rule (downstream contract)</h2>
+<p>Not part of corpus ingestion itself, but a quality bar for entries: each concept-level entry should contain at least <strong>4 standalone "I didn't know that" facts</strong> — single-claim, single-stat, or single-mechanic surprises. If an entry doesn't yield 4, it isn't technical enough; deepen it or merge with a sibling. This makes <code>content-writer</code>'s ≥30-hook bank achievable.</p>
+
+<h2>7. Proof Discipline</h2>
+<p>Every entry must carry at least one of: a real PMB factsheet reference, an actual fund code worked example, or a prospectus / trust-deed clause citation. No generic "unit trusts in general…" hedging. No stock-photo proof. This is the moat — competitors can write the concept; they can't write the PMB-specific instantiation with verifiable citation.</p>
+
+<h2>8. Out of Scope</h2>
+<ul>
+  <li>Article briefs, hook banks, scripts, carousels, creatives — these are <em>outputs</em> the OS surfaces from corpus; not part of this spec</li>
+  <li>Generic Malaysia UT/PRS content not tied to PMB</li>
+  <li>Content cadence / publishing calendar — separate scheduling concern</li>
+  <li>Corpus storage schema changes (assume current <code>/corpus</code> entry shape accommodates the fields above; spec a schema change separately if not)</li>
+</ul>
+
+<h2>9. Prerequisite — Schema Extension (verified gap)</h2>
+<p>Current <code>/corpus</code> shape (per <code>packages/corpus/src/tools.ts</code>):</p>
+<ul>
+  <li>Fixed <code>Scope</code> enum: <code>compliance | courses | proof</code></li>
+  <li>Markdown files indexed by BM25; language sectioned by <code>## English</code> / <code>## Bahasa Malaysia</code> headers</li>
+  <li>Frontmatter convention exists <strong>only on <code>proof/*.md</code></strong> (<code>persona</code>, <code>quote</code>, <code>attribution</code>, <code>permission_status</code>)</li>
+  <li>No <code>cluster</code>, <code>granularity</code>, or <code>source_type</code> fields anywhere</li>
+</ul>
+<p><strong>Required extension</strong> (chosen approach — least disruption):</p>
+<ul>
+  <li>Keep the three existing scopes as-is (functional roles unchanged)</li>
+  <li>Extend the frontmatter convention <em>universally</em>: every corpus markdown file may carry <code>cluster</code>, <code>granularity</code>, <code>source_type</code>, <code>source_ref</code>, <code>verified_at</code>, <code>related</code></li>
+  <li>Update the reindex pipeline to parse these fields and attach to each <code>Chunk</code></li>
+  <li>Extend <code>SearchInput</code> with optional filters (<code>cluster?</code>, <code>granularity?</code>, <code>source_type?</code>) — post-filter on the loaded chunk metadata, same pattern as the existing <code>scope</code> / <code>lang</code> filter at <code>tools.ts:45</code></li>
+  <li>New entries land in a new top-level dir (e.g. <code>corpus/knowledge/</code>) — or extend the <code>Scope</code> enum to add a <code>knowledge</code> scope. Decide in the implementation plan.</li>
+</ul>
+<p>This is a separate ADR + migration (corpus package + corpus MCP). It must land before ingestion phase 1 of this spec begins.</p>
+
+<h2>10. Resolved Decisions</h2>
+<ul>
+  <li><strong>Authoring:</strong> Claude authors all corpus entries directly. <code>public</code> entries cite real documents (PMB prospectus, factsheets, LHDN, FIMM, SC). <code>synthesized</code> entries are plausible scenario patterns authored from industry knowledge + public UT mechanics, never claimed as real cases.</li>
+  <li><strong>Granularity:</strong> Both <code>concept</code> and <code>fund</code> entries are first-class.</li>
+  <li><strong>Source types:</strong> <code>public</code> and <code>synthesized</code> only. No <code>consultant</code> tag — Claude has no field data, mislabeling would seed compliance risk.</li>
+  <li><strong>Volume target:</strong> Phase 1 primitives + Cluster A ≈ 15 entries; Cluster B ≈ 10; Cluster C ≈ 15 (factsheet-heavy, quick once template exists). ~40 entries total. Plus/minus ±20% acceptable.</li>
+  <li><strong>Language parity:</strong> EN ships first per entry; BM follows as a separate pass and does not block first commit. Frontmatter <code>lang_status</code> tracks <code>en_only</code> | <code>both</code>.</li>
+  <li><strong>Compliance review:</strong> Trust + spot-check for both <code>public</code> and <code>synthesized</code>. No automated source verification. Shoo reviews entries in the PR before merge.</li>
+  <li><strong>Staleness policy:</strong> Out of scope for this spec.</li>
+</ul>
+
+</body>
+</html>

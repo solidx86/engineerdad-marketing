@@ -1,0 +1,67 @@
+{
+  "verified_at": "2026-06-11",
+  "verification_status": "verified",
+  "volatility": "variable",
+  "source": "Per-row citations below. External figures fetched 2026-06-11 from the KWSP i-Invest page (https://www.kwsp.gov.my/en/member/savings/i-invest — kwsp.gov.my returns HTTP 403 to non-browser fetches; loaded via headless browser; sales-charge figures sit in the page's FAQ accordion). Public Mutual channel figures from owned entries corpus/knowledge/a-fee-schedule.md and corpus/knowledge/a-sales-charge-math.md (Public Mutual Master Prospectus dated 28 Aug 2023 with 1st Supplemental dated 3 Dec 2025, pp. 150-160; PEF/PAIF/PWEF/PFES PHS) — owned, not refetched. Age-banded Basic Savings schedule referenced from owned corpus/data/datasets/kwsp-ria-benchmarks.json (KWSP Table 1, verified 2026-06-07).",
+  "notes": "Maximum published sales charge for buying the same family of Public Mutual equity-class unit trust funds through four different channels. The channels are not interchangeable: the agent/branch channel includes a licensed consultant's service (suitability conversation, paperwork, ongoing review); PMO is self-serve with a RM100 e-Series entry minimum; EPF i-Invest is self-serve, restricted to EPF members below 55, capped at 30% of Akaun Persaraan savings ABOVE the member's age-band Basic Savings (minimum RM1,000 per investment, eligibility recalculated every 3 months), and money invested stops earning the EPF annual dividend while it is in the funds. So the chart reads 'the charge buys different things', not 'agents overcharge'. Basis caveat: Public Mutual figures are 'of NAV per unit' (prospectus basis; 5.0% of NAV = 5/105 = 4.7619% of the gross amount paid); KWSP states i-Invest figures as 'per buy transaction'. EPF figures are explicitly 'subject to change by EPF'; Public Mutual rates 'may vary by distributor and campaign period' (owned entry). All volatility 'variable'; figures fetched/verified 2026-06-11 — re-verify before reuse after 2027-06-11.",
+  "data": [
+    {
+      "id": "agent-otc-equity",
+      "channel": "Agent / branch (OTC), Public Series equity funds",
+      "max_sales_charge_pct": 5.0,
+      "basis": "of NAV per unit; = 4.7619% of gross outlay via the prospectus 5/105 formula",
+      "included_in_channel": "Licensed consultant service: suitability conversation, paperwork, fund selection support, ongoing review. Entry minimum RM1,000 (Public Series).",
+      "volatility": "variable",
+      "as_at": "owned entries verified 2026-05-31",
+      "source": "Owned: corpus/knowledge/a-fee-schedule.md ('Up to 5.0% of NAV per unit' for equity/mixed-asset/balanced funds — Master Prospectus p. 150, confirmed in PEF, PAIF, PWEF, PFES PHS) and corpus/knowledge/a-sales-charge-math.md (p. 157 formula: RM10,000 x 5/105 = RM476.19 charge; 'Sales charge rates may also vary by distributor and campaign period')"
+    },
+    {
+      "id": "online-pmo-equity",
+      "channel": "Public Mutual Online (PMO), self-serve incl. e-Series",
+      "max_sales_charge_pct": 5.0,
+      "basis": "of NAV per unit — the prospectus cap is set per fund class, not per channel; the owned prospectus extracts publish no separate online rate",
+      "included_in_channel": "Self-serve. e-Series funds drop the entry minimum to RM100 (vs RM1,000 Public Series) but are PMO-only and the fund range differs from the standard lineup.",
+      "volatility": "variable",
+      "as_at": "owned entries verified 2026-05-31",
+      "source": "Owned: corpus/knowledge/a-fee-schedule.md — the 'Up to 5.0% of NAV per unit' cap (Master Prospectus p. 150) is stated per fund class with no channel-specific online discount in the owned extracts; e-Series RM100 minimum from Public e-Series Master Prospectus p. 60. Actual charged rates may be below the cap by distributor and campaign period (owned corpus/knowledge/a-sales-charge-math.md)"
+    },
+    {
+      "id": "epf-mis-agent",
+      "channel": "EPF-MIS via FMI agent / counter (Akaun Persaraan money)",
+      "max_sales_charge_pct": 3.0,
+      "basis": "KWSP: 'per buy transaction'; Public Mutual prospectus: 'of NAV per unit, as regulated by EPF' — both cap the same channel at 3%",
+      "included_in_channel": "Agent assistance with Form KWSP 9N (AHL); subject to the same i-Invest eligibility formula and caps (row i-invest-eligibility).",
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-11",
+      "source": "KWSP i-Invest page FAQ, verbatim: 'Initial sales charge by FMI is up to 3% per buy transaction (subject to change by EPF).' — column 'Application through FMI's Agent/Counter' (https://www.kwsp.gov.my/en/member/savings/i-invest, fetched 2026-06-11). Corroborated by owned corpus/knowledge/a-fee-schedule.md: 'Investments under the EPF MIS will be levied a sales charge of up to 3% of NAV per unit, as regulated by EPF' (Master Prospectus p. 150)"
+    },
+    {
+      "id": "epf-i-invest",
+      "channel": "EPF i-Invest via KWSP i-Akaun app / web portal (self-serve)",
+      "max_sales_charge_pct": 0.5,
+      "basis": "KWSP: 'per buy transaction'",
+      "included_in_channel": "Fully self-serve: member registers on i-Akaun, picks funds and FMIs alone. Same eligibility formula and caps as EPF-MIS (row i-invest-eligibility); invested amount stops earning the EPF annual dividend while invested.",
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-11",
+      "source": "KWSP i-Invest page FAQ, verbatim: 'Initial sales charge by FMI is up to 0.5% per buy transaction (subject to change by EPF).' — column 'Application through KWSP i-Akaun app or i-Akaun (Member) web portal' (https://www.kwsp.gov.my/en/member/savings/i-invest, fetched 2026-06-11)"
+    },
+    {
+      "id": "i-invest-eligibility",
+      "channel": "EPF i-Invest / EPF-MIS — eligibility and caps (constraint row, not charted)",
+      "max_sales_charge_pct": null,
+      "eligibility": {
+        "who": "Malaysians, Permanent Residents, or non-Malaysians registered as EPF members before 1 Aug 1998; below 55 years of age; sufficient savings in Akaun Persaraan",
+        "formula": "(Akaun Persaraan - Basic Savings) x 30%",
+        "minimum_per_investment_rm": 1000,
+        "eligibility_refresh": "investment eligibility amount updated every 3 months",
+        "top_ups": "members are not allowed to make additional investments using their own funds",
+        "dividend": "amount invested under the scheme is not entitled to EPF's annual dividend",
+        "basic_savings_anchor": "Basic Savings is age-banded, targets RM390,000 at age 60; latest revision effective 1 January 2026, phased in over 5 years at +RM30,000/yr (see owned corpus/data/datasets/kwsp-ria-benchmarks.json for the full age schedule)",
+        "age_55_plus": "members 55+ use the separate Age 55/60 Withdrawal (Investment) — not part of MIS; Akaun 55/Akaun Emas: any amount retaining RM1,000 in the account, Basic Savings requirement not applicable, minimum RM1,000, i-Akaun only"
+      },
+      "volatility": "variable",
+      "as_at": "fetched 2026-06-11",
+      "source": "KWSP i-Invest page, verbatim extracts: 'Up to 30% of the total savings exceeding the Basic Savings in Akaun Persaraan. Eligibility formula: (Akaun Persaraan - Basic Savings) x 30%. Minimum investment amount is RM1,000.'; 'Investment eligibility amount will be updated every 3 months.'; 'Member are not allowed to make additional investments using their own funds.'; 'Amount invested under this scheme is not entitled to EPF's annual dividend.'; 'Basic Savings is a pre-determined amount set according to age in Akaun Persaraan to enable members to achieve a minimum savings of RM390,000 when they reach age 60. ... The latest revision to this quantum takes effect from 1 January 2026.' (https://www.kwsp.gov.my/en/member/savings/i-invest, fetched 2026-06-11)"
+    }
+  ]
+}

@@ -21,7 +21,7 @@ flowchart LR
     class S,B,C,P agent
 ```
 
-One run walks nine stages in fixed order. Outlined stages spawn an agentic cell with genuine decision space; everything else is deterministic code. The three human gates (HG1 briefs · HG2 scripts · HG3 creatives) STOP the loop until a human approves in the review webapp. `/reflect` closes the loop afterward: it grades the cycle's hypotheses and promotes confirmed ones to Learnings for the next run. Full map: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) · visual overview: [`docs/architecture.html`](./docs/architecture.html) (served via GitHub Pages once public).
+One run walks nine stages in fixed order. Outlined stages spawn an agentic cell with genuine decision space; everything else is deterministic code. The three human gates (HG1 briefs · HG2 scripts · HG3 creatives) STOP the loop until a human approves in the review webapp. `/reflect` closes the loop afterward: it grades the cycle's hypotheses and promotes confirmed ones to Learnings for the next run. Full map: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) · visual overview: [`architecture.html`](https://solidx86.github.io/engineerdad-marketing/architecture.html) (rendered via GitHub Pages).
 
 ## What's inside
 

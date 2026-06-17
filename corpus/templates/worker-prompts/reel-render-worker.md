@@ -73,9 +73,27 @@ render every `visual` frame, `Read` each PNG and write evidence-cited QA notes, 
 `{ "frames": [{ "sceneIndex": n, "sceneType": "...", "path": "...", "qa": "..." }], "warnings": [] }`.
 Do NOT upload to HeyGen, do NOT call `generate_reel`, do NOT write the store (skip Steps 3–5).
 
-If `resumeFromJobId` is non-null, a prior worker invocation already submitted the HeyGen render and persisted the jobId before crashing. **Skip Step 4 (submit) and jump to Step 4b (poll)** using that jobId. This is the orphan-recovery path that closes the scar at `packages/orchestrator/src/exec.ts:92`.
+**Resume / idempotency.** Do NOT rely on `resumeFromJobId` from the spawn prompt — it is not populated. Instead, **Step 0 below reads your row** and decides fresh-render vs resume-poll vs already-done from the row's own `renderState` + `reelHeygenJobId`. This is the orphan-recovery path that closes the scar at `packages/orchestrator/src/exec.ts:92`, and it makes a conductor re-spawn idempotent (the B-037 L2 resume relies on it).
 
 ## The procedure
+
+### Step 0. Resume / idempotency self-detect (read your row FIRST)
+
+After hydrating input (your FIRST action above), and before any render work, read your row:
+
+    mcp__store__get({ entity: "CreativeVariants", id: input.id })
+
+Branch on its current `renderState`:
+- `renderState === "Uploaded"` AND `assetFiles` non-empty → ALREADY DONE.
+  Do NOT call HeyGen. Return the success payload using the row's existing
+  `assetFiles` and `reelHeygenJobId`. (This is the idempotent short-circuit
+  for a re-spawn of an already-finished reel — no double HeyGen spend.)
+- `renderState === "HeygenGenerating"` AND `reelHeygenJobId` set → RESUME.
+  Skip Steps 2–4 (build/upload/submit); jump straight to Step 4b (poll) using
+  the row's `reelHeygenJobId`. The job was submitted on a prior pass.
+- otherwise → FRESH RENDER. Proceed to Step 1 normally.
+
+**Skip Step 0 in FRAMES-ONLY MODE** — that harness mode renders frames only and never touches the store.
 
 ### Step 1. Hydrate input
 
@@ -149,7 +167,7 @@ For each rendered visual frame:
 
 Capture `{ url }` per visual scene as `chartUrl[sceneIndex]`.
 
-### Step 4. Submit the multi-scene reel (skip if resumeFromJobId is set)
+### Step 4. Submit the multi-scene reel (skip if Step 0 routed you to RESUME)
 
 Map every scene: `face` → kind:"face"; `visual` → kind:"visual" with
 `chart_url: chartUrl[i]` (full-frame image, VO only).
@@ -168,9 +186,10 @@ Capture `{ jobId }`.
 
 ### Step 4a. Persist jobId BEFORE polling — non-negotiable
 
-    mcp__store__update({ entity: "CreativeVariants", id: input.variantId, props: {
-      reelHeygenJobId: jobId, renderState: "HeygenGenerating",
-      renderStartedAt: new Date().toISOString() } })
+    mcp__store__update({ entity: "CreativeVariants", id: input.id, props: {
+      reelHeygenJobId: jobId, renderState: "HeygenGenerating" } })
+
+**Write to `input.id`** — the row's UUID, NOT `input.variantId` (the 12-hex hash). This was the B-037 root cause: the worker kept writing to the hash, so the update matched zero rows and `assetFiles` never landed. Do NOT send `renderStartedAt` — the store MCP carries JSON, which cannot represent a real `Date`, and a string into that timestamp column is now rejected by the store's prop validation. It is not load-bearing.
 
 Only after this write succeeds do you poll. This is the orphan-recovery invariant (the scar at `packages/orchestrator/src/exec.ts:92` — Step 4a is the only thing standing between you and the orphan-Reel bug).
 
@@ -181,8 +200,9 @@ Only after this write succeeds do you poll. This is the orphan-recovery invarian
 Sleep 10s between polls, max 30 polls (5 min). On `completed`, capture
 `{ videoUrl, subtitleUrl?, durationSeconds? }` and write `renderState: "HeygenCompleted"`.
 On `failed`, follow the failure protocol — do NOT auto-retry. On timeout, leave the
-persisted jobId intact and exit non-zero non-fatally (the next produce pass resumes via
-`resumeFromJobId`).
+persisted jobId + `renderState: "HeygenGenerating"` intact and exit non-zero non-fatally;
+the `P2-render` verify (B-037 L2) holds the stage open and Step 0 self-detect resumes the
+poll on re-entry.
 
 ### Step 5. Download + store the finished MP4
 
@@ -193,12 +213,17 @@ Download `videoUrl` to a temp path (Bash curl), then:
 
 Capture `{ url, sha256 }` and write the terminal row state:
 
-    mcp__store__update({ entity: "CreativeVariants", id: input.variantId, props: {
-      renderState: "Uploaded", assetFiles: [{ url, sha256 }],
-      durationSeconds: durationSeconds ?? null,
-      subtitleUrl: subtitleUrl ?? null } })
+    mcp__store__update({ entity: "CreativeVariants", id: input.id, props: {
+      renderState: "Uploaded",
+      assetFiles: [{ url, sha256 }] } })
+
+Write to `input.id` (the row UUID). `durationSeconds`/`subtitleUrl` are NOT columns — do not write them (the store's prop validation now rejects unknown columns). The orchestrator also persists `assetFiles`+`renderState` authoritatively from your return payload (B-037 L1), so this write and the payload must agree.
 
 ## Return JSON to the orchestrator (claim-check, ADR-022)
+
+Your payload MUST carry a top-level `renderState` and an `assetFiles` of `{ url, sha256 }` objects — the orchestrator reads both to persist the row authoritatively (B-037 L1) and to decide whether the reel resumes (B-037 L2). Three terminal shapes:
+
+**Success** (HeyGen completed, MP4 uploaded):
 
 ```json
 {
@@ -206,21 +231,20 @@ Capture `{ url, sha256 }` and write the terminal row state:
   "scriptId": "<input.scriptId>",
   "format": "Reel",
   "aspect": "9:16",
-  "assetFiles": [{ "url": "<asset-store url>", "kind": "video", "duration": 28.7 }],
-  "durationSeconds": 28.7,
+  "renderState": "Uploaded",
+  "assetFiles": [{ "url": "<asset-store url>", "sha256": "<hex>" }],
   "reelHeygenJobId": "<jobId>",
-  "sceneCuts": [
-    { "atSeconds": 0,    "sceneIndex": 0, "type": "face" },
-    { "atSeconds": 4.2,  "sceneIndex": 1, "type": "visual" },
-    { "atSeconds": 22.1, "sceneIndex": 2, "type": "face" }
-  ],
   "warnings": []
 }
 ```
 
-**Note on `sceneCuts`:** This is **best-effort** — scene order with approximate `atSeconds`
-derived from cumulative `estimatedSeconds` per scene. HeyGen owns the exact cut timestamps
-in the assembled timeline; these values are for reference only.
+**RenderFailed** (HeyGen `status:"failed"`, chart-not-found, or submit-retries exhausted):
+
+```json
+{ "variantId": "<input.variantId>", "renderState": "RenderFailed", "assetFiles": [], "error": "<reason>" }
+```
+
+**Poll-timeout** (you exit non-fatally so a later pass resumes): if you emit any payload, it must NOT carry `assetFiles` and must NOT be `RenderFailed` — leave `renderState` as `"HeygenGenerating"` so the orchestrator classifies the reel as in-flight and resumes it (B-037 L2), rather than treating it as failed.
 
 **Persist and emit only the ref:**
 
@@ -241,7 +265,7 @@ Your final message is then exactly `{ "stepResultId": "<sr_...>" }` and nothing 
 |---|---|
 | HeyGen submit (non-2xx, network error, rate-limit) | Retry up to 3× with exp-backoff (2s, 4s, 8s). On final failure, write `renderState: "RenderFailed"` with `error_message`, return JSON with `error` field, exit non-zero. |
 | HeyGen poll → `status: "failed"` | Write `renderState: "RenderFailed"`. **Do NOT auto-retry** — usually content tripped HeyGen moderation. HG3 reviewer decides whether to discard or regenerate after script edit. |
-| HeyGen poll timeout (5 min) | Persist remains intact (`reelHeygenJobId` + `renderState: "HeygenGenerating"`). Exit non-zero NON-fatally. Next `/produce --run=<id>` pass resumes via the `resumeFromJobId` path (Step 4b). |
+| HeyGen poll timeout (5 min) | Persist remains intact (`reelHeygenJobId` + `renderState: "HeygenGenerating"`). Exit non-zero NON-fatally. The `P2-render` verify (B-037 L2) holds the stage open: the conductor re-spawns this unit (or the next `/produce --run=<id>` pass re-enters the un-advanced `P2-render`), and Step 0 self-detect resumes the job by polling `reelHeygenJobId`. |
 | `visual` data scene names a `chartRef` YAML that doesn't exist | Hard fail: write `RenderFailed`, return JSON with `error: "Chart <ref> not found in corpus/data/charts/"`, exit. This is a creative-director output bug — surface it loud. |
 | `mcp__asset-store__upload` failure | Retry 3× with backoff. On final failure, persist `mp4Path` to `pipelineNotes` for manual recovery — the file is still on disk in workDir. |
 

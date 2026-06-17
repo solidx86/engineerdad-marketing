@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { DB } from "./db.js";
 import { ENTITIES, type EntityName } from "./schema.js";
 import { buildWhere, type Filter } from "./filters.js";
+import { validateProps } from "./validate-props.js";
 
 export interface ComplianceResult {
   ok: boolean;
@@ -67,6 +68,9 @@ export function makeCrud(db: DB, deps: CrudDeps) {
       entity: E,
       props: Record<string, unknown>,
     ): Promise<CreateResult> {
+      const invalid = validateProps(ENTITIES[entity], props);
+      if (invalid.length > 0) return { ok: false, problems: invalid };
+
       const scan = await deps.complianceScan(entity, props);
       if (!scan.ok) return { ok: false, problems: scan.problems };
 
@@ -97,6 +101,9 @@ export function makeCrud(db: DB, deps: CrudDeps) {
       props: Record<string, unknown>,
       opts?: { fillOnlyIfEmpty?: boolean },
     ): Promise<UpdateResult> {
+      const invalid = validateProps(ENTITIES[entity], props);
+      if (invalid.length > 0) return { ok: false, problems: invalid };
+
       const scan = await deps.complianceScan(entity, props);
       if (!scan.ok) return { ok: false, problems: scan.problems };
 

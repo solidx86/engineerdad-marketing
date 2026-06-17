@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { produceStage } from "./produce.js";
-import { type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
+import { produceStage, reelRenderResultsOf, p3PersistCalls, p2RenderVerify } from "./produce.js";
+import { variantId, type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
+import { verifyProduce } from "../verifiers/verify-produce.js";
 import type { BuildContext, RunState, RunStepState } from "../types.js";
 
 /** A spy BuildContext for stage tests. Captures every stageInput call and
@@ -669,5 +670,175 @@ describe("produceStage — Reel pipeline (P1a-reels-prepare + P2-render Reel bra
       });
       expect(reelCall?.tool).toBe("mcp__store__create");  // backward-compatible fallback
     });
+  });
+});
+
+describe("reelRenderResultsOf (L1a)", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+  const p1 = [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }];
+  const reelRun = (p2: unknown[]): RunState =>
+    runWith([doneStep("P1-fanout", p1), doneStep("P2-render", p2)]);
+
+  it("maps a finished reel payload by variantId hash → assetFiles + renderState", () => {
+    const p2 = [
+      { variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] },
+    ];
+    expect(reelRenderResultsOf(reelRun(p2)).get(reelHash)).toEqual({
+      assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }],
+      renderState: "Uploaded",
+    });
+  });
+
+  it("captures a RenderFailed payload with empty assetFiles", () => {
+    const p2 = [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }];
+    expect(reelRenderResultsOf(reelRun(p2)).get(reelHash)).toEqual({
+      assetFiles: [],
+      renderState: "RenderFailed",
+    });
+  });
+
+  it("ignores static payloads (no matching reel hash)", () => {
+    const p2 = [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }];
+    expect(reelRenderResultsOf(reelRun(p2)).size).toBe(0);
+  });
+});
+
+describe("P3-persist reel branch (L1b)", () => {
+  const reelHash = variantId("s1", "Reel", "9:16");
+  const rowUuid = "11111111-1111-1111-1111-111111111111";
+
+  const run = (): RunState =>
+    runWith([
+      doneStep("P1-fanout", fanoutResult()),
+      doneStep("P1a-reels-prepare", [{ ok: true, id: rowUuid }]),
+      doneStep("P2-render", [
+        { variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] },
+      ]),
+    ]);
+
+  it("emits a definitive assetFiles+renderState update (no fillOnlyIfEmpty) to the row UUID", () => {
+    const calls = p3PersistCalls(run());
+    const assetUpdate = calls.find(
+      (c) =>
+        c.tool === "mcp__store__update" &&
+        (c.args as { id?: string }).id === rowUuid &&
+        (c.args as { props?: { assetFiles?: unknown } }).props?.assetFiles !== undefined,
+    );
+    expect(assetUpdate).toBeDefined();
+    const props = (assetUpdate!.args as { props: { assetFiles: unknown; renderState: unknown } }).props;
+    expect(props.assetFiles).toEqual([{ url: "https://r2/x.mp4", sha256: "abc" }]);
+    expect(props.renderState).toBe("Uploaded");
+    expect((assetUpdate!.args as { opts?: { fillOnlyIfEmpty?: boolean } }).opts?.fillOnlyIfEmpty).toBeFalsy();
+  });
+
+  it("still emits a fill-only packaging update that does NOT carry assetFiles", () => {
+    const calls = p3PersistCalls(run());
+    const pkg = calls.find(
+      (c) =>
+        c.tool === "mcp__store__update" &&
+        (c.args as { id?: string }).id === rowUuid &&
+        (c.args as { opts?: { fillOnlyIfEmpty?: boolean } }).opts?.fillOnlyIfEmpty === true,
+    );
+    expect(pkg).toBeDefined();
+    expect((pkg!.args as { props: { assetFiles?: unknown } }).props.assetFiles).toBeUndefined();
+  });
+});
+
+describe("P2-render verify (L2 resume trigger)", () => {
+  const reelHash = variantId("s1", "Reel", "9:16");
+  const run = (): RunState =>
+    runWith([
+      doneStep("P1-fanout", [
+        { scriptId: "s1", creatives: [{ scriptId: "s1", format: "Reel", shotlistEn: [] }] },
+      ]),
+    ]);
+
+  it("passes a finished reel (payload has assetFiles)", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "u", sha256: "s" }] }],
+      true,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("transient-fails an in-flight reel (no assetFiles, HeygenGenerating)", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }],
+      true,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.problems[0]).toMatch(/still rendering|resume|re-run/i);
+  });
+
+  it("passes (flags) a RenderFailed reel — does not loop", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }],
+      true,
+    );
+    expect(r.ok).toBe(true);
+    expect((r.data?.flags as string[] | undefined)?.length).toBeGreaterThan(0);
+  });
+
+  it("passes when the reel pipeline is off", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }],
+      false,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("passes a statics-only fanout result", () => {
+    const r = p2RenderVerify(run(), [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }], true);
+    expect(r.ok).toBe(true);
+  });
+});
+
+describe("B-037 cross-layer reel outcomes", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+
+  const reelVariant = (over: Record<string, unknown>) => ({
+    id: "v_reel",
+    scriptId,
+    format: "Reel",
+    aspect: "9:16",
+    channels: ["Meta-paid"],
+    assetFiles: [],
+    renderState: "",
+    metaSpecComplete: true,
+    organicSpecComplete: true,
+    complianceCheck: true,
+    estCostMyr: 0,
+    organicCaptionEn: "",
+    organicCaptionBm: "",
+    ...over,
+  });
+
+  it("timeout → L2 transient-fails (stage held, never reaches P3/P5)", () => {
+    const r = runWith([
+      doneStep("P1-fanout", [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }]),
+    ]);
+    const v = p2RenderVerify(r, [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }], true);
+    expect(v.ok).toBe(false); // conductor re-spawns / STOPs — P3 never runs
+  });
+
+  it("done → L1 persists assetFiles → L3 passes", () => {
+    const variants = [
+      reelVariant({ assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }], renderState: "Uploaded" }),
+    ];
+    const r = verifyProduce([{ id: scriptId }], variants as never, 0, 1, true);
+    expect(r.problems.some((p) => p.includes("v_reel"))).toBe(false);
+  });
+
+  it("RenderFailed → L3 soft-flags, does not halt", () => {
+    const variants = [reelVariant({ assetFiles: [], renderState: "RenderFailed" })];
+    const r = verifyProduce([{ id: scriptId }], variants as never, 0, 1, true);
+    expect(r.problems.some((p) => p.includes("v_reel"))).toBe(false);
+    expect((r.data?.flags as string[] | undefined)?.some((f) => f.includes("v_reel"))).toBe(true);
   });
 });

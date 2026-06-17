@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B-037 Reel Persistence + Resume — Implementation Plan</title>
+<style>
+  :root { --ink:#1b1f24; --mut:#5c6773; --line:#e2e6ea; --bg:#fff; --code:#f4f6f8; --accent:#1f6feb; }
+  * { box-sizing:border-box; }
+  body { font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); margin:0; padding:0 24px 80px; }
+  .wrap { max-width:940px; margin:0 auto; }
+  h1 { font-size:29px; line-height:1.2; margin:34px 0 6px; }
+  h2 { font-size:21px; margin:38px 0 8px; padding-top:14px; border-top:2px solid var(--line); }
+  h3 { font-size:16px; margin:18px 0 4px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  p, li { color:var(--ink); }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font:13px/1.5 "SF Mono",Menlo,Consolas,monospace; }
+  pre { background:var(--code); padding:14px 16px; border-radius:8px; overflow:auto; font:12.5px/1.55 "SF Mono",Menlo,Consolas,monospace; border:1px solid var(--line); }
+  pre code { background:none; padding:0; }
+  blockquote { margin:12px 0; padding:8px 16px; border-left:4px solid var(--accent); background:#f6f9fe; color:var(--mut); }
+  .task { border:1px solid var(--line); border-radius:8px; padding:6px 18px 16px; margin:18px 0; }
+  .files { background:var(--code); border-radius:6px; padding:8px 14px; margin:10px 0; font-size:14px; }
+  .step { margin:14px 0 4px; font-weight:600; }
+  .step::before { content:"\2610  "; color:var(--accent); }
+  .small { font-size:13px; color:var(--mut); }
+  ul.tight li { margin:3px 0; }
+  hr { border:0; border-top:1px solid var(--line); margin:26px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>B-037 Reel Persistence + Resume — Implementation Plan</h1>
+
+<blockquote><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.</blockquote>
+
+<p><strong>Goal:</strong> Make HeyGen Reels persist their assets reliably and self-heal on poll-timeout, so a Reel can never silently reach HG3 with empty <code>assetFiles</code>.</p>
+
+<p><strong>Architecture:</strong> Four layers. <strong>L1</strong> makes the orchestrator authoritative for reel <code>assetFiles</code> (writes them from the worker payload to the row UUID, killing the id-key mismatch). <strong>L2</strong> adds a <code>verify</code> to the <code>P2-render</code> fanout that holds the stage open on a reel poll-timeout so the engine re-enters and the worker resumes. <strong>L3</strong> adds a <code>verifyProduce</code> backstop that halts before HG3 if a reel claims success with empty assets. <strong>L4</strong> hardens <code>store.update</code>/<code>create</code> to reject unknown/ill-typed props loudly. Resume is worker-self-detected (forced by ADR-024: a stage <code>build</code> may do no I/O except <code>ctx.stageInput</code>).</p>
+
+<p><strong>Tech Stack:</strong> TypeScript, pnpm workspaces, drizzle-orm 0.36.4 (Postgres), vitest, the orchestrator step engine, the HeyGen reel-render-worker prompt.</p>
+
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-06-17-b037-reel-persistence-resume-design.html</code></p>
+
+<h3>Reference facts (verified against the code)</h3>
+<ul class="tight">
+  <li><code>RENDER_STATE</code> enum (<code>schema.ts:69</code>, <code>zod.ts:167</code>): <code>"HeygenGenerating" | "HeygenCompleted" | "Uploaded" | "RenderFailed"</code>. <code>render_state</code> is <code>text</code>, nullable, no default (null for statics / fresh rows).</li>
+  <li><code>creative_variants.asset_files</code> is <code>jsonb</code> typed <code>{ url: string; sha256: string }[]</code>, nullable, no default.</li>
+  <li><code>ReelWorkerInput</code> carries <code>id</code> (row UUID) and <code>variantId</code> (12-hex hash = <code>shared::variantId(scriptId,"Reel","9:16")</code>).</li>
+  <li><code>reelRowIdByVariantId(run)</code> already maps the hash &rarr; row UUID.</li>
+  <li><code>fillOnlyIfEmpty</code> writes a field only when the existing value is <code>null</code>/<code>undefined</code>/<code>""</code> (<code>crud.ts:114</code>).</li>
+  <li>ADR-024 (<code>build-context.ts</code>): a <code>build</code>'s only I/O is <code>ctx.stageInput</code>.</li>
+  <li><code>EDOS_REEL_PIPELINE=on</code> is the kill switch (<code>reelPipelineEnabled()</code>).</li>
+</ul>
+<p><strong>No schema migration</strong> — <code>assetFiles</code>, <code>renderState</code>, <code>reelHeygenJobId</code>, <code>renderStartedAt</code> all exist; the phantom <code>durationSeconds</code>/<code>subtitleUrl</code> keys are removed from the worker, not added.</p>
+<p><strong>Build order rationale:</strong> L4 + worker prompt + L1 (persist) first so reels actually work; then L3 (a true net, not a blanket halt); then L2 (resume). Ordering L3 before L1 would halt every reel run in the interim.</p>
+<p><strong>Test commands:</strong> Pure unit tests run from the repo root, e.g. <code>pnpm vitest run packages/store/src/validate-props.test.ts</code>. No <code>DATABASE_URL</code> needed for Tasks 1–6 (none call <code>truncatePg</code>). Build sequentially: <code>pnpm -r --filter='!@engineerdad/webapp' build</code> (never parallel).</p>
+
+<hr>
+
+<div class="task">
+<h2>Task 1: L4 — <code>store.update</code>/<code>create</code> prop validation</h2>
+<p>Reject props naming a non-existent column (the <code>durationSeconds</code>/<code>subtitleUrl</code> phantom-key class) or writing a string into a timestamp column. Pure helper, unit-tested without a DB, then wired into CRUD.</p>
+<div class="files"><strong>Files:</strong><br>Create: <code>packages/store/src/validate-props.ts</code><br>Create: <code>packages/store/src/validate-props.test.ts</code><br>Modify: <code>packages/store/src/crud.ts</code> (create ~line 66, update ~line 94)</div>
+
+<p class="step">Step 1: Write the failing test — <code>packages/store/src/validate-props.test.ts</code></p>
+<pre><code>import { describe, it, expect } from "vitest";
+import { creativeVariants } from "./schema.js";
+import { validateProps } from "./validate-props.js";
+
+describe("validateProps", () => {
+  it("rejects unknown columns (the B-037 phantom keys)", () => {
+    const problems = validateProps(creativeVariants, {
+      assetFiles: [{ url: "https://x/y.mp4", sha256: "abc" }],
+      durationSeconds: 28.7,
+      subtitleUrl: "https://x/y.vtt",
+    });
+    expect(problems).toContain('unknown column "durationSeconds"');
+    expect(problems).toContain('unknown column "subtitleUrl"');
+  });
+
+  it("accepts real columns", () => {
+    expect(
+      validateProps(creativeVariants, { assetFiles: [], renderState: "Uploaded" }),
+    ).toEqual([]);
+  });
+
+  it("rejects a string written to a timestamp column", () => {
+    const problems = validateProps(creativeVariants, {
+      renderStartedAt: "2026-06-17T00:00:00Z",
+    });
+    expect(problems).toContain('column "renderStartedAt" expects a Date, got string');
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run test to verify it fails</p>
+<p>Run: <code>pnpm vitest run packages/store/src/validate-props.test.ts</code> — Expected: FAIL (cannot resolve <code>./validate-props.js</code>).</p>
+
+<p class="step">Step 3: Write minimal implementation — <code>packages/store/src/validate-props.ts</code></p>
+<pre><code>import { getTableColumns, type Table } from "drizzle-orm";
+
+/**
+ * Validate caller props against a drizzle table's real columns before a write.
+ * Catches the B-037 class: unknown columns (silently dropped by drizzle) and
+ * strings written to timestamp columns (which throw mid-write, corrupting the
+ * row partially). Pure — table + props in, problem strings out.
+ */
+export function validateProps(table: Table, props: Record&lt;string, unknown&gt;): string[] {
+  const columns = getTableColumns(table) as Record&lt;string, { dataType?: string } | undefined&gt;;
+  const problems: string[] = [];
+  for (const [key, value] of Object.entries(props)) {
+    const col = columns[key];
+    if (!col) {
+      problems.push(`unknown column "${key}"`);
+      continue;
+    }
+    if (col.dataType === "date" && typeof value === "string") {
+      problems.push(`column "${key}" expects a Date, got string`);
+    }
+  }
+  return problems;
+}</code></pre>
+
+<p class="step">Step 4: Run test to verify it passes</p>
+<p>Run: <code>pnpm vitest run packages/store/src/validate-props.test.ts</code> — Expected: PASS (3 tests).</p>
+
+<p class="step">Step 5: Wire into <code>crud.ts</code></p>
+<p>Add import: <code>import { validateProps } from "./validate-props.js";</code>. In <code>create</code> and <code>update</code>, insert as the first lines of the body, before the compliance scan:</p>
+<pre><code>      const invalid = validateProps(ENTITIES[entity], props);
+      if (invalid.length &gt; 0) return { ok: false, problems: invalid };
+
+      const scan = await deps.complianceScan(entity, props);
+      if (!scan.ok) return { ok: false, problems: scan.problems };
+      // ...rest unchanged</code></pre>
+
+<p class="step">Step 6: Build the store package</p>
+<p>Run: <code>pnpm -r --filter='@engineerdad/store' build</code> — Expected: clean compile.</p>
+
+<p class="step">Step 7: Commit</p>
+<pre><code>git add packages/store/src/validate-props.ts packages/store/src/validate-props.test.ts packages/store/src/crud.ts
+git commit -m "feat(B-037 L4): validate props against real columns in store create/update
+
+Reject unknown columns (durationSeconds/subtitleUrl phantom keys) and
+string-into-timestamp writes loudly, instead of drizzle silently dropping
+them or throwing mid-write.
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 2: Worker prompt — correct write key, self-detect resume, emit <code>renderState</code></h2>
+<p><code>corpus/templates/worker-prompts/reel-render-worker.md</code> writes its row keyed on <code>input.variantId</code> (hash) instead of <code>input.id</code> (row UUID) — defect A. It also never self-detects resume and omits <code>renderState</code> from its payload. No automated test (instruction file); verified by diff review + empirical re-walk (Task 7).</p>
+<div class="files"><strong>Files:</strong> Modify <code>corpus/templates/worker-prompts/reel-render-worker.md</code></div>
+
+<p class="step">Step 1: Read the regions to edit</p>
+<p>Run: <code>sed -n '74,80p;168,212p;242,246p' corpus/templates/worker-prompts/reel-render-worker.md</code>. Note the current text of: Step 0 resume note (~74–78), Step 4a (~169–175), Step 4b (~177–185), Step 5 (~187–199), the return JSON (~203–212), the timeout row (~244).</p>
+
+<p class="step">Step 2: Fix the write key in Step 4a and Step 5</p>
+<p>Change the <code>mcp__store__update</code> target from <code>id: input.variantId</code> to <code>id: input.id</code> in both. Example (Step 4a):</p>
+<pre><code>    mcp__store__update({ entity: "CreativeVariants", id: input.id, props: {
+      reelHeygenJobId: jobId, renderState: "HeygenGenerating",
+      renderStartedAt: &lt;a real Date, or omit&gt; } })</code></pre>
+<p>If <code>renderStartedAt</code> is written it must be a <code>Date</code>, not a string (Task 1 now rejects a string here). If a <code>Date</code> can't be constructed cleanly, omit <code>renderStartedAt</code> — it is not load-bearing.</p>
+
+<p class="step">Step 3: Remove the phantom keys from Step 5</p>
+<pre><code>    mcp__store__update({ entity: "CreativeVariants", id: input.id, props: {
+      renderState: "Uploaded",
+      assetFiles: [{ url, sha256 }] } })</code></pre>
+<p>Delete the <code>durationSeconds:</code> and <code>subtitleUrl:</code> lines — not columns.</p>
+
+<p class="step">Step 4: Add <code>renderState</code> to the return payload</p>
+<p>Success payload:</p>
+<pre><code>{
+  "variantId": "&lt;input.variantId&gt;",
+  "renderState": "Uploaded",
+  "assetFiles": [{ "url": "&lt;asset-store url&gt;", "sha256": "&lt;hex&gt;" }],
+  "reelHeygenJobId": "&lt;jobId&gt;"
+}</code></pre>
+<p>On RenderFailed:</p>
+<pre><code>{ "variantId": "&lt;input.variantId&gt;", "renderState": "RenderFailed", "assetFiles": [], "error": "&lt;reason&gt;" }</code></pre>
+<p>On poll-timeout: the worker still exits non-fatally; its payload (if any) must NOT carry <code>assetFiles</code> and must NOT be <code>RenderFailed</code> — leave <code>renderState</code> as <code>"HeygenGenerating"</code> so L2 classifies it as in-flight and resumes.</p>
+
+<p class="step">Step 5: Add Step 0 self-detect (resume + idempotent short-circuit)</p>
+<p>Replace the "If <code>resumeFromJobId</code> is non-null…" paragraph with a row-driven Step 0 before Step 1:</p>
+<pre><code>### Step 0. Resume / idempotency self-detect (read your row FIRST)
+
+Before anything else, read your row:
+    mcp__store__get({ entity: "CreativeVariants", id: input.id })
+
+Branch on its current `renderState`:
+- `renderState === "Uploaded"` AND `assetFiles` non-empty -&gt; ALREADY DONE.
+  Do NOT call HeyGen. Return the success payload using the row's existing
+  `assetFiles` and `reelHeygenJobId`. (Idempotent short-circuit for a re-spawn
+  of an already-finished reel — no double HeyGen spend.)
+- `renderState === "HeygenGenerating"` AND `reelHeygenJobId` set -&gt; RESUME.
+  Skip Steps 2–4 (build/upload/submit); jump straight to Step 4b (poll) using
+  the row's `reelHeygenJobId`. The job was submitted on a prior pass.
+- otherwise -&gt; FRESH RENDER. Proceed to Step 1 normally.</code></pre>
+
+<p class="step">Step 6: Correct the stale resume claim (~line 244)</p>
+<pre><code>| HeyGen poll timeout (5 min) | Persist remains intact (`reelHeygenJobId` + `renderState: "HeygenGenerating"`). Exit non-zero NON-fatally. The `P2-render` verify (B-037 L2) holds the stage open: the conductor re-spawns this unit (or the next `/produce --run=&lt;id&gt;` pass re-enters the un-advanced `P2-render`), and Step 0 self-detect resumes the job by polling `reelHeygenJobId`. |</code></pre>
+
+<p class="step">Step 7: Review the diff</p>
+<p>Run: <code>git --no-pager diff corpus/templates/worker-prompts/reel-render-worker.md</code>. Confirm: every <code>store.update</code> keys on <code>input.id</code>; no <code>durationSeconds</code>/<code>subtitleUrl</code>; payload carries <code>renderState</code>; Step 0 present; line 244 corrected.</p>
+
+<p class="step">Step 8: Commit</p>
+<pre><code>git add corpus/templates/worker-prompts/reel-render-worker.md
+git commit -m "fix(B-037 L1/L2): reel worker writes to row UUID, self-detects resume
+
+- store.update keys on input.id (row UUID), not input.variantId (hash)
+- drop phantom durationSeconds/subtitleUrl keys; emit renderState in payload
+- Step 0 reads the row first: short-circuit if Uploaded, resume-poll if
+  HeygenGenerating, else fresh render (idempotent re-spawn, no double spend)
+- correct the now-true 'resumes next pass' timeout claim
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 3: L1a — <code>reelRenderResultsOf</code> extraction helper</h2>
+<p>A pure helper that reads the <code>P2-render</code> payloads and returns, per reel <code>variantId</code> hash, the <code>assetFiles</code> and <code>renderState</code> the worker reported.</p>
+<div class="files"><strong>Files:</strong> Modify <code>packages/orchestrator/src/stages/produce.ts</code> (~line 566); Modify <code>packages/orchestrator/src/stages/produce.test.ts</code></div>
+
+<p class="step">Step 1: Write the failing test (add to produce.test.ts)</p>
+<pre><code>import { describe, it, expect } from "vitest";
+import { reelRenderResultsOf } from "./produce.js";
+import { variantId } from "@engineerdad/shared/derive";
+
+function runWith(p1: unknown, p2: unknown[]): any {
+  return {
+    runId: "run_test", stage: "produce", status: "active", params: {},
+    steps: [
+      { stepId: "P1-fanout", stage: "produce", status: "done", result: p1, problems: [], attempts: 1 },
+      { stepId: "P2-render", stage: "produce", status: "done", result: p2, problems: [], attempts: 1 },
+    ],
+  };
+}
+
+describe("reelRenderResultsOf", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+  const p1 = [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }];
+
+  it("maps a finished reel payload by variantId hash -&gt; assetFiles + renderState", () => {
+    const p2 = [{ variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] }];
+    const out = reelRenderResultsOf(runWith(p1, p2));
+    expect(out.get(reelHash)).toEqual({
+      assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }],
+      renderState: "Uploaded",
+    });
+  });
+
+  it("captures a RenderFailed payload with empty assetFiles", () => {
+    const p2 = [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }];
+    expect(reelRenderResultsOf(runWith(p1, p2)).get(reelHash)).toEqual({
+      assetFiles: [], renderState: "RenderFailed",
+    });
+  });
+
+  it("ignores static payloads (no matching reel hash)", () => {
+    const p2 = [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }];
+    expect(reelRenderResultsOf(runWith(p1, p2)).size).toBe(0);
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run test to verify it fails</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "reelRenderResultsOf"</code> — Expected: FAIL (not exported).</p>
+
+<p class="step">Step 3: Write minimal implementation (just below <code>reelRowIdByVariantId</code>)</p>
+<pre><code>/**
+ * Extract per-reel asset results from the P2-render payloads, keyed by the
+ * deterministic variantId hash. The orchestrator persists these authoritatively
+ * (L1) rather than relying on the worker's own row write. Reel payloads carry a
+ * top-level `assetFiles` + `renderState`; statics carry `scenes`/`rendered` and
+ * are skipped (their hash never matches a reel unit).
+ */
+export function reelRenderResultsOf(
+  run: RunState,
+): Map&lt;string, { assetFiles: { url: string; sha256: string }[]; renderState: string | null }&gt; {
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) =&gt; variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const p2 = stepResult&lt;unknown[]&gt;(run, "P2-render") ?? [];
+  const out = new Map&lt;string, { assetFiles: { url: string; sha256: string }[]; renderState: string | null }&gt;();
+  for (const raw of p2) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try { payload = JSON.parse(payload); } catch { continue; }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue;
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    out.set(vid, {
+      assetFiles: Array.isArray(af) ? (af as { url: string; sha256: string }[]) : [],
+      renderState: typeof rs === "string" ? rs : null,
+    });
+  }
+  return out;
+}</code></pre>
+<p class="small"><code>variantId</code>, <code>RunState</code>, <code>reelUnitsFromP1</code>, <code>stepResult</code> are all already in scope in <code>produce.ts</code>.</p>
+
+<p class="step">Step 4: Run test to verify it passes</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "reelRenderResultsOf"</code> — Expected: PASS (3).</p>
+
+<p class="step">Step 5: Commit</p>
+<pre><code>git add packages/orchestrator/src/stages/produce.ts packages/orchestrator/src/stages/produce.test.ts
+git commit -m "feat(B-037 L1a): reelRenderResultsOf — extract reel assets from P2 payloads
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 4: L1b — persist reel assets authoritatively in <code>P3-persist</code></h2>
+<p>Write <code>assetFiles</code> + <code>renderState</code> definitively from <code>reelRenderResultsOf</code> (not <code>fillOnlyIfEmpty</code>), while keeping packaging fields fill-only so human HG3 edits survive a re-walk.</p>
+<div class="files"><strong>Files:</strong> Modify <code>produce.ts</code> (<code>p3Persist.build</code>, ~lines 582–636); Modify <code>produce.test.ts</code></div>
+
+<p class="step">Step 1: Write the failing test (add to produce.test.ts)</p>
+<pre><code>import { p3PersistCalls } from "./produce.js"; // test seam added in Step 3
+
+describe("P3-persist reel branch (L1b)", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+  const rowUuid = "11111111-1111-1111-1111-111111111111";
+
+  function run(): any {
+    return {
+      runId: "run_test", stage: "produce", status: "active", params: {},
+      steps: [
+        { stepId: "P1-fanout", stage: "produce", status: "done", attempts: 1, problems: [],
+          result: [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [], shotlistBm: [] }] }] },
+        { stepId: "P1a-reels-prepare", stage: "produce", status: "done", attempts: 1, problems: [],
+          result: [{ ok: true, id: rowUuid }] },
+        { stepId: "P2-render", stage: "produce", status: "done", attempts: 1, problems: [],
+          result: [{ variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] }] },
+      ],
+    };
+  }
+
+  it("emits a definitive assetFiles+renderState update (no fillOnlyIfEmpty) to the row UUID", () => {
+    const calls = p3PersistCalls(run());
+    const assetUpdate = calls.find(
+      (c: any) =&gt; c.tool === "mcp__store__update" && c.args.id === rowUuid && c.args.props.assetFiles,
+    );
+    expect(assetUpdate).toBeDefined();
+    expect(assetUpdate.args.props.assetFiles).toEqual([{ url: "https://r2/x.mp4", sha256: "abc" }]);
+    expect(assetUpdate.args.props.renderState).toBe("Uploaded");
+    expect(assetUpdate.args.opts?.fillOnlyIfEmpty).toBeFalsy();
+  });
+
+  it("still emits a fill-only packaging update that does NOT carry assetFiles", () => {
+    const calls = p3PersistCalls(run());
+    const pkg = calls.find(
+      (c: any) =&gt; c.tool === "mcp__store__update" && c.args.id === rowUuid && c.args.opts?.fillOnlyIfEmpty === true,
+    );
+    expect(pkg).toBeDefined();
+    expect(pkg.args.props.assetFiles).toBeUndefined();
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run test to verify it fails</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P3-persist reel branch"</code> — Expected: FAIL (<code>p3PersistCalls</code> not exported).</p>
+
+<p class="step">Step 3: Extract a testable <code>p3PersistCalls</code> seam and implement the reel split</p>
+<p>Replace the <code>p3Persist</code> definition (lines 579–636) with:</p>
+<pre><code>export function p3PersistCalls(run: RunState): { tool: string; args: Record&lt;string, unknown&gt; }[] {
+  const plan = foldCreativePlan(run.runId, stepResult&lt;unknown&gt;(run, "P1-fanout"));
+  const specs = deriveSpecs(plan, renderResultsOf(run));
+  const reelRowIds = reelRowIdByVariantId(run);
+  const reelResults = reelRenderResultsOf(run);
+  return [
+    ...specs.flatMap((v) =&gt; {
+      if (v.format === "Reel") {
+        const id = reelRowIds.get(v.variantId);
+        if (!id) {
+          return [{ tool: "mcp__store__create",
+            args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) } }];
+        }
+        const { assetFiles: _omitAssets, ...packaging } = variantProperties(v, run.runId);
+        const calls: { tool: string; args: Record&lt;string, unknown&gt; }[] = [
+          { tool: "mcp__store__update",
+            args: { entity: "CreativeVariants", id, props: packaging, opts: { fillOnlyIfEmpty: true } } },
+        ];
+        const rr = reelResults.get(v.variantId);
+        if (rr) {
+          const assetProps: Record&lt;string, unknown&gt; = {};
+          if (rr.renderState) assetProps.renderState = rr.renderState;
+          if (rr.assetFiles.length &gt; 0) assetProps.assetFiles = rr.assetFiles;
+          if (Object.keys(assetProps).length &gt; 0) {
+            calls.push({ tool: "mcp__store__update",
+              args: { entity: "CreativeVariants", id, props: assetProps } });
+          }
+        }
+        return calls;
+      }
+      return [{ tool: "mcp__store__create",
+        args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) } }];
+    }),
+    {
+      tool: "mcp__store__query",
+      args: {
+        entity: "AuthorityArticles",
+        filter: { runId: run.runId, approvalStatus: "Approved" },
+        fields: ["titleEn","topic","targetQuery","bodyEn","slug","description","readingTime","keywords","topicTag","ogImageUrl"],
+      },
+    },
+  ];
+}
+
+const p3Persist: StepSpec = {
+  id: "P3-persist",
+  kind: "write",
+  build: (run): Step =&gt; ({ kind: "write", stepId: "P3-persist", calls: p3PersistCalls(run) }),
+};</code></pre>
+
+<p class="step">Step 4: Run test to verify it passes</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P3-persist reel branch"</code> — PASS (2). Whole file also PASS.</p>
+
+<p class="step">Step 5: Commit</p>
+<pre><code>git add packages/orchestrator/src/stages/produce.ts packages/orchestrator/src/stages/produce.test.ts
+git commit -m "feat(B-037 L1b): persist reel assetFiles definitively in P3-persist
+
+Orchestrator writes assetFiles+renderState from the P2 payload to the row
+UUID (definitive, not fillOnlyIfEmpty); packaging stays fill-only. Reels are
+now symmetric with statics; no longer depends on the worker's row write.
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 5: L3 — <code>verifyProduce</code> reel backstop + P5 wiring</h2>
+<p>A reel reaching <code>P5-confirm</code> with empty <code>assetFiles</code> is a <code>halt</code> (unless legitimately <code>RenderFailed</code> → soft flag). Gated by <code>reelPipelineEnabled()</code>.</p>
+<div class="files"><strong>Files:</strong> Modify <code>verify-produce.ts</code> (interface, signature, reel block); Modify <code>verify-produce.test.ts</code>; Modify <code>produce.ts</code> (<code>projectVariant</code>, P5 query fields, the call site)</div>
+
+<p class="step">Step 1: Write the failing test (add to verify-produce.test.ts)</p>
+<pre><code>import { describe, it, expect } from "vitest";
+import { verifyProduce, type ProduceVariant } from "./verify-produce.js";
+
+function reel(over: Partial&lt;ProduceVariant&gt; = {}): ProduceVariant {
+  return {
+    id: "v_reel", scriptId: "scr_1", format: "Reel", aspect: "9:16",
+    channels: ["Meta-paid"], assetFiles: [], renderState: "Uploaded",
+    metaSpecComplete: true, organicSpecComplete: true, complianceCheck: true,
+    estCostMyr: 0, organicCaptionEn: "", organicCaptionBm: "", ...over,
+  };
+}
+
+describe("verifyProduce reel backstop (L3)", () => {
+  const scripts = [{ id: "scr_1" }];
+  function five(reelOver: Partial&lt;ProduceVariant&gt;): ProduceVariant[] {
+    const filler = (format: string, channels: string[]): ProduceVariant =&gt; ({
+      id: `v_${format}`, scriptId: "scr_1", format, aspect: "x", channels,
+      assetFiles: format === "Feed" || format === "Carousel" ? [{ url: "u", sha256: "s" }] : [],
+      renderState: "", metaSpecComplete: true, organicSpecComplete: true,
+      complianceCheck: true, estCostMyr: 0, organicCaptionEn: "", organicCaptionBm: "",
+    });
+    return [
+      reel(reelOver),
+      filler("Feed", ["Meta-paid"]),
+      filler("Carousel", ["Meta-paid"]),
+      filler("Carousel", ["Meta-paid"]),
+      filler("YT-Long", ["YouTube"]),
+    ];
+  }
+
+  it("HALTS an Uploaded reel with empty assetFiles when pipeline is on", () => {
+    const r = verifyProduce(scripts, five({ renderState: "Uploaded", assetFiles: [] }), 0, 1, true);
+    expect(r.ok).toBe(false);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel") && p.includes("B-037"))).toBe(true);
+  });
+
+  it("SOFT-FLAGS (does not halt) a RenderFailed reel with empty assetFiles", () => {
+    const r = verifyProduce(scripts, five({ renderState: "RenderFailed", assetFiles: [] }), 0, 1, true);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel"))).toBe(false);
+    expect((r.data?.flags as string[] | undefined)?.some((f) =&gt; f.includes("v_reel"))).toBe(true);
+  });
+
+  it("passes a reel that has assetFiles", () => {
+    const r = verifyProduce(scripts, five({ renderState: "Uploaded", assetFiles: [{ url: "u", sha256: "s" }] }), 0, 1, true);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel"))).toBe(false);
+  });
+
+  it("does NOT check reels when the pipeline is off", () => {
+    const r = verifyProduce(scripts, five({ renderState: "", assetFiles: [] }), 0, 1, false);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel"))).toBe(false);
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run test to verify it fails</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/verifiers/verify-produce.test.ts -t "reel backstop"</code> — FAIL (4 args / no <code>renderState</code>).</p>
+
+<p class="step">Step 3: Implement — interface, signature, reel block</p>
+<p>(a) Add to <code>ProduceVariant</code> after <code>assetFiles</code>:</p>
+<pre><code>  assetFiles: { url: string; sha256: string }[];
+  renderState: string;</code></pre>
+<p>(b) New signature:</p>
+<pre><code>export function verifyProduce(
+  scripts: ProduceScript[],
+  variants: ProduceVariant[],
+  reportedTotalMyr: number,
+  renderWorkersRan: number,
+  reelPipelineEnabled: boolean,
+): VerifyResult {
+  const problems: string[] = [];
+  const flags: string[] = [];
+  const FORMAT_MATRIX = 5; // Reel, Feed, YT-Long, Carousel x2</code></pre>
+<p>(c) Before the final return, add the reel backstop and fold flags into the result (replace the old <code>return { ok: problems.length === 0, problems };</code>):</p>
+<pre><code>  // B-037 L3: a reel must carry an asset by P5, unless it legitimately failed
+  // to render. Gated by the kill switch — pipeline-off reels are asset-less by
+  // design. Any non-RenderFailed reel with empty assetFiles is stranded.
+  if (reelPipelineEnabled) {
+    for (const v of variants.filter((x) =&gt; x.format === "Reel")) {
+      if (v.assetFiles.length &gt; 0) continue;
+      if (v.renderState === "RenderFailed") {
+        flags.push(`reel ${v.id}: RenderFailed — no asset; review/regenerate at HG3`);
+      } else {
+        problems.push(
+          `reel ${v.id}: empty Asset Files with renderState "${v.renderState}" — reel did not persist (B-037)`,
+        );
+      }
+    }
+  }
+
+  const res: VerifyResult = { ok: problems.length === 0, problems };
+  if (flags.length &gt; 0) res.data = { flags };
+  return res;
+}</code></pre>
+
+<p class="step">Step 4: Run test to verify it passes</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/verifiers/verify-produce.test.ts -t "reel backstop"</code> — PASS (4). Whole file still PASS.</p>
+
+<p class="step">Step 5: Wire P5-confirm (query field, projection, call site) in <code>produce.ts</code></p>
+<p>(a) <code>projectVariant</code> — after the <code>assetFiles</code> line: <code>renderState: str("renderState"),</code></p>
+<p>(b) <code>p5Confirm.build</code> — add <code>"renderState"</code> to the CreativeVariants query <code>fields</code> (after <code>"estimatedCostMyr"</code>).</p>
+<p>(c) <code>p5Confirm.verify</code> — pass the flag:</p>
+<pre><code>    const base = verifyProduce(scripts, variants, reportedTotal, renderWorkersRan, reelPipelineEnabled());</code></pre>
+
+<p class="step">Step 6: Build the orchestrator package</p>
+<p>Run: <code>pnpm -r --filter='@engineerdad/orchestrator' build</code> — clean compile.</p>
+
+<p class="step">Step 7: Commit</p>
+<pre><code>git add packages/orchestrator/src/verifiers/verify-produce.ts packages/orchestrator/src/verifiers/verify-produce.test.ts packages/orchestrator/src/stages/produce.ts
+git commit -m "feat(B-037 L3): verifyProduce halts a stranded reel before HG3
+
+A pipeline-on reel reaching P5 with empty assetFiles halts (renderState
+Uploaded/HeygenGenerating/HeygenCompleted) or soft-flags (RenderFailed).
+P5 query + projection now read renderState.
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 6: L2 — <code>P2-render</code> verify (resume trigger)</h2>
+<p>Statics pass. A reel passes if its payload reports a finished asset or a genuine <code>RenderFailed</code>; an in-flight/timeout reel returns <code>ok:false</code> with a transient-flavoured message so the conductor re-spawns (Step-0 self-detect resumes) or STOPs for a later <code>/produce</code> re-entry.</p>
+<div class="files"><strong>Files:</strong> Modify <code>produce.ts</code> (<code>p2Render</code> — add <code>verify</code>); Modify <code>produce.test.ts</code></div>
+
+<p class="step">Step 1: Write the failing test (add to produce.test.ts)</p>
+<pre><code>import { p2RenderVerify } from "./produce.js"; // test seam added in Step 3
+
+describe("P2-render verify (L2 resume trigger)", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+  const run = (): any =&gt; ({
+    runId: "run_test", stage: "produce", status: "active", params: {},
+    steps: [{ stepId: "P1-fanout", stage: "produce", status: "done", attempts: 1, problems: [],
+      result: [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }] }],
+  });
+
+  it("passes a finished reel (payload has assetFiles)", () => {
+    const r = p2RenderVerify(run(), [{ variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "u", sha256: "s" }] }], true);
+    expect(r.ok).toBe(true);
+  });
+
+  it("transient-fails an in-flight reel (no assetFiles, HeygenGenerating)", () => {
+    const r = p2RenderVerify(run(), [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }], true);
+    expect(r.ok).toBe(false);
+    expect(r.problems[0]).toMatch(/still rendering|resume|re-run/i);
+  });
+
+  it("passes (flags) a RenderFailed reel — does not loop", () => {
+    const r = p2RenderVerify(run(), [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }], true);
+    expect(r.ok).toBe(true);
+    expect((r.data?.flags as string[] | undefined)?.length).toBeGreaterThan(0);
+  });
+
+  it("passes when the reel pipeline is off", () => {
+    const r = p2RenderVerify(run(), [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }], false);
+    expect(r.ok).toBe(true);
+  });
+
+  it("passes a statics-only fanout result", () => {
+    const r = p2RenderVerify(run(), [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }], true);
+    expect(r.ok).toBe(true);
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run test to verify it fails</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P2-render verify"</code> — FAIL (not exported).</p>
+
+<p class="step">Step 3: Implement the verify (add above <code>const p2Render</code>, then attach)</p>
+<pre><code>/**
+ * B-037 L2 — the reel resume trigger. Statics pass (synchronous renders; their
+ * real check is P5). A reel passes when its payload reports a finished asset or
+ * a genuine RenderFailed; an in-flight/timeout reel (no assetFiles, not failed)
+ * transient-fails so the conductor re-spawns (Step-0 self-detect resumes) or
+ * STOPs for a later /produce re-entry. Gated by the kill switch.
+ */
+export function p2RenderVerify(
+  run: RunState,
+  result: unknown,
+  reelPipelineEnabled: boolean,
+): VerifyResult {
+  if (!reelPipelineEnabled) return { ok: true, problems: [] };
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) =&gt; variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const payloads = Array.isArray(result) ? result : [];
+  const problems: string[] = [];
+  const flags: string[] = [];
+  for (const raw of payloads) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try { payload = JSON.parse(payload); } catch { continue; }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue; // statics & non-reels skip
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    if (Array.isArray(af) && af.length &gt; 0) continue; // done
+    if (rs === "RenderFailed") {
+      flags.push(`reel ${vid}: RenderFailed — no asset; review at HG3`);
+      continue;
+    }
+    problems.push(
+      `reel ${vid} still rendering on HeyGen (renderState=${typeof rs === "string" ? rs : "unknown"}); re-run /produce to resume`,
+    );
+  }
+  const res: VerifyResult = { ok: problems.length === 0, problems };
+  if (flags.length &gt; 0) res.data = { flags };
+  return res;
+}</code></pre>
+<p>Attach to <code>p2Render</code> (after <code>build</code> closes, before the object's closing brace):</p>
+<pre><code>  verify: (run, result): VerifyResult =&gt; p2RenderVerify(run, result, reelPipelineEnabled()),</code></pre>
+
+<p class="step">Step 4: Run test to verify it passes</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "P2-render verify"</code> — PASS (5). Whole file PASS.</p>
+
+<p class="step">Step 5: Commit</p>
+<pre><code>git add packages/orchestrator/src/stages/produce.ts packages/orchestrator/src/stages/produce.test.ts
+git commit -m "feat(B-037 L2): P2-render verify holds the stage open on reel timeout
+
+Statics pass; a finished/RenderFailed reel passes; an in-flight reel
+transient-fails so the conductor re-spawns (worker Step-0 self-detect
+resumes) or STOPs for a later /produce re-entry.
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+</div>
+
+<div class="task">
+<h2>Task 7: Integration test, docs, full build</h2>
+<p>Prove the three reel paths through the verify layer, update the tracker, confirm the workspace builds and touched suites pass.</p>
+<div class="files"><strong>Files:</strong> Modify <code>produce.test.ts</code>; Modify <code>docs/TASKS.md</code>; Modify <code>docs/archive/DONE.md</code> (only if closing)</div>
+
+<p class="step">Step 1: Write the cross-layer test (add to produce.test.ts)</p>
+<pre><code>import { verifyProduce } from "../verifiers/verify-produce.js";
+
+describe("B-037 cross-layer reel outcomes", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+
+  it("timeout -&gt; L2 transient-fails (stage held, never reaches P3/P5)", () => {
+    const run: any = { runId: "r", stage: "produce", status: "active", params: {},
+      steps: [{ stepId: "P1-fanout", status: "done", stage: "produce", attempts: 1, problems: [],
+        result: [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }] }] };
+    const v = p2RenderVerify(run, [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }], true);
+    expect(v.ok).toBe(false);
+  });
+
+  it("done -&gt; L3 passes (row has assetFiles)", () => {
+    const variants = [{
+      id: "v_reel", scriptId, format: "Reel", aspect: "9:16", channels: ["Meta-paid"],
+      assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }], renderState: "Uploaded",
+      metaSpecComplete: true, organicSpecComplete: true, complianceCheck: true,
+      estCostMyr: 0, organicCaptionEn: "", organicCaptionBm: "",
+    }];
+    const r = verifyProduce([{ id: scriptId }], variants as any, 0, 1, true);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel"))).toBe(false);
+  });
+
+  it("RenderFailed -&gt; L3 soft-flags, does not halt", () => {
+    const variants = [{
+      id: "v_reel", scriptId, format: "Reel", aspect: "9:16", channels: ["Meta-paid"],
+      assetFiles: [], renderState: "RenderFailed",
+      metaSpecComplete: true, organicSpecComplete: true, complianceCheck: true,
+      estCostMyr: 0, organicCaptionEn: "", organicCaptionBm: "",
+    }];
+    const r = verifyProduce([{ id: scriptId }], variants as any, 0, 1, true);
+    expect(r.problems.some((p) =&gt; p.includes("v_reel"))).toBe(false);
+    expect((r.data?.flags as string[] | undefined)?.some((f) =&gt; f.includes("v_reel"))).toBe(true);
+  });
+});</code></pre>
+
+<p class="step">Step 2: Run the cross-layer test</p>
+<p>Run: <code>pnpm vitest run packages/orchestrator/src/stages/produce.test.ts -t "cross-layer"</code> — PASS (3).</p>
+
+<p class="step">Step 3: Full build of touched packages (sequential — never parallel)</p>
+<p>Run: <code>pnpm -r --filter='@engineerdad/store' --filter='@engineerdad/orchestrator' build</code> — clean compile.</p>
+
+<p class="step">Step 4: Run the touched suites</p>
+<pre><code>pnpm vitest run packages/store/src/validate-props.test.ts
+pnpm vitest run packages/orchestrator/src/verifiers/verify-produce.test.ts
+pnpm vitest run packages/orchestrator/src/stages/produce.test.ts</code></pre>
+<p>Expected: all PASS.</p>
+
+<p class="step">Step 5: Update the tracker</p>
+<p>In <code>docs/TASKS.md</code>, update the B-037 entry: the four layers shipped (L1 persist, L2 resume verify, L3 backstop, L4 prop validation) + the worker write-key fix; defect A + B now self-heal; keep the manual-recovery history; refresh the Status header. Move to <code>docs/archive/DONE.md</code> only after the empirical walk (Step 7) — retain the <code>B-037</code> ID.</p>
+
+<p class="step">Step 6: Commit docs + tests</p>
+<pre><code>git add packages/orchestrator/src/stages/produce.test.ts docs/TASKS.md
+git commit -m "test(B-037): cross-layer reel outcomes + tracker update
+
+Co-Authored-By: Claude Opus 4.8 &lt;noreply@anthropic.com&gt;"
+git push</code></pre>
+
+<p class="step">Step 7: Empirical walk (manual, post-merge gate — not a code step)</p>
+<p>The worker prompt has no automated test. Before closing B-037 in <code>DONE.md</code>, run a real reel <code>/produce</code> with <code>EDOS_REEL_PIPELINE=on</code> on a branch sandbox and confirm: (a) a clean reel lands <code>assetFiles</code> on its row and clears P5; (b) a forced poll-timeout re-enters <code>P2-render</code> on a second <code>/produce --run=&lt;id&gt;</code> and resumes without a second HeyGen submission; (c) a row left empty fails P5 with the B-037 message. Record the runId in the TASKS.md/DONE.md entry — the same evidence the E-004 G4 gate consumes.</p>
+</div>
+
+<hr>
+<h2>Notes for the implementer</h2>
+<ul class="tight">
+  <li><strong>Why two <code>store.update</code> calls for a reel in P3 (Task 4):</strong> <code>fillOnlyIfEmpty</code> writes only when the existing value is null/undefined/"". The skeleton row's <code>assetFiles</code> is null, so it would write once, but on any re-walk a non-empty value would block the refresh. Splitting the definitive asset write out makes the latest render authoritative every pass, while packaging stays fill-only to preserve human HG3 edits.</li>
+  <li><strong>Why the worker fix (Task 2) is required for L2 (Task 6) to be safe:</strong> L2's transient-fail makes the conductor re-spawn the fanout, which re-runs all reel workers. Without Step-0 self-detect, a re-spawned finished reel would re-submit to HeyGen (double spend) and an in-flight reel would start a new job instead of polling. Step-0 self-detect makes the re-spawn idempotent.</li>
+  <li><strong>Out of scope (do not add):</strong> pixel/vision compliance of rendered assets; a build-level "skip Uploaded reels" optimization (forbidden by ADR-024 — the build does no I/O); YT-Long 16:9 (E-004a); carrying reel <code>duration</code> on <code>assetFiles</code> (column type is <code>{url,sha256}[]</code>; revisit as a separate schema decision if a consumer needs it).</li>
+  <li><strong>Reel <code>complianceCheck</code> flag:</strong> unchanged. Banned reel content already fails loudly (the P3 <code>store.update</code> content scan returns <code>{ok:false}</code> → write-step halt). Refreshing the flag on the P3 update is a noted polish, not required here.</li>
+</ul>
+
+</div>
+</body>
+</html>

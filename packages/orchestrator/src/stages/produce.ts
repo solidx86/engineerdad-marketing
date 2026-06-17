@@ -379,6 +379,53 @@ function reelUnitsWithIds(run: RunState): ReelUnitWithId[] {
   return out;
 }
 
+/**
+ * B-037 L2 — the reel resume trigger. Statics pass (synchronous renders; their
+ * real check is P5). A reel passes when its payload reports a finished asset or
+ * a genuine RenderFailed; an in-flight/timeout reel (no assetFiles, not failed)
+ * transient-fails so the conductor re-spawns (Step-0 self-detect resumes) or
+ * STOPs for a later /produce re-entry. Gated by the kill switch.
+ */
+export function p2RenderVerify(
+  run: RunState,
+  result: unknown,
+  reelPipelineEnabled: boolean,
+): VerifyResult {
+  if (!reelPipelineEnabled) return { ok: true, problems: [] };
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) => variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const payloads = Array.isArray(result) ? result : [];
+  const problems: string[] = [];
+  const flags: string[] = [];
+  for (const raw of payloads) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue; // statics & non-reels skip
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    if (Array.isArray(af) && af.length > 0) continue; // done
+    if (rs === "RenderFailed") {
+      flags.push(`reel ${vid}: RenderFailed — no asset; review at HG3`);
+      continue;
+    }
+    problems.push(
+      `reel ${vid} still rendering on HeyGen (renderState=${typeof rs === "string" ? rs : "unknown"}); re-run /produce to resume`,
+    );
+  }
+  const res: VerifyResult = { ok: problems.length === 0, problems };
+  if (flags.length > 0) res.data = { flags };
+  return res;
+}
+
 const p2Render: StepSpec = {
   id: "P2-render",
   kind: "fanout",
@@ -449,6 +496,7 @@ const p2Render: StepSpec = {
       units: [...staticUnits, ...reelUnits],
     };
   },
+  verify: (run, result): VerifyResult => p2RenderVerify(run, result, reelPipelineEnabled()),
 };
 
 // ── P3-persist ───────────────────────────────────────────────────────────
@@ -576,63 +624,134 @@ function reelRowIdByVariantId(run: RunState): Map<string, string> {
   return out;
 }
 
+/**
+ * Extract per-reel asset results from the P2-render payloads, keyed by the
+ * deterministic variantId hash. The orchestrator persists these authoritatively
+ * (B-037 L1) rather than relying on the worker's own row write. Reel payloads
+ * carry a top-level `assetFiles` + `renderState`; statics carry `scenes`/
+ * `rendered` and are skipped (their hash never matches a reel unit).
+ */
+export function reelRenderResultsOf(
+  run: RunState,
+): Map<string, { assetFiles: { url: string; sha256: string }[]; renderState: string | null }> {
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) => variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const p2 = stepResult<unknown[]>(run, "P2-render") ?? [];
+  const out = new Map<
+    string,
+    { assetFiles: { url: string; sha256: string }[]; renderState: string | null }
+  >();
+  for (const raw of p2) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue;
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    out.set(vid, {
+      assetFiles: Array.isArray(af) ? (af as { url: string; sha256: string }[]) : [],
+      renderState: typeof rs === "string" ? rs : null,
+    });
+  }
+  return out;
+}
+
+/**
+ * Build the P3-persist write calls. Exported as a pure seam so the reel
+ * persistence split (B-037 L1b) can be unit-tested without the engine.
+ *
+ * Statics: one `create` each. Reels (with a pre-created P1a row): a fill-only
+ * packaging update (so a re-walk preserves human HG3 edits) PLUS a *definitive*
+ * `{assetFiles, renderState}` update read from the worker's P2 payload via
+ * `reelRenderResultsOf`. The definitive write is what makes the orchestrator —
+ * not the worker's own row write — authoritative for reel assets; it must not
+ * be fill-only, or a re-render could never refresh a non-empty value.
+ */
+export function p3PersistCalls(run: RunState): { tool: string; args: Record<string, unknown> }[] {
+  const plan = foldCreativePlan(run.runId, stepResult<unknown>(run, "P1-fanout"));
+  const specs = deriveSpecs(plan, renderResultsOf(run));
+  const reelRowIds = reelRowIdByVariantId(run);
+  const reelResults = reelRenderResultsOf(run);
+  return [
+    ...specs.flatMap((v) => {
+      if (v.format === "Reel") {
+        const id = reelRowIds.get(v.variantId);
+        if (!id) {
+          // No pre-created row (pipeline off / no reels) — fall back to create.
+          return [
+            {
+              tool: "mcp__store__create",
+              args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
+            },
+          ];
+        }
+        // Packaging fill-only (preserve human HG3 edits on a re-walk); strip
+        // assetFiles so it never rides the fill-only path (where an existing
+        // null/[] would be ambiguous against the worker's real assets).
+        const { assetFiles: _omitAssets, ...packaging } = variantProperties(v, run.runId);
+        const calls: { tool: string; args: Record<string, unknown> }[] = [
+          {
+            tool: "mcp__store__update",
+            args: { entity: "CreativeVariants", id, props: packaging, opts: { fillOnlyIfEmpty: true } },
+          },
+        ];
+        // Definitive asset write from the worker payload (the L1 fix).
+        const rr = reelResults.get(v.variantId);
+        if (rr) {
+          const assetProps: Record<string, unknown> = {};
+          if (rr.renderState) assetProps.renderState = rr.renderState;
+          if (rr.assetFiles.length > 0) assetProps.assetFiles = rr.assetFiles;
+          if (Object.keys(assetProps).length > 0) {
+            calls.push({
+              tool: "mcp__store__update",
+              args: { entity: "CreativeVariants", id, props: assetProps },
+            });
+          }
+        }
+        return calls;
+      }
+      return [
+        {
+          tool: "mcp__store__create",
+          args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
+        },
+      ];
+    }),
+    // Trailing call: the approved AuthorityArticles for P4's article pass.
+    {
+      tool: "mcp__store__query",
+      args: {
+        entity: "AuthorityArticles",
+        filter: { runId: run.runId, approvalStatus: "Approved" },
+        fields: [
+          "titleEn",
+          "topic",
+          "targetQuery",
+          "bodyEn",
+          "slug",
+          "description",
+          "readingTime",
+          "keywords",
+          "topicTag",
+          "ogImageUrl",
+        ],
+      },
+    },
+  ];
+}
+
 const p3Persist: StepSpec = {
   id: "P3-persist",
   kind: "write",
-  build: (run): Step => {
-    const plan = foldCreativePlan(run.runId, stepResult<unknown>(run, "P1-fanout"));
-    const specs = deriveSpecs(plan, renderResultsOf(run));
-    const reelRowIds = reelRowIdByVariantId(run);
-    return {
-      kind: "write",
-      stepId: "P3-persist",
-      calls: [
-        ...specs.map((v) => {
-          // Reel rows pre-created by P1a-reels-prepare: update existing
-          // row with packaging fields, leaving assetFiles / reelHeygenJobId
-          // / renderState (written by the worker) intact via fillOnlyIfEmpty.
-          if (v.format === "Reel") {
-            const id = reelRowIds.get(v.variantId);
-            if (id) {
-              return {
-                tool: "mcp__store__update",
-                args: {
-                  entity: "CreativeVariants",
-                  id,
-                  props: variantProperties(v, run.runId),
-                  opts: { fillOnlyIfEmpty: true },
-                },
-              };
-            }
-          }
-          return {
-            tool: "mcp__store__create",
-            args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
-          };
-        }),
-        // Trailing call: the approved AuthorityArticles for P4's article pass.
-        {
-          tool: "mcp__store__query",
-          args: {
-            entity: "AuthorityArticles",
-            filter: { runId: run.runId, approvalStatus: "Approved" },
-            fields: [
-              "titleEn",
-              "topic",
-              "targetQuery",
-              "bodyEn",
-              "slug",
-              "description",
-              "readingTime",
-              "keywords",
-              "topicTag",
-              "ogImageUrl",
-            ],
-          },
-        },
-      ],
-    };
-  },
+  build: (run): Step => ({ kind: "write", stepId: "P3-persist", calls: p3PersistCalls(run) }),
 };
 
 // ── P4-enrich (Articles pass) ────────────────────────────────────────────
@@ -728,6 +847,7 @@ function projectVariant(row: Record<string, unknown>): ProduceVariant {
     aspect: str("aspect"),
     channels: arr("channels") as string[],
     assetFiles: arr("assetFiles") as { url: string; sha256: string }[],
+    renderState: str("renderState"),
     metaSpecComplete: str("metaPrimaryTextEn").length > 0,
     organicSpecComplete: str("organicCaptionEn").length > 0,
     complianceCheck: row["complianceCheck"] === true,
@@ -768,6 +888,7 @@ const p5Confirm: StepSpec = {
             "organicCaptionBm",
             "complianceCheck",
             "estimatedCostMyr",
+            "renderState",
           ],
         },
       },
@@ -789,7 +910,7 @@ const p5Confirm: StepSpec = {
     const reportedTotal = plan.creatives.reduce((a, c) => a + c.estCostMyr, 0);
     const p2 = stepResult<unknown[]>(run, "P2-render");
     const renderWorkersRan = Array.isArray(p2) ? p2.length : 0;
-    const base = verifyProduce(scripts, variants, reportedTotal, renderWorkersRan);
+    const base = verifyProduce(scripts, variants, reportedTotal, renderWorkersRan, reelPipelineEnabled());
     // ADR-030: chart bindings — chartRef ∈ Script data bindings, concept
     // visuals digit-free (B-038 + B-036), over the CD's CreativePlan scenes.
     const cb = verifyChartBindings(scripts, plan.creatives);

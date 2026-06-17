@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B-037 — Reel persistence + resume (design)</title>
+<style>
+  :root { --ink:#1b1f24; --mut:#5c6773; --line:#e2e6ea; --bg:#fff; --code:#f4f6f8; --accent:#1f6feb; --warn:#b7791f; --bad:#c23b3b; --good:#1f8a4c; }
+  * { box-sizing:border-box; }
+  body { font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); margin:0; padding:0 24px 80px; }
+  .wrap { max-width:920px; margin:0 auto; }
+  h1 { font-size:30px; line-height:1.2; margin:36px 0 6px; }
+  h2 { font-size:22px; margin:40px 0 8px; padding-top:14px; border-top:2px solid var(--line); }
+  h3 { font-size:17px; margin:24px 0 6px; }
+  h4 { font-size:15px; margin:18px 0 4px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  p, li { color:var(--ink); }
+  .meta { color:var(--mut); font-size:14px; margin:0 0 8px; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--code); color:var(--mut); margin-right:6px; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font:13px/1.5 "SF Mono",Menlo,Consolas,monospace; }
+  pre { background:var(--code); padding:14px 16px; border-radius:8px; overflow:auto; font:13px/1.55 "SF Mono",Menlo,Consolas,monospace; border:1px solid var(--line); }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:var(--code); font-weight:600; }
+  blockquote { margin:12px 0; padding:8px 16px; border-left:4px solid var(--accent); background:#f6f9fe; color:var(--mut); }
+  .callout { border:1px solid var(--line); border-left:4px solid var(--warn); background:#fffaf0; padding:10px 16px; border-radius:6px; margin:14px 0; }
+  .callout.bad { border-left-color:var(--bad); background:#fdf3f3; }
+  .callout.good { border-left-color:var(--good); background:#f2fbf5; }
+  .layer { border:1px solid var(--line); border-radius:8px; padding:4px 18px 14px; margin:16px 0; }
+  .layer h3 { margin-top:14px; }
+  .pill { font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; color:#fff; }
+  .pill.l1 { background:#1f6feb; } .pill.l2 { background:#7a3fd6; } .pill.l3 { background:#1f8a4c; } .pill.l4 { background:#b7791f; }
+  ul.tight { margin:6px 0; } ul.tight li { margin:2px 0; }
+  .toc { font-size:14px; background:var(--code); border:1px solid var(--line); border-radius:8px; padding:12px 18px; }
+  .toc a { color:var(--accent); text-decoration:none; }
+  .small { font-size:13px; color:var(--mut); }
+  hr { border:0; border-top:1px solid var(--line); margin:28px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>B-037 — Reel persistence + resume</h1>
+<p class="meta">Design spec · 2026-06-17 · status: <strong>proposed</strong> · ticket <strong>B-037</strong> (P1) · milestone v1.5</p>
+<p>
+  <span class="tag">orchestrator</span><span class="tag">mcp</span><span class="tag">agents</span><span class="tag">store</span>
+</p>
+<p>
+Fixes the two defects that strand HeyGen Reels at HUMAN GATE 3 with empty <code>assetFiles</code>, and makes both
+<em>self-heal</em> rather than require manual <code>psql</code> recovery. Unblocks the E-004 G4 gate (5 production Reels
+through HG3 at &ge;60%), which cannot be reached while every Reel run needs hand-recovery first.
+</p>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li><a href="#problem">Problem</a></li>
+  <li><a href="#root">Root-cause analysis (verified)</a></li>
+  <li><a href="#goals">Goals &amp; non-goals</a></li>
+  <li><a href="#taxonomy">Reel terminal-state taxonomy</a></li>
+  <li><a href="#design">Design — four layers</a></li>
+  <li><a href="#flow">End-to-end data flow</a></li>
+  <li><a href="#edge">Error handling &amp; edge cases</a></li>
+  <li><a href="#compliance">Compliance under the new persist</a></li>
+  <li><a href="#testing">Testing strategy</a></li>
+  <li><a href="#files">Files touched</a></li>
+  <li><a href="#decisions">Decisions resolved &amp; out of scope</a></li>
+</ol>
+</div>
+
+<h2 id="problem">1. Problem</h2>
+<p>
+A HeyGen Reel renders correctly server-side but reaches HG3 showing <em>"no asset generated yet"</em> — its
+CreativeVariants row carries <code>assetFiles: []</code>. Reproduced twice
+(run_1779895374 on 2026-06-01; run_1781193285 on 2026-06-12), each needing a manual <code>psql</code> recovery.
+The ticket splits it into two distinct defects:
+</p>
+<ul>
+  <li><strong>Defect A — persistence gap.</strong> HeyGen completes and the worker's return payload carries the correct
+  <code>assetFiles</code> (public R2 URLs, HTTP 200), yet the row stays <code>assetFiles: []</code>. The loss is in DB
+  persistence, not computation.</li>
+  <li><strong>Defect B — no resume after advance.</strong> On a HeyGen poll-timeout the worker exits non-fatally leaving
+  <code>renderState: HeygenGenerating</code>. But <code>P2-render</code> verifies + advances as soon as the fanout returns
+  refs, so a later <code>plan()</code> returns the HG3 gate and never re-spawns the Reel. The "resumes next pass" promise
+  in <code>reel-render-worker.md:244</code> is false once <code>P2-render</code> has advanced.</li>
+</ul>
+<p class="small">Severity P1 (silent-bug / data-quality class): under-spec output clears automated acceptance and only a human gate catches it.</p>
+
+<h2 id="root">2. Root-cause analysis (verified)</h2>
+
+<h3>2.1 Defect A is an id-key mismatch</h3>
+<p>
+<code>ReelWorkerInput</code> (<code>packages/orchestrator/src/produce/reel-worker-input.ts</code>) carries two identifiers:
+</p>
+<ul class="tight">
+  <li><code>id</code> — the <strong>database UUID</strong> of the row pre-created by <code>P1a-reels-prepare</code>.</li>
+  <li><code>variantId</code> — a deterministic <strong>12-hex-char hash</strong> from <code>shared::variantId(scriptId,"Reel","9:16")</code>.</li>
+</ul>
+<p>
+The worker prompt writes its row keyed on the <em>hash</em> — <code>reel-render-worker.md</code> Step 4a
+(<code>store.update({ id: input.variantId, … })</code>, line&nbsp;171) and Step 5 (line&nbsp;196) — but the row's primary key
+is the <em>UUID</em> (<code>input.id</code>). The update therefore targets a key that is not the row's PK; the
+<code>assetFiles</code>/<code>reelHeygenJobId</code>/<code>renderState</code> write does not land on the pre-created row. This is the
+2026-06-12 "id-mapping" observation, now confirmed against the source. (Phantom keys <code>durationSeconds</code>/<code>subtitleUrl</code>
+that aren't real columns are a real but secondary contributor.)
+</p>
+
+<h3>2.2 The orchestrator already holds what it needs to self-heal A — it just doesn't</h3>
+<p>
+Static variants persist from the <em>worker payload</em>: <code>renderResultsOf()</code> reads <code>assetFiles</code> out of the
+P2 payload, <code>deriveSpecs</code> builds the spec, and <code>P3-persist</code> writes it via <code>store.create</code>. Reels do <em>not</em>:
+<code>P3-persist</code> updates the reel row with <code>fillOnlyIfEmpty: true</code> and <strong>relies on the worker's (mis-keyed) write</strong>
+for <code>assetFiles</code>. But the reel payload carries <code>variantId</code> (the hash), and <code>reelRowIdByVariantId()</code>
+(<code>produce.ts</code>) already maps that hash &rarr; row UUID. So the orchestrator can write <code>assetFiles</code> from the payload
+itself — no worker dependency, symmetric with statics.
+</p>
+
+<h3>2.3 Defect B: resume is doubly broken</h3>
+<ul class="tight">
+  <li><code>reelWorkerInput()</code> never populates <code>resumeFromJobId</code> (it's in the doc's input shape but not in the
+  projection), so the worker's documented "<code>resumeFromJobId</code> non-null &rarr; jump to poll" path is dead.</li>
+  <li>The worker's other resume signal is its own row's <code>reelHeygenJobId</code> — but that was written to the wrong key (§2.1),
+  so it isn't findable at <code>input.id</code>.</li>
+  <li><code>P2-render</code> has <strong>no <code>verify</code></strong> (only <code>P1-fanout</code> does), so a timed-out reel's non-null ref
+  passes <code>defaultVerify</code> and the stage advances, stranding the reel.</li>
+</ul>
+
+<h3 id="adr024">2.4 The binding constraint: ADR-024</h3>
+<div class="callout">
+<code>build-context.ts</code> documents the ADR-024 rule: a <code>StepSpec.build</code>'s <strong>only</strong> permitted I/O is
+<code>ctx.stageInput</code>. A build may not query the store or call other MCPs. <strong>Consequence:</strong> the orchestrator's
+build cannot read row state to selectively re-spawn only pending reels, nor to populate <code>resumeFromJobId</code> from the row.
+Resume must therefore be <strong>worker-self-detected</strong> (the worker reads its own row — which workers are allowed to do),
+and the build stays pure (re-spawns all units; idempotency lives in the worker).
+</div>
+
+<h3>2.5 How the conductor reacts to a failed verify (the lever)</h3>
+<table>
+<tr><th>Step kind</th><th>Where verified</th><th>On <code>ok:false</code></th></tr>
+<tr><td><code>write</code> (e.g. P5-confirm)</td><td>inside <code>plan()</code> eager loop (<code>eager.ts</code>)</td><td>synthesizes a <code>halt</code> &rarr; conductor STOPs. No re-spawn.</td></tr>
+<tr><td><code>fanout</code> (e.g. P2-render)</td><td>conductor calls <code>mcp__orchestrator__verify</code></td><td>per <code>loop.md</code> §4: transient &rarr; re-spawn <strong>once</strong> &amp; re-verify; structural / still-failing &rarr; STOP.</td></tr>
+</table>
+<p class="small">
+<code>verify</code> and <code>advance</code> are decoupled MCP tools; the engine never auto-advances on a pass. This is what lets a
+<code>P2-render</code> verify "hold the stage open."
+</p>
+
+<h2 id="goals">3. Goals &amp; non-goals</h2>
+<h4>Goals</h4>
+<ul class="tight">
+  <li>Defect A self-heals: a completed reel's <code>assetFiles</code> always reach the row, persisted authoritatively by the orchestrator.</li>
+  <li>Defect B self-heals: a poll-timeout reel resumes (re-polls its existing HeyGen job) on the next pass and finishes — no manual recovery, no double HeyGen spend.</li>
+  <li>A reel can never silently reach HG3 claiming success with empty <code>assetFiles</code> — that becomes a loud <code>halt</code>.</li>
+  <li>A genuinely failed reel (HeyGen moderation reject, etc.) flows to HG3 <em>flagged</em>, without halting the stage or looping forever.</li>
+</ul>
+<h4>Non-goals</h4>
+<ul class="tight">
+  <li>Pixel/vision compliance of rendered assets (covered by the text-scan + human HG3 posture; see §8). Out of scope.</li>
+  <li>The narrative-flow / composition coherence concern (that is B-039).</li>
+  <li>YT-Long 16:9 (E-004a) — this spec is Reel 9:16 only.</li>
+  <li>A build-level "skip already-Uploaded reels" optimization (forbidden by ADR-024; handled by worker idempotency instead).</li>
+</ul>
+
+<h2 id="taxonomy">4. Reel terminal-state taxonomy</h2>
+<p>Every layer keys off three reel outcomes. Making this explicit is the backbone of the design.</p>
+<table>
+<tr><th>Outcome</th><th>Row signal</th><th>Payload signal</th><th>L2 (P2 verify)</th><th>L3 (P5 verify)</th></tr>
+<tr>
+  <td><strong>Done</strong></td>
+  <td><code>Uploaded</code> + non-empty <code>assetFiles</code></td>
+  <td><code>assetFiles</code> present</td>
+  <td>pass</td>
+  <td>pass</td>
+</tr>
+<tr>
+  <td><strong>In-flight / timeout</strong></td>
+  <td><code>HeygenGenerating</code> (+ <code>reelHeygenJobId</code>), empty <code>assetFiles</code></td>
+  <td>no <code>assetFiles</code>, no terminal error</td>
+  <td><strong>transient-fail &rarr; resume</strong></td>
+  <td>halt (should not reach P5 if L2 held; backstop)</td>
+</tr>
+<tr>
+  <td><strong>Genuine failure</strong></td>
+  <td><code>RenderFailed</code>, empty <code>assetFiles</code></td>
+  <td><code>renderState:"RenderFailed"</code> / <code>error</code></td>
+  <td>pass (flagged; do not loop)</td>
+  <td>pass (soft flag to HG3)</td>
+</tr>
+</table>
+<p class="callout bad">
+<strong>The defect-A case</strong> — <code>Uploaded</code> with empty <code>assetFiles</code> — is the one outcome that must be impossible
+to ship: L3 treats it as a hard <code>halt</code>. After L1 it should never occur; L3 is the net.
+</p>
+
+<h2 id="design">5. Design — four layers</h2>
+
+<div class="layer">
+<h3><span class="pill l1">L1</span> Orchestrator-authoritative reel persist (kills defect A at the source)</h3>
+<p><strong>Where:</strong> <code>P3-persist</code> in <code>packages/orchestrator/src/stages/produce.ts</code>; <code>reel-render-worker.md</code>.</p>
+<ul class="tight">
+  <li>Extend <code>renderResultsOf()</code> (or a reel sibling) to extract <code>assetFiles</code> from each <strong>reel payload</strong>,
+  mapping <code>payload.variantId</code> (hash) &rarr; row UUID via the existing <code>reelRowIdByVariantId()</code>.</li>
+  <li><code>P3-persist</code> writes those <code>assetFiles</code> + <code>renderState</code> to the reel row <strong>definitively</strong>
+  (not <code>fillOnlyIfEmpty</code> for these fields). Packaging fields keep <code>fillOnlyIfEmpty</code> so human HG3 edits survive.
+  Reels become symmetric with statics.</li>
+  <li>Worker-prompt fix (belt &amp; suspenders, and required for resume): Step 4a / Step 5 key on <code>input.id</code> (the UUID), not
+  <code>input.variantId</code>; drop the phantom <code>durationSeconds</code>/<code>subtitleUrl</code> keys (or add columns — see L4); and
+  emit <code>renderState</code> in the return payload for all three terminal outcomes.</li>
+</ul>
+</div>
+
+<div class="layer">
+<h3><span class="pill l2">L2</span> <code>P2-render</code> verify = the resume trigger (engine-native, ADR-024-safe)</h3>
+<p><strong>Where:</strong> new <code>verify</code> on <code>p2Render</code> in <code>produce.ts</code>; <code>reel-render-worker.md</code> Step 0.</p>
+<ul class="tight">
+  <li>Add a <code>verify</code> to <code>p2Render</code> reading per-unit payloads. Statics always pass (synchronous renders — no async phase
+  to wait on; their real check is P5). Per reel, apply the §4 taxonomy: <em>Done</em> &rarr; pass; <em>Genuine failure</em> &rarr; pass
+  (flagged); <em>In-flight/timeout</em> &rarr; <code>ok:false</code> with a transient-flavoured message.</li>
+  <li><code>ok:false</code> &rarr; per <code>loop.md</code> §4 the conductor re-spawns the fanout <strong>once</strong> and re-verifies. If the job
+  has since finished, the resumed worker returns <code>assetFiles</code> &rarr; pass &rarr; advance. If still generating, STOP with
+  <em>"reel still rendering — re-run /produce"</em>. The human re-runs; <code>plan()</code> re-enters the un-advanced <code>P2-render</code>
+  and resumes. No new step kind.</li>
+  <li><strong>Resume is worker-self-detected (§2.4).</strong> The build re-spawns all reel units; each worker's Step 0 reads its own row by
+  <code>input.id</code>: <code>Uploaded</code> + <code>assetFiles</code> &rarr; short-circuit return (no HeyGen call); <code>HeygenGenerating</code> +
+  <code>reelHeygenJobId</code> &rarr; jump to poll (Step 4b) with that job — no new submission, no double-spend; otherwise fresh render. The
+  write-key fix (L1) is what makes the jobId findable at <code>input.id</code>.</li>
+</ul>
+</div>
+
+<div class="layer">
+<h3><span class="pill l3">L3</span> <code>verifyProduce</code> backstop (the loud guardrail / A3)</h3>
+<p><strong>Where:</strong> <code>packages/orchestrator/src/verifiers/verify-produce.ts</code>; <code>P5-confirm</code> query + <code>projectVariant</code> in <code>produce.ts</code>.</p>
+<ul class="tight">
+  <li>Today <code>isStatic</code> (line 56) excludes reels from the empty-<code>assetFiles</code> check. Extend coverage to reels, gated by
+  <code>reelPipelineEnabled()</code> (consistent with the <code>P1-fanout</code> verify gate) so pipeline-off runs — where reels are asset-less
+  by design — are unaffected.</li>
+  <li>Rule: a reel <strong>fails verify (halt)</strong> if it has empty <code>assetFiles</code> <em>and</em> <code>renderState &notin; {RenderFailed}</code>
+  (i.e. it claims <code>Uploaded</code> or is stuck <code>HeygenGenerating</code>). A <code>RenderFailed</code> reel with empty <code>assetFiles</code> is
+  legitimate &rarr; allowed through as a <strong>soft flag</strong> (<code>data.flags</code>) for the human at HG3.</li>
+  <li>Add <code>renderState</code> to the <code>P5-confirm</code> CreativeVariants query and to the <code>ProduceVariant</code> projection (it is not read today).</li>
+</ul>
+</div>
+
+<div class="layer">
+<h3><span class="pill l4">L4</span> <code>store.update</code> validation + doc correction (defense in depth)</h3>
+<p><strong>Where:</strong> <code>packages/store/src/crud.ts</code>; <code>reel-render-worker.md:244</code>.</p>
+<ul class="tight">
+  <li><code>create</code>/<code>update</code> currently pass caller props straight to drizzle (<code>crud.ts:118</code>) with no validation: unknown
+  columns are silently dropped, ill-typed values throw mid-write (partial corruption). Validate props against the table's real columns and
+  reject unknown / ill-typed keys with a clear error, so the next bug of this class surfaces loudly instead of silently losing data — for every
+  entity, not just reels.</li>
+  <li>Decide the phantom keys: either add <code>duration_seconds</code> / <code>subtitle_url</code> columns to CreativeVariants, or remove them from
+  the worker prompt. (Leaning: drop from the prompt — duration already rides inside <code>assetFiles[].duration</code>; subtitle isn't consumed downstream yet.)</li>
+  <li>Correct <code>reel-render-worker.md:244</code>: the "resumes next pass" claim becomes true under L1+L2 — update the comment to match reality.</li>
+</ul>
+</div>
+
+<h2 id="flow">6. End-to-end data flow</h2>
+<h4>Happy path</h4>
+<pre>P1a-reels-prepare  create skeleton reel row (PK = UUID), complianceCheck stamped
+P2-render (fanout) reel worker: submit HeyGen → write jobId+HeygenGenerating to row[input.id]
+                   → poll → download → upload → return payload{ assetFiles, renderState:Uploaded }
+   L2 verify       payload has assetFiles → pass (statics pass trivially) → advance
+P3-persist (L1)    map payload.variantId → row UUID; write assetFiles+renderState definitively
+P5-confirm (L3)    re-query rows incl. renderState; every in-scope reel has assetFiles → ok
+P6-gate            HG3</pre>
+<h4>Timeout path</h4>
+<pre>P2-render          reel worker times out → row stays HeygenGenerating(+jobId), payload has no assetFiles
+   L2 verify       ok:false (transient) → conductor re-spawns fanout once
+                   resumed worker reads row[input.id] → jobId present → jump to poll → job done → upload
+   L2 re-verify    payload now has assetFiles → pass → advance
+   (if STILL generating after the one retry → STOP "re-run /produce";
+    human re-run → plan() re-enters un-advanced P2-render → resume → done)
+P3/P5              as happy path</pre>
+<h4>Genuine-failure path</h4>
+<pre>P2-render          HeyGen status:failed → worker writes RenderFailed, returns {error}
+   L2 verify       RenderFailed → pass (flagged), do NOT loop → advance
+P3-persist         reel row stays RenderFailed, empty assetFiles
+P5-confirm (L3)    empty assetFiles + RenderFailed → soft flag (NOT halt) → HG3 shows it flagged
+                   human discards or regenerates after script edit</pre>
+
+<h2 id="edge">7. Error handling &amp; edge cases</h2>
+<table>
+<tr><th>Case</th><th>Handling</th></tr>
+<tr><td>Reel pipeline OFF (<code>EDOS_REEL_PIPELINE</code> unset)</td><td>No reel rows pre-created; L2 sees only statics (pass); L3 reel check gated off. Existing asset-less-reel-to-HG3 behaviour preserved.</td></tr>
+<tr><td>Double HeyGen spend on re-spawn</td><td>Prevented by worker Step-0 self-detect: an <code>Uploaded</code> reel short-circuits; a <code>HeygenGenerating</code> reel re-polls its existing job (no new <code>generate_reel</code>).</td></tr>
+<tr><td>Re-spawn re-renders all statics</td><td><strong>Accepted tradeoff of holding P2 open</strong>: static results aren't persisted until P3, so a P2 re-entry re-renders them. Statics are local HTML&rarr;PNG (no API cost, deterministic, idempotent). The conductor's single auto-retry usually finishes the reel within the same pass, so re-entry is the exception. Future optimization noted in §10, kept out of scope.</td></tr>
+<tr><td>HeyGen genuinely slower than worker-timeout + one retry</td><td>STOP at P2 with a clear message; human re-runs <code>/produce</code> later &rarr; un-advanced P2 re-enters &rarr; resume. Matches the (now-true) "resumes next pass" doctrine.</td></tr>
+<tr><td>Payload has <code>assetFiles</code> but row write fails at P3</td><td>L3 at P5 reads the <em>row</em>; empty + non-<code>RenderFailed</code> &rarr; halt. Loud, not silent.</td></tr>
+<tr><td>Variant-count matrix</td><td>A <code>RenderFailed</code> reel row still exists (count = 5), so <code>verifyProduce</code>'s 5-per-script matrix check is unaffected.</td></tr>
+</table>
+
+<h2 id="compliance">8. Compliance under the new persist</h2>
+<p>
+Compliance is a <strong>text scan at the persist boundary</strong>: <code>store.create</code>/<code>update</code> run
+<code>complianceScan(entity, props)</code> before writing and reject on <code>!ok</code> (<code>crud.ts:70</code>, <code>:100</code>); the
+scan walks text fields including the stringified <code>shotlistEn/Bm</code> that becomes the on-frame text. The render-stage verifies
+(L2, P5) are <em>not</em> the compliance owner. So "statics always pass L2" weakens nothing.
+</p>
+<p class="callout">
+<strong>Reel-flag honesty (design note).</strong> Reels are <code>create</code>d as a near-empty skeleton at P1a (so
+<code>complianceCheck</code> is stamped on empty content), then updated with real content at P3. <code>store.update</code> re-runs the
+scan and rejects banned content, but does <strong>not</strong> refresh the <code>complianceCheck</code> flag. Under L1, P3 still updates the
+reel row, so this stays true. Two acceptable resolutions, to pick during planning: (a) refresh <code>complianceCheck</code> on the P3 reel
+update from the content scan; or (b) re-scan reel content at P5. Either keeps the flag meaningful. A banned-content reel already fails loudly
+today (the P3 update returns <code>{ok:false}</code> &rarr; write-step halt), so this is correctness-polish, not a hole.
+</p>
+<p class="small">
+The text-scan-vs-rendered-pixels seam (a worker could bake on-frame text diverging from the scanned shotlist; only the human HG3 catches that)
+is the system's existing accepted posture and is explicitly <strong>out of scope</strong> for B-037 (closer to E-033/E-037 critic-in-produce).
+File separately if it should be tracked.
+</p>
+
+<h2 id="testing">9. Testing strategy</h2>
+<p>TDD — each layer gets a red test first. All DB-touching tests run against an <code>_test</code> / sandbox DB per the project guard.</p>
+<table>
+<tr><th>Layer</th><th>Red test</th></tr>
+<tr><td>L3</td><td><code>verify-produce.test.ts</code>: feed a reel <code>{ renderState:"Uploaded", assetFiles:[] }</code> with pipeline enabled &rarr; assert <code>ok:false</code>. And <code>{ renderState:"RenderFailed", assetFiles:[] }</code> &rarr; assert <code>ok:true</code> + a flag. And pipeline-off &rarr; assert no reel halt.</td></tr>
+<tr><td>L2</td><td><code>produce.test.ts</code>: P2 verify over a payload set — Done payload &rarr; pass; timeout payload (no assetFiles, no error) &rarr; <code>ok:false</code> transient; RenderFailed payload &rarr; pass+flag; statics-only &rarr; pass.</td></tr>
+<tr><td>L1</td><td><code>produce.test.ts</code>: given a P2 reel payload with <code>assetFiles</code>, assert P3-persist emits a definitive <code>store.update</code> to the row UUID resolved via <code>reelRowIdByVariantId</code> (not a <code>fillOnlyIfEmpty</code> no-op).</td></tr>
+<tr><td>L4</td><td><code>crud.test.ts</code>: <code>update</code> with an unknown column &rarr; assert it returns <code>{ok:false}</code> / throws a clear error rather than silently dropping. Ill-typed timestamp &rarr; rejected pre-write.</td></tr>
+<tr><td>Integration</td><td>An engine integration test that walks P2&rarr;P3&rarr;P5 with (i) a clean reel, (ii) a timeout-then-resume reel (re-spawn returns assetFiles), (iii) a RenderFailed reel — asserting halt/advance/flag outcomes.</td></tr>
+<tr><td>Worker prompt</td><td>No automated test for the prompt; verify by reading the diff (Step 0 self-detect, Step 4a/5 key = <code>input.id</code>, return payload carries <code>renderState</code>). Empirically re-walk a real reel produce once code lands.</td></tr>
+</table>
+
+<h2 id="files">10. Files touched</h2>
+<ul class="tight">
+  <li><code>packages/orchestrator/src/stages/produce.ts</code> — L1 (reel persist from payload), L2 (P2 verify), L3 (P5 query + projection add <code>renderState</code>).</li>
+  <li><code>packages/orchestrator/src/verifiers/verify-produce.ts</code> — L3 (reel <code>assetFiles</code> rule + <code>renderState</code> on <code>ProduceVariant</code>).</li>
+  <li><code>packages/store/src/crud.ts</code> — L4 (prop validation on create/update).</li>
+  <li><code>corpus/templates/worker-prompts/reel-render-worker.md</code> — L1 (key = <code>input.id</code>, drop phantom keys, emit <code>renderState</code>), L2 (Step-0 self-detect + short-circuit), L4 (correct line 244).</li>
+  <li>Test files: <code>verify-produce.test.ts</code>, <code>produce.test.ts</code>, <code>crud.test.ts</code>, an engine integration test.</li>
+  <li>Possibly <code>packages/orchestrator/src/produce/reel-worker-input.ts</code> if we choose to surface <code>renderState</code>/resume hints (likely not needed — worker reads the row directly).</li>
+</ul>
+<p class="small">No schema migration unless L4 opts to add <code>duration_seconds</code>/<code>subtitle_url</code> columns (current lean: drop the keys instead, so no migration).</p>
+
+<h2 id="decisions">11. Decisions resolved &amp; out of scope</h2>
+<h4>Resolved</h4>
+<ul class="tight">
+  <li><strong>B mechanism = verify-hold on P2-render (L2), not a dedicated post-advance resume step.</strong> Engine-native: reuses the
+  existing fanout re-spawn + "first not-done step re-enters" mechanic; no new step kind or gate-check plumbing.</li>
+  <li><strong>Resume is worker-self-detected, not build-populated</strong> — forced by ADR-024 (build I/O = <code>stageInput</code> only).</li>
+  <li><strong>A self-heals via orchestrator-authoritative persist (L1)</strong>, not by re-persisting through a HeyGen re-poll. The asset is
+  already in the payload; just write it to the right row.</li>
+  <li><strong>Genuine failures flow to HG3 flagged</strong>, distinct from timeouts which resume.</li>
+</ul>
+<h4>Out of scope</h4>
+<ul class="tight">
+  <li>Pixel/vision compliance of rendered assets (§8).</li>
+  <li>A build-level "skip Uploaded reels / re-render no statics" optimization — blocked by ADR-024; worker idempotency covers correctness, the
+  static re-render cost is local-only and bounded.</li>
+  <li>YT-Long 16:9 (E-004a); B-039 narrative-flow.</li>
+</ul>
+
+<hr>
+<p class="small">Once approved, this proceeds to an implementation plan via the writing-plans skill (HTML + MD per repo convention). Suggested build order (the plan finalizes it): <strong>L1 + L4</strong> foundation (reels actually persist; the write layer stops swallowing data) &rarr; <strong>L3</strong> backstop (now a true net, not a blanket halt) &rarr; <strong>L2</strong> resume — each TDD'd against the red tests above. Ordering L3 before L1 would halt every reel run in the interim, so persist lands first.</p>
+
+</div>
+</body>
+</html>

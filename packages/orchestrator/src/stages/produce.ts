@@ -616,63 +616,94 @@ export function reelRenderResultsOf(
   return out;
 }
 
+/**
+ * Build the P3-persist write calls. Exported as a pure seam so the reel
+ * persistence split (B-037 L1b) can be unit-tested without the engine.
+ *
+ * Statics: one `create` each. Reels (with a pre-created P1a row): a fill-only
+ * packaging update (so a re-walk preserves human HG3 edits) PLUS a *definitive*
+ * `{assetFiles, renderState}` update read from the worker's P2 payload via
+ * `reelRenderResultsOf`. The definitive write is what makes the orchestrator —
+ * not the worker's own row write — authoritative for reel assets; it must not
+ * be fill-only, or a re-render could never refresh a non-empty value.
+ */
+export function p3PersistCalls(run: RunState): { tool: string; args: Record<string, unknown> }[] {
+  const plan = foldCreativePlan(run.runId, stepResult<unknown>(run, "P1-fanout"));
+  const specs = deriveSpecs(plan, renderResultsOf(run));
+  const reelRowIds = reelRowIdByVariantId(run);
+  const reelResults = reelRenderResultsOf(run);
+  return [
+    ...specs.flatMap((v) => {
+      if (v.format === "Reel") {
+        const id = reelRowIds.get(v.variantId);
+        if (!id) {
+          // No pre-created row (pipeline off / no reels) — fall back to create.
+          return [
+            {
+              tool: "mcp__store__create",
+              args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
+            },
+          ];
+        }
+        // Packaging fill-only (preserve human HG3 edits on a re-walk); strip
+        // assetFiles so it never rides the fill-only path (where an existing
+        // null/[] would be ambiguous against the worker's real assets).
+        const { assetFiles: _omitAssets, ...packaging } = variantProperties(v, run.runId);
+        const calls: { tool: string; args: Record<string, unknown> }[] = [
+          {
+            tool: "mcp__store__update",
+            args: { entity: "CreativeVariants", id, props: packaging, opts: { fillOnlyIfEmpty: true } },
+          },
+        ];
+        // Definitive asset write from the worker payload (the L1 fix).
+        const rr = reelResults.get(v.variantId);
+        if (rr) {
+          const assetProps: Record<string, unknown> = {};
+          if (rr.renderState) assetProps.renderState = rr.renderState;
+          if (rr.assetFiles.length > 0) assetProps.assetFiles = rr.assetFiles;
+          if (Object.keys(assetProps).length > 0) {
+            calls.push({
+              tool: "mcp__store__update",
+              args: { entity: "CreativeVariants", id, props: assetProps },
+            });
+          }
+        }
+        return calls;
+      }
+      return [
+        {
+          tool: "mcp__store__create",
+          args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
+        },
+      ];
+    }),
+    // Trailing call: the approved AuthorityArticles for P4's article pass.
+    {
+      tool: "mcp__store__query",
+      args: {
+        entity: "AuthorityArticles",
+        filter: { runId: run.runId, approvalStatus: "Approved" },
+        fields: [
+          "titleEn",
+          "topic",
+          "targetQuery",
+          "bodyEn",
+          "slug",
+          "description",
+          "readingTime",
+          "keywords",
+          "topicTag",
+          "ogImageUrl",
+        ],
+      },
+    },
+  ];
+}
+
 const p3Persist: StepSpec = {
   id: "P3-persist",
   kind: "write",
-  build: (run): Step => {
-    const plan = foldCreativePlan(run.runId, stepResult<unknown>(run, "P1-fanout"));
-    const specs = deriveSpecs(plan, renderResultsOf(run));
-    const reelRowIds = reelRowIdByVariantId(run);
-    return {
-      kind: "write",
-      stepId: "P3-persist",
-      calls: [
-        ...specs.map((v) => {
-          // Reel rows pre-created by P1a-reels-prepare: update existing
-          // row with packaging fields, leaving assetFiles / reelHeygenJobId
-          // / renderState (written by the worker) intact via fillOnlyIfEmpty.
-          if (v.format === "Reel") {
-            const id = reelRowIds.get(v.variantId);
-            if (id) {
-              return {
-                tool: "mcp__store__update",
-                args: {
-                  entity: "CreativeVariants",
-                  id,
-                  props: variantProperties(v, run.runId),
-                  opts: { fillOnlyIfEmpty: true },
-                },
-              };
-            }
-          }
-          return {
-            tool: "mcp__store__create",
-            args: { entity: "CreativeVariants", props: variantProperties(v, run.runId) },
-          };
-        }),
-        // Trailing call: the approved AuthorityArticles for P4's article pass.
-        {
-          tool: "mcp__store__query",
-          args: {
-            entity: "AuthorityArticles",
-            filter: { runId: run.runId, approvalStatus: "Approved" },
-            fields: [
-              "titleEn",
-              "topic",
-              "targetQuery",
-              "bodyEn",
-              "slug",
-              "description",
-              "readingTime",
-              "keywords",
-              "topicTag",
-              "ogImageUrl",
-            ],
-          },
-        },
-      ],
-    };
-  },
+  build: (run): Step => ({ kind: "write", stepId: "P3-persist", calls: p3PersistCalls(run) }),
 };
 
 // ── P4-enrich (Articles pass) ────────────────────────────────────────────

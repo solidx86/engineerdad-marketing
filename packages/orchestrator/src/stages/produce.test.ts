@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { produceStage, reelRenderResultsOf } from "./produce.js";
+import { produceStage, reelRenderResultsOf, p3PersistCalls } from "./produce.js";
 import { variantId, type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
 import type { BuildContext, RunState, RunStepState } from "../types.js";
 
@@ -700,5 +700,46 @@ describe("reelRenderResultsOf (L1a)", () => {
   it("ignores static payloads (no matching reel hash)", () => {
     const p2 = [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }];
     expect(reelRenderResultsOf(reelRun(p2)).size).toBe(0);
+  });
+});
+
+describe("P3-persist reel branch (L1b)", () => {
+  const reelHash = variantId("s1", "Reel", "9:16");
+  const rowUuid = "11111111-1111-1111-1111-111111111111";
+
+  const run = (): RunState =>
+    runWith([
+      doneStep("P1-fanout", fanoutResult()),
+      doneStep("P1a-reels-prepare", [{ ok: true, id: rowUuid }]),
+      doneStep("P2-render", [
+        { variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] },
+      ]),
+    ]);
+
+  it("emits a definitive assetFiles+renderState update (no fillOnlyIfEmpty) to the row UUID", () => {
+    const calls = p3PersistCalls(run());
+    const assetUpdate = calls.find(
+      (c) =>
+        c.tool === "mcp__store__update" &&
+        (c.args as { id?: string }).id === rowUuid &&
+        (c.args as { props?: { assetFiles?: unknown } }).props?.assetFiles !== undefined,
+    );
+    expect(assetUpdate).toBeDefined();
+    const props = (assetUpdate!.args as { props: { assetFiles: unknown; renderState: unknown } }).props;
+    expect(props.assetFiles).toEqual([{ url: "https://r2/x.mp4", sha256: "abc" }]);
+    expect(props.renderState).toBe("Uploaded");
+    expect((assetUpdate!.args as { opts?: { fillOnlyIfEmpty?: boolean } }).opts?.fillOnlyIfEmpty).toBeFalsy();
+  });
+
+  it("still emits a fill-only packaging update that does NOT carry assetFiles", () => {
+    const calls = p3PersistCalls(run());
+    const pkg = calls.find(
+      (c) =>
+        c.tool === "mcp__store__update" &&
+        (c.args as { id?: string }).id === rowUuid &&
+        (c.args as { opts?: { fillOnlyIfEmpty?: boolean } }).opts?.fillOnlyIfEmpty === true,
+    );
+    expect(pkg).toBeDefined();
+    expect((pkg!.args as { props: { assetFiles?: unknown } }).props.assetFiles).toBeUndefined();
   });
 });

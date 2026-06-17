@@ -65,10 +65,6 @@ Plus two finished AI-avatar video Reels (HeyGen multi-scene assembly, word-timed
 
 Not pictured: HG1 (12 message-angle briefs reviewed the same way) and the per-run distribution audit trail (every target × channel decision persisted as `routed`/`skipped` with reason).
 
-## Stack at a glance
-
-TypeScript / Node 20 · pnpm workspaces · Postgres 16 + Drizzle · Next.js 15 · Claude Code (agents, slash commands, MCP) · Meta Marketing API · HeyGen · Cloudflare R2.
-
 ## How this was built
 
 Most of the code in this repo was written by AI agents — Claude Code is both the runtime *and* the authoring tool. That is the point, not a disclosure footnote: my engineering is everything that makes agent-written code safe to run unattended against a real, regulated business.
@@ -78,21 +74,6 @@ Most of the code in this repo was written by AI agents — Claude Code is both t
 - **The review surface.** Every external write stops at a human gate; the open bug log in [`TASKS.md`](./docs/TASKS.md) is the unedited engineering record — including the failures the verifiers caught.
 
 I designed the system, wrote the doctrine, reviewed the output, and operate the gates. The agents typed most of the code. Knowing how to make that division of labor *safe and productive* is the skill this repo demonstrates.
-
-## License & reuse
-
-Source-available for portfolio/hiring review only — see [`LICENSE`](./LICENSE). All rights reserved — the marketing corpus, brand doctrine, and code are published for reading, not reuse. No license is granted to copy or operate this system.
-
-## Disclaimer
-
-A personal technical portfolio project supporting a licensed consultant's own practice. It is **not affiliated with, endorsed by, or sponsored by Public Mutual Berhad**; "Public Mutual" and related marks belong to their respective owner. Fund figures in the grounding corpus are illustrative — derived from public Monthly Fund Report snapshots for demonstration, they change over time and are **not investment advice**; verify against the current Public Mutual factsheets before any use. Generated marketing creatives are illustrative samples.
-
----
-
-**Current architecture:** [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
-**Open work:** [`TASKS.md`](./docs/TASKS.md)  •  **Architectural decisions:** [`docs/decisions/`](./docs/decisions/)
-
-v1 is built end-to-end on Claude Code as the authoring substrate, designed to promote later to the Claude Agent SDK (cron) and Cowork (team) without rewrite.
 
 ## Day-1 setup checklist
 
@@ -106,14 +87,6 @@ v1 is built end-to-end on Claude Code as the authoring substrate, designed to pr
 8. `pnpm review` — start the webapp at http://localhost:3030.
 9. Drop grounding files into `corpus/compliance/`, `corpus/courses/`, `corpus/proof/`.
 10. Restart Claude Code so it picks up `.claude/settings.json` MCP registrations.
-
-## Resuming on another machine
-
-Cloning elsewhere follows the **same steps as Day-1 setup** above, with three differences:
-
-- **Restore `.env` yourself** — it's gitignored, so copy it across (or rebuild from `.env.example`). Optionally bring `.claude/settings.local.json` for your per-machine permission allowlist (also gitignored).
-- **The corpus index travels** — `corpus/.index/` **is** committed, so you can skip dropping fresh grounding files (step 9).
-- **The data volume doesn't** — `data/postgres/pgdata/` (entity data, orchestrator state, analytics history) is **not** committed, so the clone starts with empty tables; `store:up && db:migrate` (steps 6–7) is the only way in.
 
 ## Repo map
 
@@ -154,4 +127,26 @@ scripts/                    # Bootstrap + maintenance scripts
 
 ## Stack
 
-TypeScript / Node 20 / pnpm 9 workspaces. Postgres 16-alpine in Docker — one DB, three schemas (`public` entities, `orchestrator` run state, `analytics` signals/bandit) via Drizzle ORM end-to-end (ADR-025). Next.js 15 App Router + server actions for the webapp. Meta Marketing API is the primary paid-channel integration, alongside HeyGen (avatar video), YouTube, Cloudflare R2, and a cross-repo site handoff. Bilingual EN / Bahasa Malaysia on every artifact. Humans gate every external write.
+TypeScript / Node 20 · pnpm 9 workspaces · Postgres 16 + Drizzle · Next.js 15 · Claude Code (agents · slash commands · MCP) · Meta Marketing API · HeyGen · Cloudflare R2.
+
+- **Language & tooling** — TypeScript on Node 20; pnpm 9 workspaces (monorepo).
+- **Data** — Postgres 16-alpine in Docker — one DB, three schemas (`public` entities · `orchestrator` run state · `analytics` signals/bandit) via Drizzle ORM end-to-end (ADR-025).
+- **Webapp** — Next.js 15 App Router + server actions — the human-gate review UI on port 3030.
+- **Agent runtime** — Claude Code: subagents, slash commands, and 15 custom stdio MCP servers.
+- **External integrations** — Meta Marketing API (primary paid channel), HeyGen (avatar video), YouTube, Cloudflare R2, and a cross-repo handoff to the website repo.
+- **Cross-cutting** — bilingual EN / Bahasa Malaysia on every artifact; humans gate every external write.
+
+---
+
+**Current architecture:** [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+**Open work:** [`TASKS.md`](./docs/TASKS.md)  •  **Architectural decisions:** [`docs/decisions/`](./docs/decisions/)
+
+v1 is built end-to-end on Claude Code as the authoring substrate, designed to promote later to the Claude Agent SDK (cron) and Cowork (team) without rewrite.
+
+## License & reuse
+
+Source-available for portfolio/hiring review only — see [`LICENSE`](./LICENSE). All rights reserved — the marketing corpus, brand doctrine, and code are published for reading, not reuse. No license is granted to copy or operate this system.
+
+## Disclaimer
+
+A personal technical portfolio project supporting a licensed consultant's own practice. It is **not affiliated with, endorsed by, or sponsored by Public Mutual Berhad**; "Public Mutual" and related marks belong to their respective owner. Fund figures in the grounding corpus are illustrative — derived from public Monthly Fund Report snapshots for demonstration, they change over time and are **not investment advice**; verify against the current Public Mutual factsheets before any use. Generated marketing creatives are illustrative samples.

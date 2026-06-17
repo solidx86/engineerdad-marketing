@@ -379,6 +379,53 @@ function reelUnitsWithIds(run: RunState): ReelUnitWithId[] {
   return out;
 }
 
+/**
+ * B-037 L2 — the reel resume trigger. Statics pass (synchronous renders; their
+ * real check is P5). A reel passes when its payload reports a finished asset or
+ * a genuine RenderFailed; an in-flight/timeout reel (no assetFiles, not failed)
+ * transient-fails so the conductor re-spawns (Step-0 self-detect resumes) or
+ * STOPs for a later /produce re-entry. Gated by the kill switch.
+ */
+export function p2RenderVerify(
+  run: RunState,
+  result: unknown,
+  reelPipelineEnabled: boolean,
+): VerifyResult {
+  if (!reelPipelineEnabled) return { ok: true, problems: [] };
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) => variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const payloads = Array.isArray(result) ? result : [];
+  const problems: string[] = [];
+  const flags: string[] = [];
+  for (const raw of payloads) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue; // statics & non-reels skip
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    if (Array.isArray(af) && af.length > 0) continue; // done
+    if (rs === "RenderFailed") {
+      flags.push(`reel ${vid}: RenderFailed — no asset; review at HG3`);
+      continue;
+    }
+    problems.push(
+      `reel ${vid} still rendering on HeyGen (renderState=${typeof rs === "string" ? rs : "unknown"}); re-run /produce to resume`,
+    );
+  }
+  const res: VerifyResult = { ok: problems.length === 0, problems };
+  if (flags.length > 0) res.data = { flags };
+  return res;
+}
+
 const p2Render: StepSpec = {
   id: "P2-render",
   kind: "fanout",
@@ -449,6 +496,7 @@ const p2Render: StepSpec = {
       units: [...staticUnits, ...reelUnits],
     };
   },
+  verify: (run, result): VerifyResult => p2RenderVerify(run, result, reelPipelineEnabled()),
 };
 
 // ── P3-persist ───────────────────────────────────────────────────────────

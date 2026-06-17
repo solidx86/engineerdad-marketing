@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { produceStage, reelRenderResultsOf, p3PersistCalls } from "./produce.js";
+import { produceStage, reelRenderResultsOf, p3PersistCalls, p2RenderVerify } from "./produce.js";
 import { variantId, type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
 import type { BuildContext, RunState, RunStepState } from "../types.js";
 
@@ -741,5 +741,58 @@ describe("P3-persist reel branch (L1b)", () => {
     );
     expect(pkg).toBeDefined();
     expect((pkg!.args as { props: { assetFiles?: unknown } }).props.assetFiles).toBeUndefined();
+  });
+});
+
+describe("P2-render verify (L2 resume trigger)", () => {
+  const reelHash = variantId("s1", "Reel", "9:16");
+  const run = (): RunState =>
+    runWith([
+      doneStep("P1-fanout", [
+        { scriptId: "s1", creatives: [{ scriptId: "s1", format: "Reel", shotlistEn: [] }] },
+      ]),
+    ]);
+
+  it("passes a finished reel (payload has assetFiles)", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "u", sha256: "s" }] }],
+      true,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("transient-fails an in-flight reel (no assetFiles, HeygenGenerating)", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }],
+      true,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.problems[0]).toMatch(/still rendering|resume|re-run/i);
+  });
+
+  it("passes (flags) a RenderFailed reel — does not loop", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }],
+      true,
+    );
+    expect(r.ok).toBe(true);
+    expect((r.data?.flags as string[] | undefined)?.length).toBeGreaterThan(0);
+  });
+
+  it("passes when the reel pipeline is off", () => {
+    const r = p2RenderVerify(
+      run(),
+      [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }],
+      false,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("passes a statics-only fanout result", () => {
+    const r = p2RenderVerify(run(), [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }], true);
+    expect(r.ok).toBe(true);
   });
 });

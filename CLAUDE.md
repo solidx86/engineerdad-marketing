@@ -12,7 +12,7 @@ A closed-loop "Marketing OS" of 7 subsystems (Data → Intelligence → Executio
 |---|---|
 | `docs/ARCHITECTURE.md` | Current architecture — source of truth for the system as built. |
 | `docs/TASKS.md` | Open work and build status — **open items only**. |
-| `docs/archive/DONE.md` | Closed bugs/enhancements (retain their ID) + shipped-milestone history. |
+| `docs/archive/DONE.md` | **Archived/frozen (2026-06-17) — read-only history; never edit.** Past closed bugs/enhancements + shipped-milestone history. |
 | `docs/decisions/` | ADRs — see `docs/ARCHITECTURE.md` § *Where doctrine lives*. |
 | `.claude/agents/*.md`, `.claude/commands/*.md` | The runtime surface — 6 subagents (4 agentic cells + `render-worker` + `chart-author`), 14 slash commands. |
 | `.mcp.json` | MCP server registry. |
@@ -72,4 +72,4 @@ HTML: inline styles only (no external CSS), must render correctly when opened di
 
 - **Architectural change** (new MCP server, stage, agent, or storage layout) → update `docs/ARCHITECTURE.md`; keep this file's big-picture summary in sync.
 - **Bug or enhancement uncovered** → open a new entry in `docs/TASKS.md`.
-- **Work ships / ticket closes** → close the entry in `docs/TASKS.md`, refresh the Status header.
+- **Work ships / ticket closes** → mark the entry done (or remove it) in `docs/TASKS.md` and refresh the Status header. **Do not move it to `docs/archive/DONE.md` — that file is archived/frozen.**

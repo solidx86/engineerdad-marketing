@@ -576,6 +576,46 @@ function reelRowIdByVariantId(run: RunState): Map<string, string> {
   return out;
 }
 
+/**
+ * Extract per-reel asset results from the P2-render payloads, keyed by the
+ * deterministic variantId hash. The orchestrator persists these authoritatively
+ * (B-037 L1) rather than relying on the worker's own row write. Reel payloads
+ * carry a top-level `assetFiles` + `renderState`; statics carry `scenes`/
+ * `rendered` and are skipped (their hash never matches a reel unit).
+ */
+export function reelRenderResultsOf(
+  run: RunState,
+): Map<string, { assetFiles: { url: string; sha256: string }[]; renderState: string | null }> {
+  const reelHashes = new Set(
+    reelUnitsFromP1(run).map((u) => variantId(u.scriptId, "Reel", "9:16")),
+  );
+  const p2 = stepResult<unknown[]>(run, "P2-render") ?? [];
+  const out = new Map<
+    string,
+    { assetFiles: { url: string; sha256: string }[]; renderState: string | null }
+  >();
+  for (const raw of p2) {
+    let payload: unknown = raw;
+    if (typeof payload === "string" && payload.trimStart().startsWith("{")) {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        continue;
+      }
+    }
+    if (payload === null || typeof payload !== "object") continue;
+    const vid = (payload as { variantId?: unknown }).variantId;
+    if (typeof vid !== "string" || !reelHashes.has(vid)) continue;
+    const af = (payload as { assetFiles?: unknown }).assetFiles;
+    const rs = (payload as { renderState?: unknown }).renderState;
+    out.set(vid, {
+      assetFiles: Array.isArray(af) ? (af as { url: string; sha256: string }[]) : [],
+      renderState: typeof rs === "string" ? rs : null,
+    });
+  }
+  return out;
+}
+
 const p3Persist: StepSpec = {
   id: "P3-persist",
   kind: "write",

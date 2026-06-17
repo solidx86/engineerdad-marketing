@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { produceStage } from "./produce.js";
-import { type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
+import { produceStage, reelRenderResultsOf } from "./produce.js";
+import { variantId, type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
 import type { BuildContext, RunState, RunStepState } from "../types.js";
 
 /** A spy BuildContext for stage tests. Captures every stageInput call and
@@ -669,5 +669,36 @@ describe("produceStage — Reel pipeline (P1a-reels-prepare + P2-render Reel bra
       });
       expect(reelCall?.tool).toBe("mcp__store__create");  // backward-compatible fallback
     });
+  });
+});
+
+describe("reelRenderResultsOf (L1a)", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+  const p1 = [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }];
+  const reelRun = (p2: unknown[]): RunState =>
+    runWith([doneStep("P1-fanout", p1), doneStep("P2-render", p2)]);
+
+  it("maps a finished reel payload by variantId hash → assetFiles + renderState", () => {
+    const p2 = [
+      { variantId: reelHash, renderState: "Uploaded", assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }] },
+    ];
+    expect(reelRenderResultsOf(reelRun(p2)).get(reelHash)).toEqual({
+      assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }],
+      renderState: "Uploaded",
+    });
+  });
+
+  it("captures a RenderFailed payload with empty assetFiles", () => {
+    const p2 = [{ variantId: reelHash, renderState: "RenderFailed", assetFiles: [], error: "moderation" }];
+    expect(reelRenderResultsOf(reelRun(p2)).get(reelHash)).toEqual({
+      assetFiles: [],
+      renderState: "RenderFailed",
+    });
+  });
+
+  it("ignores static payloads (no matching reel hash)", () => {
+    const p2 = [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }];
+    expect(reelRenderResultsOf(reelRun(p2)).size).toBe(0);
   });
 });

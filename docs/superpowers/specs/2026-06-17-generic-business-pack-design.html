@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design — Generic Business Pack (forkable Marketing OS)</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 6rem;
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1c2230; background: #f6f7f9;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+  header.doc {
+    background: linear-gradient(135deg, #16243f 0%, #243b63 100%);
+    color: #eef2f8; padding: 40px 0 30px; margin-bottom: 32px;
+    border-bottom: 4px solid #c9962f;
+  }
+  header.doc h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.01em; }
+  header.doc .sub { color: #b9c6dd; font-size: 15px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 18px; font-size: 13px; color: #cdd8ea; }
+  .meta b { color: #fff; font-weight: 600; }
+  h2 {
+    font-size: 21px; margin: 40px 0 6px; padding-top: 14px;
+    border-top: 1px solid #e2e6ec; color: #16243f; letter-spacing: -0.01em;
+  }
+  h2 .n { color: #c9962f; font-weight: 700; margin-right: 8px; }
+  h3 { font-size: 16px; margin: 22px 0 4px; color: #2a3a57; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  code, pre {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13.5px;
+  }
+  code { background: #eceff3; padding: 1px 5px; border-radius: 4px; color: #1f3a5f; }
+  pre {
+    background: #16243f; color: #e7edf6; padding: 16px 18px; border-radius: 8px;
+    overflow-x: auto; line-height: 1.5; font-size: 13px; margin: 12px 0;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th, td { border: 1px solid #dde2e9; padding: 8px 11px; text-align: left; vertical-align: top; }
+  th { background: #eef1f6; font-weight: 600; color: #243b63; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .callout { border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 14.5px; }
+  .key { background: #fff8e8; border: 1px solid #e9cf8f; }
+  .warn { background: #fdeeee; border: 1px solid #e6b3b0; }
+  .ok { background: #ecf7ee; border: 1px solid #aed9b6; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; vertical-align: middle; }
+  .p1 { background: #243b63; color: #fff; }
+  .p2 { background: #c9962f; color: #1c1206; }
+  .own-pack { color: #9a3a2f; font-weight: 600; }
+  .own-eng { color: #1f6a3e; font-weight: 600; }
+  .own-brand { color: #8a5a14; font-weight: 600; }
+  .tag { font-size: 12px; color: #6b7686; }
+  .filelist code { font-size: 12.5px; }
+  footer.doc { margin-top: 48px; padding-top: 18px; border-top: 1px solid #e2e6ec; color: #6b7686; font-size: 13px; }
+  .toc { background: #fff; border: 1px solid #e2e6ec; border-radius: 8px; padding: 14px 20px; margin-bottom: 8px; }
+  .toc ol { columns: 2; column-gap: 32px; margin: 4px 0 0; }
+  .toc a { color: #243b63; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header class="doc">
+  <div class="wrap">
+    <h1>Generic Business Pack — making the Marketing OS forkable</h1>
+    <div class="sub">Separating the business-agnostic engine from a swappable per-business pack, so one fork = one business.</div>
+    <div class="meta">
+      <span><b>Date:</b> 2026-06-17</span>
+      <span><b>Status:</b> Draft — awaiting review</span>
+      <span><b>Author:</b> Claude Code (brainstorming session)</span>
+      <span><b>Owner:</b> Shoo Kyuk Wei</span>
+      <span><b>Type:</b> Architecture / refactor</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="toc">
+    <strong>Contents</strong>
+    <ol>
+      <li><a href="#context">Context &amp; problem</a></li>
+      <li><a href="#decisions">Framing decisions</a></li>
+      <li><a href="#goals">Goals &amp; non-goals</a></li>
+      <li><a href="#boundary">The engine ↔ pack boundary</a></li>
+      <li><a href="#config">The <code>BusinessConfig</code> schema</a></li>
+      <li><a href="#dehardcode">De-hardcode inventory</a></li>
+      <li><a href="#identity">Identity neutralization</a></li>
+      <li><a href="#corpus">The corpus</a></li>
+      <li><a href="#language">Language: slot-based bilingual</a></li>
+      <li><a href="#phasing">Phasing</a></li>
+      <li><a href="#testing">Testing strategy</a></li>
+      <li><a href="#errors">Validation &amp; error handling</a></li>
+      <li><a href="#touchpoints">Touch-point inventory</a></li>
+      <li><a href="#scope">Scope boundaries (YAGNI)</a></li>
+      <li><a href="#risks">Risks &amp; open questions</a></li>
+    </ol>
+  </div>
+
+  <h2 id="context"><span class="n">1</span>Context &amp; problem</h2>
+  <p>
+    The repo is a closed-loop "Marketing OS" — a nine-stage loop (tracking → analytics → synthesize →
+    brief → content → produce → schedule → experiment → distribute) driven by an orchestrator state machine,
+    four agentic cells, and ~15 stdio MCP servers over deterministic <code>packages/</code> libraries.
+    The <em>engine</em> (orchestrator, store, analytics, MCP adapters, render pipeline) is already largely
+    domain-agnostic. The <em>business</em> — EngineerDad, a Public Mutual unit-trust + PRS consultancy for
+    Malaysian parents — is coupled into the codebase in four places:
+  </p>
+  <ol>
+    <li><strong>The corpus</strong> (<code>corpus/</code>) — compliance, courses, proof, knowledge, data, brand templates. Nearly all EngineerDad content.</li>
+    <li><strong>Config/infra identifiers</strong> — the <code>engineerdad</code> live-DB name, the <code>@engineerdad/*</code> package scope across 22 packages, <code>.env</code>, <code>.mcp.json</code>, <code>docker-compose.yml</code>, <code>package.json</code>.</li>
+    <li><strong>Baked-in enums</strong> — <code>PersonaSchema</code> (a hardcoded Zod enum), <code>Lang = "en" | "ms"</code>, the <code>PERSONA_AGE_BAND</code> / Meta-targeting block in <code>derive/specs.ts</code>, and the Malaysian-regulator compliance model.</li>
+    <li><strong>Prompts</strong> — <code>house-style.md</code>, <code>bilingual.md</code>, <code>tactical-piliero.md</code> (a mix of generic technique and brand voice), plus <code>corpus/courses/brand-voice.md</code>.</li>
+  </ol>
+  <p>
+    The goal: a person with two businesses — EngineerDad (financial) and, say, a home-automation brand —
+    should be able to <em>clone the repo, swap the business pack, populate the corpus, and run the loop</em>,
+    with <strong>zero edits to engine code</strong>.
+  </p>
+  <div class="callout warn">
+    <strong>The driving test case.</strong> The home-automation business is <em>not financial, may not be bilingual, and has no Malaysian regulator.</em>
+    It directly breaks the three hardcoded enums: <code>PersonaSchema</code> (8-ish Malaysian-parent tokens), <code>Lang</code> (<code>en|ms</code>),
+    and the SC/FIMM/Public-Mutual compliance assumption. Today, supporting it means editing TypeScript and Zod schemas.
+    The whole point of this work is to turn that baked-in doctrine into <em>business-pack data</em>.
+  </div>
+
+  <h2 id="decisions"><span class="n">2</span>Framing decisions</h2>
+  <p>Settled during brainstorming:</p>
+  <ul>
+    <li><strong>Tenancy model: fork-per-business.</strong> Not config-switch, not runtime multi-tenant. One repo per business; to start a new one you clone, rename the local repo, swap the pack, and loop. Single-tenant per fork.</li>
+    <li><strong>Future-business shape: same channels, new industry.</strong> The marketing-OS engine and channels (Meta paid + organic, YouTube, site handoff) are reused. Personas, compliance regime, knowledge, proof, and brand differ substantially — so the doctrine must loosen from compile-time enums to pack data.</li>
+    <li><strong>Approach: pack boundary + data-driven doctrine, phased.</strong> Neutralize engine identifiers once (upstream); formalize a single active business pack; refactor the hardcoded enums to load from the pack. Ship in two phases.</li>
+  </ul>
+
+  <h2 id="goals"><span class="n">3</span>Goals &amp; non-goals</h2>
+  <h3>Goals</h3>
+  <ul>
+    <li>A clean, documented <strong>engine ↔ business-pack boundary</strong>. The engine carries no business literals.</li>
+    <li>A single typed <strong><code>BusinessConfig</code></strong> as the one source of business truth a fork edits.</li>
+    <li><strong>Persona, language codes, Meta targeting, compliance, channels, brand</strong> all read from the pack — not from code enums.</li>
+    <li>A fork needs <strong>no engine-code renaming</strong>: identifiers are neutralized once, upstream.</li>
+    <li>A <strong><code>corpus:lint</code></strong> readiness check so a fork knows when its corpus is loop-ready.</li>
+    <li>EngineerDad remains the working <strong>reference pack</strong> (the main repo <em>is</em> the EngineerDad fork).</li>
+  </ul>
+  <h3>Non-goals</h3>
+  <ul>
+    <li>Runtime multi-tenancy or co-resident config-switching (explicitly rejected).</li>
+    <li>More than two language slots (see §9 — the twin-field shape stays; N&gt;2 is a separate future project).</li>
+    <li>New ad platforms beyond the existing Meta / YouTube / site-handoff set.</li>
+    <li>Rewriting the agentic cells' reasoning — only their <em>inputs</em> (corpus + config) change.</li>
+  </ul>
+
+  <h2 id="boundary"><span class="n">4</span>The engine ↔ pack boundary</h2>
+  <p><strong>Engine</strong> (business-agnostic; renamed once upstream): <code>packages/</code>, <code>mcp-servers/</code>, <code>apps/</code>, <code>scripts/</code>, the <code>.claude/</code> runtime, the orchestrator stages/verifiers, and the engine-owned render procedure files. Carries no business literals. The <code>@engineerdad/*</code> scope becomes a neutral <code>@os/*</code>; the live-DB name and <code>db-guard</code> read from config.</p>
+  <p><strong>Business pack</strong> (the only thing a fork edits):</p>
+  <ul>
+    <li><strong><code>business/config.ts</code></strong> — one typed <code>BusinessConfig</code> object (§5): identity, languages, personas, channels, compliance, brand-voice pointer, corpus root.</li>
+    <li><strong><code>corpus/</code></strong> — stays at repo root (config points at it; default <code>./corpus</code>). All business content (§8). On fork, replace contents.</li>
+  </ul>
+  <p>The engine reads the pack through a tiny loader package (working name <code>@os/business</code>) that imports the active <code>business/config.ts</code>, Zod-validates it, and caches it. Engine modules that hold business constants today instead read off this config.</p>
+  <div class="callout ok">
+    <strong>EngineerDad becomes the reference pack.</strong> Its <code>business/config.ts</code> + <code>corpus/</code> are what ship in the main repo — the repo doubles as the EngineerDad fork and the worked example a new fork copies from.
+  </div>
+
+  <h2 id="config"><span class="n">5</span>The <code>BusinessConfig</code> schema</h2>
+  <p>A sketch of the shape (final types settled during implementation; this is the contract, not the literal source):</p>
+  <pre><code>interface BusinessConfig {
+  identity: {
+    slug: string;          // "engineerdad" — drives live-DB name, R2 key prefixes, db-guard
+    displayName: string;   // "EngineerDad"
+    landingUrl: string;    // https://engineerdad.my  (LANDING_URL today)
+  };
+  languages: {
+    primary: LangSpec;            // { code: "en", label: "English" }
+    secondary?: LangSpec;         // { code: "ms", label: "Bahasa Melayu" } | omitted → monolingual
+  };
+  personas: PersonaDef[];         // replaces the PersonaSchema enum
+  channels: {
+    metaPaid:    { enabled: boolean; targetingBase: MetaTargeting;
+                   igHashtags: string[]; fbHashtags: string[] };
+    metaOrganic: { enabled: boolean };
+    youtube:     { enabled: boolean; descriptionFooter: string };
+    siteHandoff: { enabled: boolean };   // the engineerdad_site cross-repo draft handoff
+  };
+  compliance: {
+    rulesPath: string;                       // default ./corpus/compliance/banned-phrases.yaml
+    disclaimers: Record&lt;LangCode, string&gt;;   // the DISCLAIMER map in specs.ts
+    regulatorHints: string[];                // REGULATOR_HINTS — "already disclaimed?" probe
+  };
+  brandVoicePath: string;   // ./corpus/courses/brand-voice.md
+  corpusRoot: string;       // ./corpus
+}
+
+interface PersonaDef {
+  id: string;            // "young_parents_25_35"
+  label: string;
+  description: string;
+  targeting?: { ageMin: number; ageMax: number };  // replaces PERSONA_AGE_BAND
+}
+
+interface MetaTargeting {                 // replaces TARGETING_BASE
+  countries: string[];                    // ["MY"]
+  ageMin: number; ageMax: number;         // 25 / 45
+  publisherPlatforms: string[];
+  facebookPositions: string[];
+  instagramPositions: string[];
+}</code></pre>
+
+  <h2 id="dehardcode"><span class="n">6</span>De-hardcode inventory</h2>
+  <p>What moves out of code and into <code>BusinessConfig</code> / the pack:</p>
+  <table>
+    <thead><tr><th>Today (hardcoded)</th><th>Location</th><th>Becomes</th></tr></thead>
+    <tbody>
+      <tr><td><code>PersonaSchema = z.enum([…])</code></td><td><code>packages/shared/src/zod.ts</code></td><td><code>z.string()</code> refined against <code>config.personas[].id</code>. DB column is already <code>text("persona")</code> — <strong>no migration</strong>.</td></tr>
+      <tr><td><code>Lang = "en"|"ms"</code></td><td><code>shared/src/types.ts</code>, <code>zod.ts</code></td><td>Slot codes from <code>config.languages</code> (§9). Two-slot shape kept; monolingual allowed.</td></tr>
+      <tr><td><code>TARGETING_BASE</code>, <code>PERSONA_AGE_BAND</code></td><td><code>shared/src/derive/specs.ts</code></td><td><code>config.channels.metaPaid.targetingBase</code> + per-persona <code>targeting</code>.</td></tr>
+      <tr><td><code>IG_HASHTAGS</code>, <code>FB_HASHTAGS</code></td><td><code>specs.ts</code></td><td><code>config.channels.metaPaid.{ig,fb}Hashtags</code>.</td></tr>
+      <tr><td><code>YT_DESCRIPTION_FOOTER</code> (<code>engineerdad.my</code>)</td><td><code>specs.ts</code></td><td><code>config.channels.youtube.descriptionFooter</code>.</td></tr>
+      <tr><td><code>DISCLAIMER</code>, <code>REGULATOR_HINTS</code></td><td><code>specs.ts</code></td><td><code>config.compliance.{disclaimers,regulatorHints}</code>.</td></tr>
+      <tr><td><code>detectYtCategory</code> keyword map</td><td><code>specs.ts</code></td><td>Keep generic defaults; allow per-pack override later. Low priority.</td></tr>
+      <tr><td>compliance default path + MY disclaimers</td><td><code>shared/src/compliance.ts</code></td><td>Point default at the pack's file; <strong>no regime → documented no-op scan</strong> (empty <code>banned</code> + no required disclaimers).</td></tr>
+      <tr><td><code>LANDING_URL</code> default</td><td><code>.env</code> / meta-ads</td><td><code>config.identity.landingUrl</code>.</td></tr>
+      <tr><td><code>engineerdad_site</code> handoff in distribute</td><td>orchestrator distribute stage</td><td>Gated by <code>config.channels.siteHandoff.enabled</code>.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout key">
+    <strong>The one real API change:</strong> <code>deriveSpecs(plan, renders)</code> is pure and currently takes no config. It gains a <code>config</code> parameter, threaded from the produce stage. <code>deriveMetaSpec</code>, <code>deriveYtSpec</code>, <code>deriveOrganicSpec</code> follow. The functions stay pure — config is injected, not read from a global.
+  </div>
+
+  <h2 id="identity"><span class="n">7</span>Identity neutralization (one-time, upstream)</h2>
+  <ul>
+    <li><strong>Package scope:</strong> <code>@engineerdad/*</code> → <code>@os/*</code> across all <code>package.json</code> names and imports (22 packages). One-time rename; forks never touch it.</li>
+    <li><strong>Live-DB name &amp; guard:</strong> <code>db-guard.ts</code> hardcodes <code>"engineerdad"</code> as the live DB; <code>DATABASE_URL</code> defaults to it. Both derive from <code>config.identity.slug</code> (the guard's "is this the live DB?" check reads the configured slug, not a literal).</li>
+    <li><strong>Infra files:</strong> <code>docker-compose.yml</code> service/DB names, <code>.mcp.json</code>, root <code>package.json</code> name (<code>engineerdad-marketing</code> → <code>marketing-os</code>), <code>.env.example</code> footer/landing values.</li>
+  </ul>
+  <p><strong>Outcome:</strong> a fork needs zero engine-code renaming. Only <code>business/config.ts</code> + <code>corpus/</code> change. The <code>slug</code> is the single knob that re-points DB name and asset prefixes.</p>
+
+  <h2 id="corpus"><span class="n">8</span>The corpus</h2>
+  <p>The key insight: <strong>the corpus is not uniformly "business content."</strong> It is three different ownership classes wearing one folder.</p>
+  <table>
+    <thead><tr><th>Corpus path</th><th>Owner</th><th>Fork action</th></tr></thead>
+    <tbody>
+      <tr><td><code>compliance/</code> (rules, <code>banned-phrases.yaml</code>, phrasebank)</td><td class="own-pack">Pack</td><td>Replace — your regime, or a near-empty no-op file if unregulated.</td></tr>
+      <tr><td><code>proof/</code>, <code>knowledge/</code>, <code>courses/</code> (topics), <code>data/</code> (datasets + charts)</td><td class="own-pack">Pack</td><td>Replace wholesale — pure business content.</td></tr>
+      <tr><td><code>templates/brand-contract.md</code>, <code>templates/reference-designs/</code>, <code>courses/brand-voice.md</code></td><td class="own-brand">Pack (brand/taste)</td><td>Replace — your palette, voice, visual exemplars.</td></tr>
+      <tr><td><code>templates/worker-prompts/</code> (<code>render-worker.md</code>, <code>reel-render-worker.md</code>, <code>_chart-rules.md</code>)</td><td class="own-eng">Engine</td><td><strong>Keep as-is</strong> — generic render procedure, not business content.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong>Coupling smell named, not fixed.</strong> Engine procedure files (the render-worker prompts) live under <code>corpus/</code> and are referenced by path across agents + ADRs. Phase-1 choice: <strong>mark them engine-owned in place</strong> — a fork keeps them untouched. Relocating them to an engine <code>templates/</code> dir is deferred (pure path churn for no behavioural gain).
+  </div>
+
+  <h3>The contract is the frontmatter, not the content</h3>
+  <p>The engine reads frontmatter <em>keys</em>, not prose:</p>
+  <ul>
+    <li><code>knowledge/</code>: <code>cluster · funnel_tier · granularity · source_type · lang_status · related</code></li>
+    <li><code>proof/</code>: <code>persona · permission_status · attribution</code></li>
+    <li><code>data/charts/*.yaml</code>: <code>id · title_en/ms · chart_type · x_label_en/ms · labels</code></li>
+    <li><code>data/datasets/*.json</code>: provenance block (<code>verified_at · source · …</code>)</li>
+  </ul>
+  <p><strong>The shape is the engine contract; the content is the pack.</strong> A fork keeps the keys, rewrites the values. Two keys point back at <code>business/config.ts</code> and must agree:</p>
+  <ul>
+    <li><code>persona:</code> tags in <code>proof/</code> must be ids in <code>config.personas</code> (or <code>all</code>).</li>
+    <li>Bilingual title/label/<code>lang_status</code> fields must match <code>config.languages</code>' declared slots.</li>
+  </ul>
+
+  <h3>New: <code>corpus:lint</code> — the readiness green-light</h3>
+  <p>Today "populate the corpus" is guesswork; nothing tells a fork when its corpus is complete enough to loop. <code>corpus:lint</code> (a new script) will:</p>
+  <ol>
+    <li>Check the <strong>required skeleton</strong> exists (the six scope dirs + <code>compliance/banned-phrases.yaml</code> + <code>templates/brand-contract.md</code>).</li>
+    <li>Validate each file's frontmatter against a <strong>per-scope schema</strong> (Zod / JSON-schema).</li>
+    <li><strong>Cross-check</strong> <code>persona</code> and language tags against <code>business/config.ts</code>.</li>
+    <li>Flag <strong>stale identity leakage</strong> — residual <code>engineerdad</code> / <code>Public Mutual</code> / <code>Malaysia</code> strings — so a fork knows it hasn't left reference content behind.</li>
+  </ol>
+  <p>This converts the corpus from a folder you hope is right into a pass/fail checklist — the thing that makes "clone → populate → loop" safe.</p>
+
+  <h3>Fork workflow for the corpus</h3>
+  <pre><code>empty the Pack-owned dirs (keep skeleton + worker-prompts)
+  → author compliance / proof / knowledge / courses / data / brand
+  → pnpm corpus:lint        # readiness green-light
+  → /ingest-corpus          # build the BM25 index (gitignored; soft-fails empty)
+  → /loop</code></pre>
+  <p>Phase 2 ships <strong><code>business/_template/corpus/</code></strong> — the empty skeleton with per-scope READMEs documenting the frontmatter contract — so a fork copies a clean skeleton instead of gutting EngineerDad's content file by file.</p>
+
+  <h2 id="language"><span class="n">9</span>Language: slot-based bilingual (the key compromise)</h2>
+  <p>
+    Every entity is twin-shaped: <code>BilingualSchema = {en, ms}</code>, <code>scriptBodyEn/scriptBodyMs</code>,
+    <code>captionEn/captionMs</code>, <code>Record&lt;Lang, …&gt;</code> maps. Truly variable language <em>count</em>
+    would mean renaming twin fields across every schema — a massive, risky change.
+  </p>
+  <p><strong>Decision:</strong> decouple the physical <em>slot</em> from the language it carries.</p>
+  <ul>
+    <li>The schema keeps the physical field names <code>en</code> / <code>ms</code> (and <code>…En</code>/<code>…Ms</code>) as <strong>slot names</strong>: primary slot = the <code>en</code>-named field, secondary slot = the <code>ms</code>-named field.</li>
+    <li><code>config.languages</code> declares what language each slot <em>renders in</em> (<code>code</code> + <code>label</code>).</li>
+    <li>A monolingual pack omits <code>secondary</code>; the secondary slot mirrors primary (or is left empty, per validation rule TBD-at-impl but defaulting to mirror).</li>
+    <li>A non-EN/BM bilingual pack (e.g. EN + Bahasa Indonesia) keeps the field names and sets <code>secondary.code = "id"</code>.</li>
+  </ul>
+  <div class="callout key">
+    This delivers language flexibility (any one or two languages) <strong>without</strong> a schema-wide field rename. <strong>N&gt;2 languages is explicitly out of scope</strong> — a separate future project that would generalize the twin shape to an array.
+  </div>
+
+  <h2 id="phasing"><span class="n">10</span>Phasing</h2>
+  <h3><span class="pill p1">Phase 1</span> Boundary + identity → <em>forkable blank-brand</em></h3>
+  <ul>
+    <li>Introduce <code>BusinessConfig</code> + the <code>@os/business</code> loader (Zod-validated, fails loud).</li>
+    <li>Neutralize all engine identifiers (scope rename, DB-name from slug, infra files).</li>
+    <li>Lift the <code>specs.ts</code> literals into config; thread <code>config</code> through <code>deriveSpecs</code>.</li>
+    <li>Wire compliance default path + channels to config.</li>
+    <li>Personas become data here (cheap — Zod enum → validated string).</li>
+    <li><strong>Still EN/BM.</strong> Outcome: clone, edit config, swap corpus → runs as a different (financial-shaped) brand.</li>
+  </ul>
+  <h3><span class="pill p2">Phase 2</span> De-enum for cross-industry → <em>passes the home-automation test</em></h3>
+  <ul>
+    <li>Parameterize language slot codes/labels; allow monolingual (§9).</li>
+    <li>Make compliance genuinely no-op-able for an unregulated pack.</li>
+    <li>Ship <code>business/_template/</code> (blank config + corpus skeleton + READMEs) and <code>corpus:lint</code>.</li>
+    <li>Add a <code>/new-business</code> onboarding checklist (doc; optional small scaffold script).</li>
+    <li>Build a thin <strong>home-automation skeleton pack</strong> as the genericity proof.</li>
+    <li>Migrate the test suite to a <strong>test pack fixture</strong> (see §11).</li>
+  </ul>
+
+  <h2 id="testing"><span class="n">11</span>Testing strategy</h2>
+  <p>
+    The current suite bakes in EngineerDad values (<code>engineer_dad_archetype</code>, <code>en/ms</code>, MY targeting).
+    The proof that the engine is genuinely business-clean is: <strong>the engine tests run against a synthetic
+    <code>test</code> business pack, not EngineerDad.</strong>
+  </p>
+  <ul>
+    <li>Introduce a <code>test/fixtures/business/</code> pack with neutral personas, a single language, and trivial compliance.</li>
+    <li>Engine unit tests (orchestrator, specs derivation, compliance scan, store validation) load the test pack via the loader.</li>
+    <li>EngineerDad's pack gets its own focused tests (its personas validate, its compliance file lints, its corpus passes <code>corpus:lint</code>).</li>
+    <li><code>corpus:lint</code> ships with tests over good/bad fixture corpora.</li>
+    <li>A "genericity" smoke test: load the home-automation skeleton pack and run <code>plan()</code> through HG1 in a sandbox DB.</li>
+  </ul>
+
+  <h2 id="errors"><span class="n">12</span>Validation &amp; error handling</h2>
+  <ul>
+    <li><strong>Config load:</strong> <code>BusinessConfig</code> is Zod-validated at first load; a malformed config fails loud with a precise path (no silent defaults that mask a typo).</li>
+    <li><strong>Persona integrity:</strong> a Brief whose <code>persona</code> ∉ <code>config.personas</code> fails validation at the store write boundary — the same choke point the compliance scan already uses.</li>
+    <li><strong>Compliance file:</strong> missing file → clear error pointing at <code>config.compliance.rulesPath</code>; a present-but-empty file is a valid no-op (documented).</li>
+    <li><strong>Language slots:</strong> content written to a slot whose language isn't declared is rejected; a monolingual pack writing to the secondary slot is a validation warning, not a hard fail (mirror-default).</li>
+    <li><strong>Identity leakage:</strong> <code>corpus:lint</code> surfaces stale reference strings as warnings (not loop-blocking) so a fork can decide.</li>
+  </ul>
+
+  <h2 id="touchpoints"><span class="n">13</span>Touch-point inventory</h2>
+  <p>A head-start for the implementation plan — the files the refactor touches (non-exhaustive, grounded in the current tree):</p>
+  <div class="filelist">
+  <table>
+    <thead><tr><th>Area</th><th>Files</th></tr></thead>
+    <tbody>
+      <tr><td>Config + loader (new)</td><td><code>business/config.ts</code>, <code>packages/business/*</code> (loader, <code>@os/business</code>)</td></tr>
+      <tr><td>Persona de-enum</td><td><code>packages/shared/src/zod.ts</code>, <code>shared/src/types.ts</code></td></tr>
+      <tr><td>Spec derivation</td><td><code>packages/shared/src/derive/specs.ts</code> (+ callers in orchestrator produce stage)</td></tr>
+      <tr><td>Compliance</td><td><code>packages/shared/src/compliance.ts</code></td></tr>
+      <tr><td>DB identity</td><td><code>packages/shared/src/db-guard.ts</code>, the three <code>drizzle.config.ts</code>, <code>*/src/db.ts</code></td></tr>
+      <tr><td>Package scope rename</td><td>all <code>package.json</code> (22) + every cross-package import</td></tr>
+      <tr><td>Channels / distribute</td><td>orchestrator distribute stage + verifiers; <code>packages/distribute/*</code></td></tr>
+      <tr><td>Infra</td><td><code>.env.example</code>, <code>.mcp.json</code>, <code>docker-compose.yml</code>, root <code>package.json</code></td></tr>
+      <tr><td>Corpus tooling (new)</td><td><code>scripts/corpus-lint.*</code>, per-scope frontmatter schemas, <code>business/_template/</code></td></tr>
+      <tr><td>Tests</td><td><code>test/fixtures/business/</code>, suite migration off EngineerDad literals</td></tr>
+      <tr><td>Docs</td><td><code>docs/ARCHITECTURE.md</code>, <code>CLAUDE.md</code>, a new ADR for the pack boundary</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="scope"><span class="n">14</span>Scope boundaries (YAGNI)</h2>
+  <ul>
+    <li><strong>No</strong> multi-tenant runtime, <strong>no</strong> co-resident config-switch.</li>
+    <li><strong>No</strong> &gt;2 language slots — two-slot shape preserved; N-language deferred.</li>
+    <li><strong>No</strong> new ad platforms beyond Meta / YouTube / site-handoff.</li>
+    <li><strong>No</strong> relocation of engine-owned worker-prompts out of <code>corpus/</code> (deferred churn).</li>
+    <li><strong>No</strong> change to the agentic cells' reasoning scaffolds — only their corpus + config inputs change.</li>
+  </ul>
+
+  <h2 id="risks"><span class="n">15</span>Risks &amp; open questions</h2>
+  <ul>
+    <li><strong>Scope-rename blast radius.</strong> <code>@engineerdad/*</code> → <code>@os/*</code> touches every import. Mechanical but wide; best done as an isolated, single-purpose commit with a green build, separate from the logic refactor.</li>
+    <li><strong>Threading <code>config</code> into pure functions.</strong> <code>deriveSpecs</code> &amp; friends must stay pure (config injected, not globally read) to preserve testability.</li>
+    <li><strong>Migration to a test pack.</strong> Re-pointing the suite off EngineerDad literals is the bulk of Phase 2 effort and the real proof of cleanliness; underestimating it is the main schedule risk.</li>
+    <li><strong>ADR-010 (bilingual EN/BM only).</strong> This work supersedes it <em>for the engine</em>: languages become per-pack. EngineerDad's pack still declares exactly <code>en</code>+<code>ms</code>. A new ADR should record the boundary and the slot-based decision (§9), explicitly noting it does not reintroduce a third language slot.</li>
+    <li><strong>Resolved (2026-06-17):</strong> the pack lives under a <code>business/</code> directory — <code>business/config.ts</code> now, <code>business/_template/</code> as the Phase-2 sibling skeleton. <code>corpus/</code> stays at repo root to match the "populate the corpus" mental model.</li>
+  </ul>
+
+  <footer class="doc">
+    Spec for the "make the repo forkable for multiple businesses" enhancement. Status: <strong>Draft — awaiting review</strong>.
+    Next: user review → a <code>docs/TASKS.md</code> entry for the enhancement → implementation plan (writing-plans) for Phase 1.
+  </footer>
+
+</div>
+</body>
+</html>

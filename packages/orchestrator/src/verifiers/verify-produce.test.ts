@@ -95,6 +95,7 @@ function variant(over: Partial<ProduceVariant> = {}): ProduceVariant {
     aspect: "9:16",
     channels: ["Meta-paid"],
     assetFiles: [],
+    renderState: "",
     metaSpecComplete: true,
     organicSpecComplete: true,
     complianceCheck: true,
@@ -341,5 +342,36 @@ describe("verifyProduce", () => {
       expect(res.ok).toBe(false);
       expect(res.problems.join(" ")).toMatch(/BM/i);
     });
+  });
+});
+
+describe("verifyProduce reel backstop (L3)", () => {
+  // Reuse the complete 5-variant matrix and override only the reel (set[0]).
+  function withReel(over: Partial<ProduceVariant>): ProduceVariant[] {
+    const set = completeSet();
+    set[0] = variant({ id: "v-reel", format: "Reel", channels: ["Meta-paid"], ...over });
+    return set;
+  }
+
+  it("HALTS an Uploaded reel with empty assetFiles when pipeline is on", () => {
+    const r = verifyProduce([{ id: "s1" }], withReel({ renderState: "Uploaded", assetFiles: [] }), 25, 3, true);
+    expect(r.ok).toBe(false);
+    expect(r.problems.some((p) => p.includes("v-reel") && p.includes("B-037"))).toBe(true);
+  });
+
+  it("SOFT-FLAGS (does not halt) a RenderFailed reel with empty assetFiles", () => {
+    const r = verifyProduce([{ id: "s1" }], withReel({ renderState: "RenderFailed", assetFiles: [] }), 25, 3, true);
+    expect(r.problems.some((p) => p.includes("v-reel"))).toBe(false);
+    expect((r.data?.flags as string[] | undefined)?.some((f) => f.includes("v-reel"))).toBe(true);
+  });
+
+  it("passes a reel that has assetFiles", () => {
+    const r = verifyProduce([{ id: "s1" }], withReel({ renderState: "Uploaded", assetFiles: ASSET }), 25, 3, true);
+    expect(r.problems.some((p) => p.includes("v-reel"))).toBe(false);
+  });
+
+  it("does NOT check reels when the pipeline is off", () => {
+    const r = verifyProduce([{ id: "s1" }], withReel({ renderState: "", assetFiles: [] }), 25, 3, false);
+    expect(r.problems.some((p) => p.includes("v-reel"))).toBe(false);
   });
 });

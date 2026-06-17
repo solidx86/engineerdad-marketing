@@ -32,6 +32,7 @@ export interface ProduceVariant {
   aspect: string;
   channels: string[];
   assetFiles: { url: string; sha256: string }[];
+  renderState: string;
   metaSpecComplete: boolean;
   organicSpecComplete: boolean;
   complianceCheck: boolean;
@@ -45,8 +46,13 @@ export function verifyProduce(
   variants: ProduceVariant[],
   reportedTotalMyr: number,
   renderWorkersRan: number,
+  // Optional, defaults OFF — legacy 4-arg callers (and the system's default
+  // EDOS_REEL_PIPELINE=off stance) keep pre-pipeline behavior; the production
+  // P5 caller passes reelPipelineEnabled() explicitly.
+  reelPipelineEnabled = false,
 ): VerifyResult {
   const problems: string[] = [];
+  const flags: string[] = [];
   const FORMAT_MATRIX = 5; // Reel, Feed, YT-Long, Carousel x2
 
   for (const s of scripts) {
@@ -89,7 +95,26 @@ export function verifyProduce(
   if (staticN > 0 && renderWorkersRan === 0)
     problems.push(`${staticN} static variants, 0 render workers ran`);
 
-  return { ok: problems.length === 0, problems };
+  // ── B-037 L3: a reel must carry an asset by P5, unless it legitimately
+  //    failed to render. Gated by the kill switch — pipeline-off reels are
+  //    asset-less by design. Any non-RenderFailed reel with empty assetFiles
+  //    is stranded (claims Uploaded, stuck HeygenGenerating, or never rendered).
+  if (reelPipelineEnabled) {
+    for (const v of variants.filter((x) => x.format === "Reel")) {
+      if (v.assetFiles.length > 0) continue;
+      if (v.renderState === "RenderFailed") {
+        flags.push(`reel ${v.id}: RenderFailed — no asset; review/regenerate at HG3`);
+      } else {
+        problems.push(
+          `reel ${v.id}: empty Asset Files with renderState "${v.renderState}" — reel did not persist (B-037)`,
+        );
+      }
+    }
+  }
+
+  const res: VerifyResult = { ok: problems.length === 0, problems };
+  if (flags.length > 0) res.data = { flags };
+  return res;
 }
 
 // ── P1 chart-binding verifier (ADR-030) ────────────────────────────────────

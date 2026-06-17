@@ -799,6 +799,7 @@ function projectVariant(row: Record<string, unknown>): ProduceVariant {
     aspect: str("aspect"),
     channels: arr("channels") as string[],
     assetFiles: arr("assetFiles") as { url: string; sha256: string }[],
+    renderState: str("renderState"),
     metaSpecComplete: str("metaPrimaryTextEn").length > 0,
     organicSpecComplete: str("organicCaptionEn").length > 0,
     complianceCheck: row["complianceCheck"] === true,
@@ -839,6 +840,7 @@ const p5Confirm: StepSpec = {
             "organicCaptionBm",
             "complianceCheck",
             "estimatedCostMyr",
+            "renderState",
           ],
         },
       },
@@ -860,7 +862,7 @@ const p5Confirm: StepSpec = {
     const reportedTotal = plan.creatives.reduce((a, c) => a + c.estCostMyr, 0);
     const p2 = stepResult<unknown[]>(run, "P2-render");
     const renderWorkersRan = Array.isArray(p2) ? p2.length : 0;
-    const base = verifyProduce(scripts, variants, reportedTotal, renderWorkersRan);
+    const base = verifyProduce(scripts, variants, reportedTotal, renderWorkersRan, reelPipelineEnabled());
     // ADR-030: chart bindings — chartRef ∈ Script data bindings, concept
     // visuals digit-free (B-038 + B-036), over the CD's CreativePlan scenes.
     const cb = verifyChartBindings(scripts, plan.creatives);

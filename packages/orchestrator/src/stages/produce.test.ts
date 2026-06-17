@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { produceStage, reelRenderResultsOf, p3PersistCalls, p2RenderVerify } from "./produce.js";
 import { variantId, type CreativePlan, type CreativeUnit } from "@engineerdad/shared/derive";
+import { verifyProduce } from "../verifiers/verify-produce.js";
 import type { BuildContext, RunState, RunStepState } from "../types.js";
 
 /** A spy BuildContext for stage tests. Captures every stageInput call and
@@ -794,5 +795,50 @@ describe("P2-render verify (L2 resume trigger)", () => {
   it("passes a statics-only fanout result", () => {
     const r = p2RenderVerify(run(), [{ scenes: [{ variantId: "static_x", url: "u", sha256: "s" }] }], true);
     expect(r.ok).toBe(true);
+  });
+});
+
+describe("B-037 cross-layer reel outcomes", () => {
+  const scriptId = "scr_1";
+  const reelHash = variantId(scriptId, "Reel", "9:16");
+
+  const reelVariant = (over: Record<string, unknown>) => ({
+    id: "v_reel",
+    scriptId,
+    format: "Reel",
+    aspect: "9:16",
+    channels: ["Meta-paid"],
+    assetFiles: [],
+    renderState: "",
+    metaSpecComplete: true,
+    organicSpecComplete: true,
+    complianceCheck: true,
+    estCostMyr: 0,
+    organicCaptionEn: "",
+    organicCaptionBm: "",
+    ...over,
+  });
+
+  it("timeout → L2 transient-fails (stage held, never reaches P3/P5)", () => {
+    const r = runWith([
+      doneStep("P1-fanout", [{ scriptId, creatives: [{ scriptId, format: "Reel", shotlistEn: [] }] }]),
+    ]);
+    const v = p2RenderVerify(r, [{ variantId: reelHash, renderState: "HeygenGenerating", assetFiles: [] }], true);
+    expect(v.ok).toBe(false); // conductor re-spawns / STOPs — P3 never runs
+  });
+
+  it("done → L1 persists assetFiles → L3 passes", () => {
+    const variants = [
+      reelVariant({ assetFiles: [{ url: "https://r2/x.mp4", sha256: "abc" }], renderState: "Uploaded" }),
+    ];
+    const r = verifyProduce([{ id: scriptId }], variants as never, 0, 1, true);
+    expect(r.problems.some((p) => p.includes("v_reel"))).toBe(false);
+  });
+
+  it("RenderFailed → L3 soft-flags, does not halt", () => {
+    const variants = [reelVariant({ assetFiles: [], renderState: "RenderFailed" })];
+    const r = verifyProduce([{ id: scriptId }], variants as never, 0, 1, true);
+    expect(r.problems.some((p) => p.includes("v_reel"))).toBe(false);
+    expect((r.data?.flags as string[] | undefined)?.some((f) => f.includes("v_reel"))).toBe(true);
   });
 });
